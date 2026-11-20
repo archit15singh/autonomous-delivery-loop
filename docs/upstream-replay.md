@@ -18,3 +18,5 @@ python3 -m delivery upstream-replay \
 The source checkout must contain both full revisions. Install the toolchain named by the upstream repo before the run. Choose a new output directory for each attempt. Inspect `before.log`, `after.log`, and `receipt.json` in that directory.
 
 The [act case](../contracts/upstream/act-6236.json) uses a real HTTP client and a loopback daemon fixture. [The hosted workflow](../.github/workflows/upstream-evidence.yml) publishes the same replay with its raw logs. The [pull request](https://github.com/nektos/act/pull/6265) uses a two-row table to show where the auth header changed.
+
+The [composite action case](../contracts/upstream/act-2517.json) uses the same replay job to verify an error-handling regression. The [Herdr Core clock case](../verification/herdr-core-302.sh) builds both versions of an existing test. It runs each with normal clocks and with a Linux time namespace that moves the boot clock ahead. Its logs show which failure the verifier expected and record the exact checkouts.

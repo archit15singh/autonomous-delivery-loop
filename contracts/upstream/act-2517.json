@@ -1,0 +1,22 @@
+{
+  "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
+  "candidate": "3e90127aaeb6a54f12416d94835fd2ad656d688b",
+  "allowed_paths": [
+    "pkg/runner/action_composite.go",
+    "pkg/runner/action_composite_test.go"
+  ],
+  "regression_paths": ["pkg/runner/action_composite_test.go"],
+  "command": [
+    "go", "test", "-short", "-v", "./pkg/runner", "-run",
+    "^TestInvalidCompositeStepRequiresNoCleanup$", "-count=1"
+  ],
+  "timeout_seconds": 420,
+  "before": {
+    "exit": 1,
+    "contains": "an invalid composite should have no cleanup error"
+  },
+  "after": {
+    "exit": 0,
+    "contains": "--- PASS: TestInvalidCompositeStepRequiresNoCleanup"
+  }
+}
