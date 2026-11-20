@@ -3,27 +3,28 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 
-def routes(path):
+def routes(path, query=""):
     if path == "/health":
         return 200, {"ready": True}
     if path == "/greet":
-        return 200, {"message": "Hello, world!"}
+        name = parse_qs(query).get("name", ["world"])[0]
+        return 200, {"message": f"Hello, {name}!"}
     return 404, {"error": "not found"}
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        path = urlsplit(self.path).path
-        if path == "/_revision":
+        target = urlsplit(self.path)
+        if target.path == "/_revision":
             status, document = 200, {
                 "revision": self.server.revision,
                 "deployment": self.server.deployment,
             }
         else:
-            status, document = routes(path)
+            status, document = routes(target.path, target.query)
         payload = json.dumps(document).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
