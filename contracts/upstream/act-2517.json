@@ -1,6 +1,6 @@
 {
   "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
-  "candidate": "3e90127aaeb6a54f12416d94835fd2ad656d688b",
+  "candidate": "6f9c21d7a50980ac6141b19c1651b747f136068f",
   "allowed_paths": [
     "pkg/runner/action_composite.go",
     "pkg/runner/action_composite_test.go"
