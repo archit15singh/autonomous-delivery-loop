@@ -17,6 +17,7 @@ reviewed outcome contract
 - [Ecosystem research](docs/ecosystem.md)
 - [Live delivery evidence](docs/live-delivery.md)
 - [Upstream contribution evidence](docs/upstream-delivery.md)
+- [Open-source tool map](docs/open-source-tool-map.md) and [contribution pass](docs/contribution-pass.md)
 
 From a clean checkout with Python 3.11 or later:
 
