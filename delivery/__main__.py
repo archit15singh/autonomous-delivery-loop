@@ -8,6 +8,7 @@ import sys
 
 from .candidate import check_candidate, propose
 from .stage import stage
+from .upstream import replay
 from .verify import Contract
 
 
@@ -46,7 +47,16 @@ def main():
     agent.add_argument("--evidence", type=Path)
     agent.add_argument("--model", default="gpt-6.2-sol")
     agent.add_argument("--timeout", type=int, default=180)
+    upstream = commands.add_parser("upstream-replay")
+    upstream.add_argument("--repo", type=Path, required=True)
+    upstream.add_argument("--contract", type=Path, required=True)
+    upstream.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.command == "upstream-replay":
+        receipt = replay(args.repo, args.contract, args.output)
+        write(args.output / "receipt.json", receipt)
+        print(receipt["verdict"], file=sys.stderr)
+        return 0 if receipt["verdict"] == "verified" else 1
     if args.command == "validate":
         print(Contract.read(args.contract).digest)
         return 0

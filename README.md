@@ -18,6 +18,7 @@ reviewed outcome contract
 - [Live delivery evidence](docs/live-delivery.md)
 - [Upstream contribution evidence](docs/upstream-delivery.md)
 - [Open-source tool map](docs/open-source-tool-map.md) and [contribution pass](docs/contribution-pass.md)
+- [Replay exact upstream regressions](docs/upstream-replay.md)
 
 From a clean checkout with Python 3.11 or later:
 
