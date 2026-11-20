@@ -11,7 +11,8 @@ from tempfile import TemporaryDirectory
 from .verify import Contract, verify
 
 
-def stage(contract_path, archive, ci_path, revision, deployment, repairs_used=0, isolate=False):
+def stage(contract_path, archive, ci_path, revision, deployment, repairs_used=0, isolate=False,
+          *, impact_evidence=None, quiet=False):
     contract = Contract.read(contract_path)
     ci = json.loads(ci_path.read_text())
     if not isinstance(ci, dict) or sha256(archive.read_bytes()).hexdigest() != ci.get("artifact_sha256"):
@@ -24,6 +25,8 @@ def stage(contract_path, archive, ci_path, revision, deployment, repairs_used=0,
             package.extractall(root, filter="data")
         env = {"ADL_REVISION": revision, "ADL_DEPLOYMENT": deployment}
         isolation = {}
+        if quiet:
+            isolation["stderr"] = subprocess.DEVNULL
         if isolate:
             root.chmod(0o755)
             isolation = {"user": 65534, "group": 65534, "extra_groups": [],
@@ -36,7 +39,7 @@ def stage(contract_path, archive, ci_path, revision, deployment, repairs_used=0,
                 readable, _, _ = select.select([service.stdout], [], [], 5)
                 port = service.stdout.readline().strip() if readable else ""
                 origin = f"http://127.0.0.1:{int(port)}" if port.isdigit() else "http://127.0.0.1:1"
-                return verify(contract, origin, revision, deployment, ci, repairs_used)
+                return verify(contract, origin, revision, deployment, ci, repairs_used, impact_evidence)
             finally:
                 service.terminate()
                 try:

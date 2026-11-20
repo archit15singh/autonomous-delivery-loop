@@ -43,3 +43,9 @@ python3 -m delivery propose --contract contracts/named-greeting.json \
 ```
 
 Inspect the receipt from the exact dispatch, including candidate SHA, policy SHA, deployment, archive digest, and verdict. The operator owns receipt selection, the repair count, PR and merge. Use `gh pr merge --match-head-commit` after checking the current candidate. The proposal subprocess receives no Git remote or release authority.
+
+## Impact evidence and refinement
+
+An optional contract `impact` policy names the independently collected source, metric, cohort, minimum sample count, observation window, and success rate. Give `delivery stage` its receipt with `--impact-evidence`. The receipt binds the same revision and deployment and provides timezone-aware `started_at` and `ended_at` timestamps plus `samples` and `successes`. Missing, mismatched, or immature evidence leaves impact inconclusive even when runtime passes. The pilot contracts exercise HTTP behavior. They require no customer-impact observation.
+
+The [refinement workflow](.github/workflows/refinements.yml) is opt-in. It evaluates parallel HTTP probes and caching the repeated revision read against the current verifier. Promotion requires every live and negative control to pass and at least a 15% median paired improvement. Trial timings and verdicts are downloadable from Actions.

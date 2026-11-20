@@ -7,6 +7,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, build_opener
 
+from .impact import ImpactPolicy, impact_verdict
+
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
@@ -29,13 +31,15 @@ class Contract:
     max_repairs: int
     probes: tuple[Probe, ...]
     digest: str
+    impact: ImpactPolicy | None = None
 
     @classmethod
     def read(cls, path):
         raw = path.read_bytes()
         data = json.loads(raw)
         fields = {"version", "outcome", "allowed_changes", "max_repairs", "probes"}
-        if not isinstance(data, dict) or data.keys() != fields or data["version"] != 1:
+        if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact"}
+                or type(data["version"]) is not int or data["version"] != 1):
             raise ValueError("expected a version 1 outcome contract")
         repairs = data["max_repairs"]
         if type(repairs) is not int or not 0 <= repairs <= 5:
@@ -60,7 +64,8 @@ class Contract:
                     or urlsplit(endpoint).fragment or not isinstance(expect, dict)):
                 raise ValueError("probe requires a local path and a JSON object")
             probes.append(Probe(endpoint, expect))
-        return cls(data["outcome"], tuple(paths), repairs, tuple(probes), sha256(raw).hexdigest())
+        impact = ImpactPolicy.read(data["impact"]) if "impact" in data else None
+        return cls(data["outcome"], tuple(paths), repairs, tuple(probes), sha256(raw).hexdigest(), impact)
 
 
 def canonical_json(value):
@@ -92,10 +97,12 @@ def advice(verdict, reason, repairs_used, max_repairs):
     return "escalate"
 
 
-def verify(contract, origin, revision, deployment, ci, repairs_used=0):
+def verify(contract, origin, revision, deployment, ci, repairs_used=0, impact_evidence=None):
     report = {
         "revision": revision, "deployment": deployment, "contract_sha256": contract.digest,
         "ci": ci, "identity": None, "probes": [], "repairs_used": repairs_used,
+        "runtime_verdict": "not_evaluated",
+        "impact": {"verdict": "not_evaluated" if contract.impact else "not_required"},
     }
 
     def finish(verdict, reason):
@@ -109,6 +116,7 @@ def verify(contract, origin, revision, deployment, ci, repairs_used=0):
     if ci.get("status") != "passed":
         return finish("inconclusive", "missing_or_stale_ci")
 
+    report["runtime_verdict"] = "inconclusive"
     identity = fetch(origin, "/_revision")
     report["identity"] = identity
     if identity.get("status") != 200 or "body" not in identity:
@@ -130,5 +138,10 @@ def verify(contract, origin, revision, deployment, ci, repairs_used=0):
     if any("status" not in probe["observed"] for probe in report["probes"]):
         return finish("inconclusive", "runtime_unavailable")
     if not all(probe["passed"] for probe in report["probes"]):
+        report["runtime_verdict"] = "failed"
         return finish("failed", "probe_failed")
+    report["runtime_verdict"] = "verified"
+    impact = report["impact"] = impact_verdict(contract.impact, impact_evidence, revision, deployment)
+    if impact["verdict"] in {"failed", "inconclusive"}:
+        return finish(impact["verdict"], impact["reason"])
     return finish("verified", "all_required_evidence_passed")
