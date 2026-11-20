@@ -43,6 +43,7 @@ jobs:
         include:
           - { issue: 6236, artifact: act-docker-hub-reproduction }
           - { issue: 2517, artifact: act-composite-step-reproduction }
+          - { issue: 2708, artifact: act-empty-environment-reproduction }
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

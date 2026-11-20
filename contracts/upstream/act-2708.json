@@ -1,0 +1,19 @@
+{
+  "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
+  "candidate": "2e5357b2ef92b2128b82f491b3815aa81b2d4bbb",
+  "allowed_paths": ["cmd/secrets.go", "cmd/secrets_test.go"],
+  "regression_paths": ["cmd/secrets_test.go"],
+  "command": [
+    "go", "test", "-short", "-v", "./cmd", "-run",
+    "^TestNewSecretsPreservesEmptyEnvironmentValue$", "-count=1"
+  ],
+  "timeout_seconds": 420,
+  "before": {
+    "exit": 1,
+    "contains": "Provide value for 'ACT_TEST_EMPTY'"
+  },
+  "after": {
+    "exit": 0,
+    "contains": "--- PASS: TestNewSecretsPreservesEmptyEnvironmentValue"
+  }
+}
