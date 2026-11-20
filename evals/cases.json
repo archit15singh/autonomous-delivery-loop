@@ -1,0 +1,50 @@
+[
+  {
+    "instance_id": "pallets__flask-5014",
+    "repo": "pallets/flask",
+    "base_commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",
+    "problem_statement": "Require a non-empty name for Blueprints\nThings do not work correctly if a Blueprint is given an empty name (e.g. #4944).\r\nIt would be helpful if a `ValueError` was raised when trying to do that.\n",
+    "test_patch": "diff --git a/tests/test_blueprints.py b/tests/test_blueprints.py\n--- a/tests/test_blueprints.py\n+++ b/tests/test_blueprints.py\n@@ -256,6 +256,11 @@ def test_dotted_name_not_allowed(app, client):\n         flask.Blueprint(\"app.ui\", __name__)\n \n \n+def test_empty_name_not_allowed(app, client):\n+    with pytest.raises(ValueError):\n+        flask.Blueprint(\"\", __name__)\n+\n+\n def test_dotted_names_from_app(app, client):\n     test = flask.Blueprint(\"test\", __name__)\n \n",
+    "patch": "diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py\n--- a/src/flask/blueprints.py\n+++ b/src/flask/blueprints.py\n@@ -190,6 +190,9 @@ def __init__(\n             root_path=root_path,\n         )\n \n+        if not name:\n+            raise ValueError(\"'name' may not be empty.\")\n+\n         if \".\" in name:\n             raise ValueError(\"'name' may not contain a dot '.' character.\")\n \n",
+    "import_path": "src",
+    "package": "src/flask/",
+    "tests": "tests/",
+    "regression": "tests/test_blueprints.py",
+    "selector": "",
+    "acceptance": [
+      "tests/test_blueprints.py::test_empty_name_not_allowed"
+    ]
+  },
+  {
+    "instance_id": "psf__requests-5414",
+    "repo": "psf/requests",
+    "base_commit": "39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e",
+    "problem_statement": "Getting http://.example.com raises UnicodeError\nAttempting to get e.g. `http://.example.com` results in a `UnicodeError`. It seems like the intention so far has been to raise `InvalidUrl` instead (see e.g. [this line](https://github.com/psf/requests/blob/ca6f9af5dba09591007b15a7368bc0f006b7cc50/requests/models.py#L401)).\r\n\r\nI see there was some hesitation in fixing a similar issue (#4168) and would like to add that even catching the error just to rethrow as a requests exception would be beneficial.\r\n\r\n## Expected Result\r\n\r\nBased on PR #774: `InvalidUrl: URL has an invalid label.`\r\n\r\n## Actual Result\r\n\r\n`UnicodeError: encoding with 'idna' codec failed (UnicodeError: label empty or too long)`\r\n\r\n## Reproduction Steps\r\n\r\n```python3\r\nimport requests\r\nrequests.get(\"http://.example.com\")\r\n```\r\n\r\n## System Information\r\n\r\n    $ python -m requests.help\r\n\r\n```\r\n{\r\n  \"chardet\": {\r\n    \"version\": \"3.0.4\"\r\n  },\r\n  \"cryptography\": {\r\n    \"version\": \"2.8\"\r\n  },\r\n  \"idna\": {\r\n    \"version\": \"2.8\"\r\n  },\r\n  \"implementation\": {\r\n    \"name\": \"CPython\",\r\n    \"version\": \"3.8.0\"\r\n  },\r\n  \"platform\": {\r\n    \"release\": \"5.3.0-40-generic\",\r\n    \"system\": \"Linux\"\r\n  },\r\n  \"pyOpenSSL\": {\r\n    \"openssl_version\": \"1010104f\",\r\n    \"version\": \"19.1.0\"\r\n  },\r\n  \"requests\": {\r\n    \"version\": \"2.23.0\"\r\n  },\r\n  \"system_ssl\": {\r\n    \"version\": \"1010103f\"\r\n  },\r\n  \"urllib3\": {\r\n    \"version\": \"1.25.8\"\r\n  },\r\n  \"using_pyopenssl\": true\r\n}\r\n```\n",
+    "test_patch": "diff --git a/tests/test_requests.py b/tests/test_requests.py\n--- a/tests/test_requests.py\n+++ b/tests/test_requests.py\n@@ -81,6 +81,8 @@ def test_entry_points(self):\n             (InvalidSchema, 'localhost.localdomain:3128/'),\n             (InvalidSchema, '10.122.1.1:3128/'),\n             (InvalidURL, 'http://'),\n+            (InvalidURL, 'http://*example.com'),\n+            (InvalidURL, 'http://.example.com'),\n         ))\n     def test_invalid_url(self, exception, url):\n         with pytest.raises(exception):\n",
+    "patch": "diff --git a/requests/models.py b/requests/models.py\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -403,7 +403,7 @@ def prepare_url(self, url, params):\n                 host = self._get_idna_encoded_host(host)\n             except UnicodeError:\n                 raise InvalidURL('URL has an invalid label.')\n-        elif host.startswith(u'*'):\n+        elif host.startswith((u'*', u'.')):\n             raise InvalidURL('URL has an invalid label.')\n \n         # Carefully reconstruct the network location\n",
+    "import_path": ".",
+    "package": "requests/",
+    "tests": "tests/",
+    "regression": "tests/test_requests.py",
+    "selector": "test_invalid_url",
+    "acceptance": [
+      "tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]"
+    ]
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10051",
+    "repo": "pytest-dev/pytest",
+    "base_commit": "aa55975c7d3f6c9f6d7f68accc41bb7cadf0eb9a",
+    "problem_statement": "caplog.get_records and caplog.clear conflict\n# Description\r\n\r\n`caplog.get_records()` gets decoupled from actual caplog records when `caplog.clear()` is called. As a result, after `caplog.clear()` is called, `caplog.get_records()` is frozen: it does not get cleared, nor does it get new records.\r\n\r\nDuring test set up it is [set to the same list](https://github.com/pytest-dev/pytest/blob/28e8c8582ea947704655a3c3f2d57184831336fd/src/_pytest/logging.py#L699) as `caplog.records`, but the latter gets [replaced rather than cleared](https://github.com/pytest-dev/pytest/blob/28e8c8582ea947704655a3c3f2d57184831336fd/src/_pytest/logging.py#L345) in `caplog.clear()`, which diverges the two objects.\r\n\r\n# Reproductive example\r\n```python\r\nimport logging\r\n\r\ndef test(caplog) -> None:\r\n    def verify_consistency() -> None:\r\n        assert caplog.get_records(\"call\") == caplog.records\r\n\r\n    verify_consistency()\r\n    logging.warning(\"test\")\r\n    verify_consistency()\r\n    caplog.clear()\r\n    verify_consistency()  # fails: assert [<LogRecord: ...y, 8, \"test\">] == []\r\n```\r\n\r\n# Environment details\r\nArch Linux, Python 3.9.10:\r\n```\r\nPackage    Version\r\n---------- -------\r\nattrs      21.4.0\r\niniconfig  1.1.1\r\npackaging  21.3\r\npip        22.0.4\r\npluggy     1.0.0\r\npy         1.11.0\r\npyparsing  3.0.8\r\npytest     7.1.1\r\nsetuptools 60.10.0\r\ntomli      2.0.1\r\nwheel      0.37.1\r\n```\n",
+    "test_patch": "diff --git a/testing/logging/test_fixture.py b/testing/logging/test_fixture.py\n--- a/testing/logging/test_fixture.py\n+++ b/testing/logging/test_fixture.py\n@@ -172,6 +172,24 @@ def test_caplog_captures_for_all_stages(caplog, logging_during_setup_and_teardow\n     assert set(caplog._item.stash[caplog_records_key]) == {\"setup\", \"call\"}\n \n \n+def test_clear_for_call_stage(caplog, logging_during_setup_and_teardown):\n+    logger.info(\"a_call_log\")\n+    assert [x.message for x in caplog.get_records(\"call\")] == [\"a_call_log\"]\n+    assert [x.message for x in caplog.get_records(\"setup\")] == [\"a_setup_log\"]\n+    assert set(caplog._item.stash[caplog_records_key]) == {\"setup\", \"call\"}\n+\n+    caplog.clear()\n+\n+    assert caplog.get_records(\"call\") == []\n+    assert [x.message for x in caplog.get_records(\"setup\")] == [\"a_setup_log\"]\n+    assert set(caplog._item.stash[caplog_records_key]) == {\"setup\", \"call\"}\n+\n+    logging.info(\"a_call_log_after_clear\")\n+    assert [x.message for x in caplog.get_records(\"call\")] == [\"a_call_log_after_clear\"]\n+    assert [x.message for x in caplog.get_records(\"setup\")] == [\"a_setup_log\"]\n+    assert set(caplog._item.stash[caplog_records_key]) == {\"setup\", \"call\"}\n+\n+\n def test_ini_controls_global_log_level(pytester: Pytester) -> None:\n     pytester.makepyfile(\n         \"\"\"\n",
+    "patch": "diff --git a/src/_pytest/logging.py b/src/_pytest/logging.py\n--- a/src/_pytest/logging.py\n+++ b/src/_pytest/logging.py\n@@ -40,7 +40,6 @@\n else:\n     logging_StreamHandler = logging.StreamHandler\n \n-\n DEFAULT_LOG_FORMAT = \"%(levelname)-8s %(name)s:%(filename)s:%(lineno)d %(message)s\"\n DEFAULT_LOG_DATE_FORMAT = \"%H:%M:%S\"\n _ANSI_ESCAPE_SEQ = re.compile(r\"\\x1b\\[[\\d;]+m\")\n@@ -345,6 +344,10 @@ def reset(self) -> None:\n         self.records = []\n         self.stream = StringIO()\n \n+    def clear(self) -> None:\n+        self.records.clear()\n+        self.stream = StringIO()\n+\n     def handleError(self, record: logging.LogRecord) -> None:\n         if logging.raiseExceptions:\n             # Fail the test if the log message is bad (emit failed).\n@@ -440,7 +443,7 @@ def messages(self) -> List[str]:\n \n     def clear(self) -> None:\n         \"\"\"Reset the list of log records and the captured log text.\"\"\"\n-        self.handler.reset()\n+        self.handler.clear()\n \n     def set_level(self, level: Union[int, str], logger: Optional[str] = None) -> None:\n         \"\"\"Set the level of a logger for the duration of a test.\n",
+    "import_path": "src",
+    "package": "src/_pytest/",
+    "tests": "testing/",
+    "regression": "testing/logging/test_fixture.py",
+    "selector": "",
+    "acceptance": [
+      "testing/logging/test_fixture.py::test_clear_for_call_stage"
+    ]
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "outcome": "The deployed greeting service is ready and returns a default greeting.",
+  "allowed_changes": ["pilot/service.py"],
+  "max_repairs": 2,
+  "probes": [
+    {"path": "/health", "expect": {"ready": true}},
+    {"path": "/greet", "expect": {"message": "Hello, world!"}}
+  ]
+}

@@ -1,0 +1,1047 @@
+{
+  "controls": [
+    {
+      "case": "pallets__flask-5014",
+      "revision": "broken",
+      "regression": {
+        "exit": 0,
+        "passed": 59,
+        "failed": 0,
+        "errors": 0
+      },
+      "acceptance": {
+        "exit": 1,
+        "passed": 0,
+        "failed": 1,
+        "errors": 0
+      }
+    },
+    {
+      "case": "pallets__flask-5014",
+      "revision": "upstream",
+      "regression": {
+        "exit": 0,
+        "passed": 59,
+        "failed": 0,
+        "errors": 0
+      },
+      "acceptance": {
+        "exit": 0,
+        "passed": 1,
+        "failed": 0,
+        "errors": 0
+      }
+    },
+    {
+      "case": "psf__requests-5414",
+      "revision": "broken",
+      "regression": {
+        "exit": 0,
+        "passed": 5,
+        "failed": 0,
+        "errors": 0
+      },
+      "acceptance": {
+        "exit": 1,
+        "passed": 0,
+        "failed": 1,
+        "errors": 0
+      }
+    },
+    {
+      "case": "psf__requests-5414",
+      "revision": "upstream",
+      "regression": {
+        "exit": 0,
+        "passed": 5,
+        "failed": 0,
+        "errors": 0
+      },
+      "acceptance": {
+        "exit": 0,
+        "passed": 1,
+        "failed": 0,
+        "errors": 0
+      }
+    },
+    {
+      "case": "pytest-dev__pytest-10051",
+      "revision": "broken",
+      "regression": {
+        "exit": 0,
+        "passed": 15,
+        "failed": 0,
+        "errors": 0
+      },
+      "acceptance": {
+        "exit": 1,
+        "passed": 0,
+        "failed": 1,
+        "errors": 0
+      }
+    },
+    {
+      "case": "pytest-dev__pytest-10051",
+      "revision": "upstream",
+      "regression": {
+        "exit": 0,
+        "passed": 15,
+        "failed": 0,
+        "errors": 0
+      },
+      "acceptance": {
+        "exit": 0,
+        "passed": 1,
+        "failed": 0,
+        "errors": 0
+      }
+    }
+  ],
+  "runtime_controls": [
+    {
+      "case": "pallets__flask-5014",
+      "revision": "broken",
+      "probe_exit": 1
+    },
+    {
+      "case": "pallets__flask-5014",
+      "revision": "upstream",
+      "probe_exit": 0
+    },
+    {
+      "case": "psf__requests-5414",
+      "revision": "broken",
+      "probe_exit": 1
+    },
+    {
+      "case": "psf__requests-5414",
+      "revision": "upstream",
+      "probe_exit": 0
+    },
+    {
+      "case": "pytest-dev__pytest-10051",
+      "revision": "broken",
+      "probe_exit": 1
+    },
+    {
+      "case": "pytest-dev__pytest-10051",
+      "revision": "upstream",
+      "probe_exit": 0
+    }
+  ],
+  "summary": [
+    {
+      "round": "climb-1",
+      "variant": "equipped-feedback",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 31.11,
+      "median_command_count": 8,
+      "median_uncached_input_tokens": 24419,
+      "median_output_tokens": 927
+    },
+    {
+      "round": "climb-2",
+      "variant": "equipped-check",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 27.06,
+      "median_command_count": 8,
+      "median_uncached_input_tokens": 25865,
+      "median_output_tokens": 783
+    },
+    {
+      "round": "climb-3",
+      "variant": "equipped-receipt",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 46.69,
+      "median_command_count": 10,
+      "median_uncached_input_tokens": 32271,
+      "median_output_tokens": 1064
+    },
+    {
+      "round": "infra-retry",
+      "variant": "equipped-feedback",
+      "cases": 1,
+      "solved": 0,
+      "scope_pass": 0,
+      "test_changed": 0,
+      "red_green_trace": 0,
+      "stage_verified": 0,
+      "median_seconds": 210.02,
+      "median_command_count": 8,
+      "median_uncached_input_tokens": null,
+      "median_output_tokens": null
+    },
+    {
+      "round": "pilot",
+      "variant": "equipped",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 39.03,
+      "median_command_count": 12,
+      "median_uncached_input_tokens": 25305,
+      "median_output_tokens": 1242
+    },
+    {
+      "round": "pilot",
+      "variant": "plain",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 46.78,
+      "median_command_count": 11,
+      "median_uncached_input_tokens": 30240,
+      "median_output_tokens": 1306
+    },
+    {
+      "round": "repeat",
+      "variant": "equipped",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 45.13,
+      "median_command_count": 13,
+      "median_uncached_input_tokens": 25620,
+      "median_output_tokens": 1546
+    },
+    {
+      "round": "repeat",
+      "variant": "equipped-check",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 30.51,
+      "median_command_count": 9,
+      "median_uncached_input_tokens": 22804,
+      "median_output_tokens": 785
+    },
+    {
+      "round": "repeat",
+      "variant": "equipped-feedback",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 34.89,
+      "median_command_count": 8,
+      "median_uncached_input_tokens": 28386,
+      "median_output_tokens": 972
+    },
+    {
+      "round": "repeat",
+      "variant": "plain",
+      "cases": 3,
+      "solved": 3,
+      "scope_pass": 3,
+      "test_changed": 3,
+      "red_green_trace": 3,
+      "stage_verified": 3,
+      "median_seconds": 46.91,
+      "median_command_count": 14,
+      "median_uncached_input_tokens": 45824,
+      "median_output_tokens": 1639
+    }
+  ],
+  "comparisons": [
+    {
+      "before": [
+        "pilot",
+        "plain"
+      ],
+      "after": [
+        "pilot",
+        "equipped"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": 24.9,
+        "uncached_input_tokens": 13.2
+      },
+      "material_gain": true
+    },
+    {
+      "before": [
+        "pilot",
+        "equipped"
+      ],
+      "after": [
+        "climb-1",
+        "equipped-feedback"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": 11.4,
+        "uncached_input_tokens": 23.1
+      },
+      "material_gain": true
+    },
+    {
+      "before": [
+        "pilot",
+        "plain"
+      ],
+      "after": [
+        "climb-1",
+        "equipped-feedback"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": 33.5,
+        "uncached_input_tokens": 33.2
+      },
+      "material_gain": true
+    },
+    {
+      "before": [
+        "climb-1",
+        "equipped-feedback"
+      ],
+      "after": [
+        "climb-2",
+        "equipped-check"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": 13.0,
+        "uncached_input_tokens": -4.9
+      },
+      "material_gain": false
+    },
+    {
+      "before": [
+        "repeat",
+        "equipped"
+      ],
+      "after": [
+        "repeat",
+        "equipped-feedback"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": 26.7,
+        "uncached_input_tokens": 33.0
+      },
+      "material_gain": true
+    },
+    {
+      "before": [
+        "repeat",
+        "plain"
+      ],
+      "after": [
+        "repeat",
+        "equipped"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": -2.8,
+        "uncached_input_tokens": -19.6
+      },
+      "material_gain": false
+    },
+    {
+      "before": [
+        "repeat",
+        "plain"
+      ],
+      "after": [
+        "repeat",
+        "equipped-feedback"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": 28.2,
+        "uncached_input_tokens": 40.5
+      },
+      "material_gain": true
+    },
+    {
+      "before": [
+        "repeat",
+        "equipped-feedback"
+      ],
+      "after": [
+        "repeat",
+        "equipped-check"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": -8.5,
+        "uncached_input_tokens": -39.3
+      },
+      "material_gain": false
+    },
+    {
+      "before": [
+        "climb-1",
+        "equipped-feedback"
+      ],
+      "after": [
+        "climb-3",
+        "equipped-receipt"
+      ],
+      "cases": 3,
+      "quality_preserved": true,
+      "median_reduction_pct": {
+        "seconds": -51.3,
+        "uncached_input_tokens": -32.2
+      },
+      "material_gain": false
+    }
+  ],
+  "trials": [
+    {
+      "round": "pilot",
+      "case": "pallets__flask-5014",
+      "variant": "equipped",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "c459200c2729093db4eca1e25f4dac2e6819b1d5680082461ad74a178b035de3",
+      "red_green_trace": true,
+      "test_commands": 2,
+      "command_count": 11,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 35.12,
+      "capacity_event": false,
+      "uncached_input_tokens": 17949,
+      "output_tokens": 1040
+    },
+    {
+      "round": "pilot",
+      "case": "pallets__flask-5014",
+      "variant": "plain",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "a97fa2cafa4e392c90c48e94987a2353fc35a4bfec1cd34cd471e30133028221",
+      "red_green_trace": true,
+      "test_commands": 2,
+      "command_count": 12,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 46.78,
+      "capacity_event": false,
+      "uncached_input_tokens": 30240,
+      "output_tokens": 1218
+    },
+    {
+      "round": "pilot",
+      "case": "psf__requests-5414",
+      "variant": "equipped",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "c45997e30e1b08a17b1b117bdb8cc83dc898a109b01599eac05bd4233b601c66",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 16,
+      "diff_stat": "2 files changed, 3 insertions(+), 2 deletions(-)",
+      "exit": 0,
+      "seconds": 50.61,
+      "capacity_event": false,
+      "uncached_input_tokens": 31762,
+      "output_tokens": 1736
+    },
+    {
+      "round": "pilot",
+      "case": "psf__requests-5414",
+      "variant": "plain",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "dbd33513b5a6774b5469310cbbcecba6bda380de7a7fef8dc8d50b3af2a68475",
+      "red_green_trace": true,
+      "test_commands": 2,
+      "command_count": 11,
+      "diff_stat": "2 files changed, 6 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 37.42,
+      "capacity_event": false,
+      "uncached_input_tokens": 36572,
+      "output_tokens": 1306
+    },
+    {
+      "round": "pilot",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "79f71e59abaaaf8aa0bc9a094d95c8d10e76eebfbd599101e2f5e42d0527c6a1",
+      "red_green_trace": true,
+      "test_commands": 4,
+      "command_count": 12,
+      "diff_stat": "2 files changed, 11 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 39.03,
+      "capacity_event": false,
+      "uncached_input_tokens": 25305,
+      "output_tokens": 1242
+    },
+    {
+      "round": "pilot",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "plain",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "7f2391cd15c69075287cf4db804590c9a9070d5c21110aa50fbed939af7084a8",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 11,
+      "diff_stat": "2 files changed, 12 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 77.63,
+      "capacity_event": false,
+      "uncached_input_tokens": 23040,
+      "output_tokens": 1907
+    },
+    {
+      "round": "climb-1",
+      "case": "pallets__flask-5014",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "f35c09b2197545db4d1d9237e8a643753f9799664f59304ff95143938307d374",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 8,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 31.11,
+      "capacity_event": false,
+      "uncached_input_tokens": 12559,
+      "output_tokens": 784
+    },
+    {
+      "round": "climb-1",
+      "case": "psf__requests-5414",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "51dc16d20d1de9cef6543c7b1dd77cc8f959c68fc495bc0469fd2d9db1e533fd",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 13,
+      "diff_stat": "2 files changed, 6 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 46.42,
+      "capacity_event": false,
+      "uncached_input_tokens": 24419,
+      "output_tokens": 1349
+    },
+    {
+      "round": "climb-1",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "ab7ba3d42d30d2aab3504efac699d036e0302b337a134fdce0dfab32b858ffc3",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 8,
+      "diff_stat": "2 files changed, 10 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 30.85,
+      "capacity_event": false,
+      "uncached_input_tokens": 43375,
+      "output_tokens": 927
+    },
+    {
+      "round": "climb-2",
+      "case": "pallets__flask-5014",
+      "variant": "equipped-check",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "46a8092754c38a0cd53f3e6892f3c30d5b2e5aa10d54c626810e6343bb8a805f",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 9,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 27.06,
+      "capacity_event": false,
+      "uncached_input_tokens": 25865,
+      "output_tokens": 669
+    },
+    {
+      "round": "climb-2",
+      "case": "psf__requests-5414",
+      "variant": "equipped-check",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "57b7779e454a70c3ffe206e104d8a5622508eead509f8dfad4ebdfdd821c1194",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 7,
+      "diff_stat": "2 files changed, 6 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 26.08,
+      "capacity_event": false,
+      "uncached_input_tokens": 25620,
+      "output_tokens": 783
+    },
+    {
+      "round": "climb-2",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped-check",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "d59257511f321b351925cf3ae6fd9d9cbeb753ce0e87b45c0ebbd610720259be",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 8,
+      "diff_stat": "2 files changed, 11 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 31.77,
+      "capacity_event": false,
+      "uncached_input_tokens": 29996,
+      "output_tokens": 872
+    },
+    {
+      "round": "climb-3",
+      "case": "pallets__flask-5014",
+      "variant": "equipped-receipt",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "c459200c2729093db4eca1e25f4dac2e6819b1d5680082461ad74a178b035de3",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 8,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 31.48,
+      "capacity_event": false,
+      "uncached_input_tokens": 22262,
+      "output_tokens": 768
+    },
+    {
+      "round": "climb-3",
+      "case": "psf__requests-5414",
+      "variant": "equipped-receipt",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "d5a5a4432470bdc0bc312569e699f94c0cf9b67db6855c94aad4da7865082462",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 13,
+      "diff_stat": "2 files changed, 8 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 77.23,
+      "capacity_event": false,
+      "uncached_input_tokens": 32271,
+      "output_tokens": 1611
+    },
+    {
+      "round": "climb-3",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped-receipt",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "79f71e59abaaaf8aa0bc9a094d95c8d10e76eebfbd599101e2f5e42d0527c6a1",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 10,
+      "diff_stat": "2 files changed, 11 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 46.69,
+      "capacity_event": false,
+      "uncached_input_tokens": 32387,
+      "output_tokens": 1064
+    },
+    {
+      "round": "repeat",
+      "case": "pallets__flask-5014",
+      "variant": "equipped",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "f35c09b2197545db4d1d9237e8a643753f9799664f59304ff95143938307d374",
+      "red_green_trace": true,
+      "test_commands": 2,
+      "command_count": 11,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 41.32,
+      "capacity_event": false,
+      "uncached_input_tokens": 21450,
+      "output_tokens": 1101
+    },
+    {
+      "round": "repeat",
+      "case": "pallets__flask-5014",
+      "variant": "equipped-check",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "c459200c2729093db4eca1e25f4dac2e6819b1d5680082461ad74a178b035de3",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 8,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 29.73,
+      "capacity_event": false,
+      "uncached_input_tokens": 22804,
+      "output_tokens": 750
+    },
+    {
+      "round": "repeat",
+      "case": "pallets__flask-5014",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "b93f223bfd0994d4fc75d11f75c203896bdd048408380a8854cebf6455014d4c",
+      "red_green_trace": true,
+      "test_commands": 2,
+      "command_count": 7,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 27.39,
+      "capacity_event": false,
+      "uncached_input_tokens": 14369,
+      "output_tokens": 679
+    },
+    {
+      "round": "repeat",
+      "case": "pallets__flask-5014",
+      "variant": "plain",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 59,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "c459200c2729093db4eca1e25f4dac2e6819b1d5680082461ad74a178b035de3",
+      "red_green_trace": true,
+      "test_commands": 2,
+      "command_count": 13,
+      "diff_stat": "2 files changed, 8 insertions(+)",
+      "exit": 0,
+      "seconds": 40.2,
+      "capacity_event": false,
+      "uncached_input_tokens": 45824,
+      "output_tokens": 1135
+    },
+    {
+      "round": "repeat",
+      "case": "psf__requests-5414",
+      "variant": "equipped",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "6171aaca27f7cf979caa5f29718e0cb1f4f5fb65b37d1f38a8fe1e90e74cfc9d",
+      "red_green_trace": true,
+      "test_commands": 4,
+      "command_count": 15,
+      "diff_stat": "2 files changed, 8 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 55.18,
+      "capacity_event": false,
+      "uncached_input_tokens": 72162,
+      "output_tokens": 1574
+    },
+    {
+      "round": "repeat",
+      "case": "psf__requests-5414",
+      "variant": "equipped-check",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "3edeb8c8b92df043e9058c238e9612ce4b338b4f0ae54cfdc2484c21d3ca9fd1",
+      "red_green_trace": true,
+      "test_commands": 6,
+      "command_count": 10,
+      "diff_stat": "2 files changed, 9 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 69.99,
+      "capacity_event": false,
+      "uncached_input_tokens": 19757,
+      "output_tokens": 1488
+    },
+    {
+      "round": "repeat",
+      "case": "psf__requests-5414",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "21c2ae807294f4d08557b545eb70668a06c2f2475f1bfe01a67bb63b3a56f148",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 9,
+      "diff_stat": "2 files changed, 6 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 40.46,
+      "capacity_event": false,
+      "uncached_input_tokens": 30093,
+      "output_tokens": 1003
+    },
+    {
+      "round": "repeat",
+      "case": "psf__requests-5414",
+      "variant": "plain",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 5,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "fb52f5134c79d36c8f6aaf7cc13b539b9bc471f7579d07d6068087d432587ab4",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 14,
+      "diff_stat": "2 files changed, 6 insertions(+), 3 deletions(-)",
+      "exit": 0,
+      "seconds": 46.91,
+      "capacity_event": false,
+      "uncached_input_tokens": 50555,
+      "output_tokens": 1639
+    },
+    {
+      "round": "repeat",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "a2eb84bd3330afa62d3c4497b1dc3a04e4d52a55f1696ea275afe9c26bb6f0fe",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 13,
+      "diff_stat": "2 files changed, 13 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 45.13,
+      "capacity_event": false,
+      "uncached_input_tokens": 25620,
+      "output_tokens": 1546
+    },
+    {
+      "round": "repeat",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped-check",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "ab7ba3d42d30d2aab3504efac699d036e0302b337a134fdce0dfab32b858ffc3",
+      "red_green_trace": true,
+      "test_commands": 4,
+      "command_count": 9,
+      "diff_stat": "2 files changed, 10 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 30.51,
+      "capacity_event": false,
+      "uncached_input_tokens": 39545,
+      "output_tokens": 785
+    },
+    {
+      "round": "repeat",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "78643c73e6f18e5e1fdb951f91f27c1ecc2880293f683fa47035e9cd71fc32a8",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 8,
+      "diff_stat": "2 files changed, 11 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 34.89,
+      "capacity_event": false,
+      "uncached_input_tokens": 28386,
+      "output_tokens": 972
+    },
+    {
+      "round": "repeat",
+      "case": "pytest-dev__pytest-10051",
+      "variant": "plain",
+      "model": "gpt-6.2-sol",
+      "solved": true,
+      "acceptance_passed": 1,
+      "regression_passed": 15,
+      "scope_pass": true,
+      "test_changed": true,
+      "stage_verified": true,
+      "artifact_sha256": "ab7ba3d42d30d2aab3504efac699d036e0302b337a134fdce0dfab32b858ffc3",
+      "red_green_trace": true,
+      "test_commands": 3,
+      "command_count": 14,
+      "diff_stat": "2 files changed, 10 insertions(+), 1 deletion(-)",
+      "exit": 0,
+      "seconds": 48.56,
+      "capacity_event": false,
+      "uncached_input_tokens": 21421,
+      "output_tokens": 1655
+    },
+    {
+      "round": "infra-retry",
+      "case": "psf__requests-5414",
+      "variant": "equipped-feedback",
+      "model": "gpt-6.2-sol",
+      "solved": false,
+      "acceptance_passed": null,
+      "regression_passed": null,
+      "scope_pass": false,
+      "test_changed": false,
+      "stage_verified": false,
+      "artifact_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "red_green_trace": false,
+      "test_commands": 0,
+      "command_count": 8,
+      "diff_stat": "",
+      "exit": 124,
+      "seconds": 210.02,
+      "capacity_event": true,
+      "uncached_input_tokens": null,
+      "output_tokens": null
+    }
+  ]
+}

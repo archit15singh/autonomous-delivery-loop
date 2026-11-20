@@ -1,0 +1,14 @@
+pytest==7.3.2
+Werkzeug==2.3.8
+Jinja2==3.1.4
+itsdangerous==2.1.2
+click==8.1.7
+blinker==1.6.3
+requests==2.26.0
+attrs==22.2.0
+packaging==23.2
+pluggy==1.0.0
+iniconfig==2.0.0
+pytest-httpbin==2.0.0
+mock==5.1.0
+py==1.11.0
