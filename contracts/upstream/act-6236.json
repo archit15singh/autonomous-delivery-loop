@@ -1,0 +1,23 @@
+{
+  "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
+  "candidate": "5b250f9f1dd07aa676ae388cf2e9f48632f6bde8",
+  "allowed_paths": [
+    "pkg/container/docker_auth.go",
+    "pkg/container/docker_pull_test.go"
+  ],
+  "regression_paths": ["pkg/container/docker_pull_test.go"],
+  "command": [
+    "go", "test", "-race", "-v", "./pkg/container", "-run",
+    "^(TestCleanImage|TestGetImagePullOptions|TestDockerPullSendsDockerHubAuthForBothImageNames)$",
+    "-count=1"
+  ],
+  "timeout_seconds": 420,
+  "before": {
+    "exit": 1,
+    "contains": "docker.io/nektos/act → docker.io/nektos/act, X-Registry-Auth present=false"
+  },
+  "after": {
+    "exit": 0,
+    "contains": "docker.io/nektos/act → docker.io/nektos/act, X-Registry-Auth present=true"
+  }
+}

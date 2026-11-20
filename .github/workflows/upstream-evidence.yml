@@ -6,6 +6,8 @@ on:
       - '.github/workflows/upstream-evidence.yml'
       - 'verification/pvlib-1606.sh'
       - 'verification/act-6236.sh'
+      - 'contracts/upstream/**'
+      - 'delivery/**'
   workflow_dispatch:
 
 permissions:

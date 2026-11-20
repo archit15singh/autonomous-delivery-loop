@@ -22,15 +22,15 @@ def check_scope(changed, allowed):
         raise ValueError("Candidate changed protected paths: " + ", ".join(outside))
 
 
-def paths_between(base, candidate):
-    return git("diff", "--no-renames", "--name-only", "-z", base, candidate, "--").decode().split("\0")[:-1]
+def paths_between(base, candidate, *, cwd=None):
+    return git("diff", "--no-renames", "--name-only", "-z", base, candidate, "--", cwd=cwd).decode().split("\0")[:-1]
 
 
-def check_candidate(head, base, allowed):
+def check_candidate(head, base, allowed, *, cwd=None):
     if not FULL_REVISION.fullmatch(head) or not FULL_REVISION.fullmatch(base):
         raise ValueError("trusted and candidate revisions must be full Git SHAs")
-    git("merge-base", "--is-ancestor", base, head)
-    check_scope(paths_between(base, head), allowed)
+    git("merge-base", "--is-ancestor", base, head, cwd=cwd)
+    check_scope(paths_between(base, head, cwd=cwd), allowed)
 
 
 def repair_context(contract, revision, receipt):
