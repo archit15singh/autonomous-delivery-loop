@@ -1,0 +1,68 @@
+name: Trusted candidate
+run-name: Verify ${{ inputs.candidate }} against ${{ inputs.contract }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        required: true
+        type: string
+        description: Full candidate commit SHA from this repository
+      contract:
+        required: true
+        type: choice
+        options: [pilot, named-greeting]
+        description: Outcome contract already approved on main
+      repairs-used:
+        required: true
+        type: number
+        default: 0
+        description: Repair count carried from the previous receipt
+
+permissions:
+  contents: read
+
+jobs:
+  judge:
+    name: Main-owned runtime verifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ inputs.candidate == github.sha && 'hosted-staging' || 'independent-preview' }}
+    env:
+      CANDIDATE: ${{ inputs.candidate }}
+      CONTRACT_NAME: ${{ inputs.contract }}
+      REPAIRS_USED: ${{ inputs.repairs-used }}
+      DEPLOYMENT: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Require the reviewed workflow
+        run: test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Build candidate from the main-owned judge
+        run: >-
+          python -B -m delivery build --trusted-base "$GITHUB_SHA"
+          --contract "contracts/$CONTRACT_NAME.json" --revision "$CANDIDATE"
+          --deployment "$DEPLOYMENT" --output .adl/bundle
+      - name: Verify serving behavior with the candidate isolated
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --cap-add SETUID --cap-add SETGID --cap-add KILL \
+            --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev,size=16m \
+            -v "$PWD/delivery:/judge/delivery:ro" -v "$PWD/contracts:/judge/contracts:ro" \
+            -v "$PWD/.adl/bundle:/bundle:ro" -w /judge \
+            python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b \
+            python -B -m delivery stage --contract "contracts/$CONTRACT_NAME.json" \
+              --bundle /bundle --revision "$CANDIDATE" --deployment "$DEPLOYMENT" \
+              --output - --repairs-used "$REPAIRS_USED" --isolate-candidate > .adl/evidence.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: trusted-evidence-${{ env.DEPLOYMENT }}
+          path: .adl/evidence.json
+          include-hidden-files: true
+          if-no-files-found: warn

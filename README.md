@@ -28,3 +28,18 @@ python3 -m delivery stage --contract contracts/pilot.json --bundle .adl/bundle \
 The GitHub workflow publishes a commit archive, a build receipt, and the runtime evidence from the same run attempt. A runtime instance identifies its revision and deployment before and after probing. Use a full workflow rerun so the archive and verify jobs share the same attempt.
 
 Hosted staging is an ephemeral service inside an Actions runner. Runtime outcome means observed HTTP behavior for the selected build. Business impact requires an independent observation source and a contract that defines how to interpret it.
+
+## Independently grade and repair a candidate
+
+The trusted workflow is dispatched from reviewed `main`. It verifies that the candidate descends from the policy revision and that all changed paths are permitted. It then probes archived candidate code over loopback in a network-isolated container. The candidate runs as an unprivileged user with the verifier and bundle mounted read-only. The workflow publishes its own receipt even when a behavior check fails.
+
+```sh
+gh workflow run trusted-candidate.yml --ref main \
+  -f candidate="$candidate_sha" -f contract=named-greeting -f repairs-used=0
+
+python3 -m delivery propose --contract contracts/named-greeting.json \
+  --evidence .adl/previous/evidence.json --output .adl/candidate.patch \
+  --events .adl/codex.jsonl
+```
+
+Inspect the receipt from the exact dispatch, including candidate SHA, policy SHA, deployment, archive digest, and verdict. The operator owns receipt selection, the repair count, PR and merge. Use `gh pr merge --match-head-commit` after checking the current candidate. The proposal subprocess receives no Git remote or release authority.

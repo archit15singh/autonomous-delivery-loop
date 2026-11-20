@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "outcome": "The running HTTP service greets the named visitor at /greet?name=Codex and preserves the default greeting when no name is provided.",
+  "allowed_changes": ["pilot/service.py"],
+  "max_repairs": 2,
+  "probes": [
+    {"path": "/health", "expect": {"ready": true}},
+    {"path": "/greet", "expect": {"message": "Hello, world!"}},
+    {"path": "/greet?name=Codex", "expect": {"message": "Hello, Codex!"}}
+  ]
+}

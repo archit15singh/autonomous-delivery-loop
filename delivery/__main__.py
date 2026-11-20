@@ -6,11 +6,15 @@ from pathlib import Path
 import subprocess
 import sys
 
+from .candidate import check_candidate, propose
 from .stage import stage
 from .verify import Contract
 
 
 def write(path, value):
+    if path == Path("-"):
+        print(json.dumps(value, indent=2))
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2) + "\n")
 
@@ -24,36 +28,65 @@ def main():
     build.add_argument("--revision", required=True)
     build.add_argument("--deployment", required=True)
     build.add_argument("--output", type=Path, required=True)
+    build.add_argument("--contract", type=Path)
+    build.add_argument("--trusted-base")
     run = commands.add_parser("stage")
     run.add_argument("--contract", type=Path, required=True)
     run.add_argument("--bundle", type=Path, required=True)
     run.add_argument("--revision", required=True)
     run.add_argument("--deployment", required=True)
     run.add_argument("--output", type=Path, required=True)
+    run.add_argument("--repairs-used", type=int, choices=range(6), default=0)
+    run.add_argument("--isolate-candidate", action="store_true")
+    agent = commands.add_parser("propose")
+    agent.add_argument("--contract", type=Path, required=True)
+    agent.add_argument("--output", type=Path, required=True)
+    agent.add_argument("--events", type=Path, required=True)
+    agent.add_argument("--evidence", type=Path)
+    agent.add_argument("--model", default="gpt-6.2-sol")
+    agent.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
     if args.command == "validate":
         print(Contract.read(args.contract).digest)
+        return 0
+    if args.command == "propose":
+        contract = Contract.read(args.contract)
+        receipt = json.loads(args.evidence.read_text()) if args.evidence else None
+        revision, repairs_used = propose(contract, args.output, args.events, args.model,
+                                         args.timeout, receipt)
+        print(json.dumps({"revision": revision, "repairs_used": repairs_used,
+                          "patch": str(args.output)}))
         return 0
     if args.command == "build":
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
         tracked_changes = subprocess.check_output(
             ["git", "status", "--porcelain", "--untracked-files=all"], text=True)
-        if args.revision != head or tracked_changes:
-            parser.error("build requires a clean checkout of the requested full revision")
+        if tracked_changes or head != (args.trusted_base or args.revision):
+            parser.error("build requires a clean checkout of the requested policy revision")
+        contract = Contract.read(args.contract) if args.contract else None
+        if args.trusted_base:
+            if not contract:
+                parser.error("a trusted candidate build requires a contract")
+            check_candidate(args.revision, args.trusted_base, contract.allowed_changes)
         subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests"], check=True)
         args.output.mkdir(parents=True, exist_ok=True)
         artifact = args.output / "pilot.tar"
         subprocess.run(["git", "archive", "--format=tar", "-o", str(artifact),
                         args.revision, "pilot/"], check=True)
-        write(args.output / "ci.json", {
+        evidence = {
             "revision": args.revision, "deployment": args.deployment, "status": "passed",
             "artifact_sha256": sha256(artifact.read_bytes()).hexdigest(),
-        })
+            "policy_revision": head,
+            "check": "trusted policy tests and candidate scope" if args.trusted_base else "unit tests",
+        }
+        if contract:
+            evidence["contract_sha256"] = contract.digest
+        write(args.output / "ci.json", evidence)
         return 0
     report = stage(args.contract, args.bundle / "pilot.tar", args.bundle / "ci.json",
-                   args.revision, args.deployment)
+                   args.revision, args.deployment, args.repairs_used, args.isolate_candidate)
     write(args.output, report)
-    print(f"{report['verdict']} ({report['reason']})")
+    print(f"{report['verdict']} ({report['reason']})", file=sys.stderr)
     return 0 if report["verdict"] == "verified" else 1
 
 

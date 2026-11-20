@@ -1,0 +1,2 @@
+# Benchmark patch bytes must match the recorded artifact digest.
+evals/patches/*.patch -whitespace
