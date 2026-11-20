@@ -1,0 +1,115 @@
+{
+  "revision": "a1a6f597828bdcf03b4fb9645fd9aa5b37f92b18",
+  "repetitions": 18,
+  "threshold_pct": 15,
+  "expected_controls": {
+    "healthy": "verified",
+    "bad-behavior": "failed",
+    "wrong-deployment": "inconclusive",
+    "rollout-drift": "inconclusive"
+  },
+  "variants": [
+    {
+      "variant": "baseline",
+      "controls": {
+        "healthy": "verified",
+        "bad-behavior": "failed",
+        "wrong-deployment": "inconclusive",
+        "rollout-drift": "inconclusive"
+      },
+      "all_stage_checks_passed": true,
+      "median_stage_ms": 24.41,
+      "median_paired_gain_pct": 0.0,
+      "preserved_gates": true,
+      "promote": false,
+      "stage_ms": [
+        44.573,
+        26.614,
+        24.861,
+        24.09,
+        24.421,
+        23.812,
+        24.294,
+        24.549,
+        24.219,
+        24.514,
+        25.258,
+        24.467,
+        26.766,
+        24.115,
+        24.387,
+        24.116,
+        24.379,
+        24.4
+      ]
+    },
+    {
+      "variant": "parallel-probes",
+      "controls": {
+        "healthy": "verified",
+        "bad-behavior": "failed",
+        "wrong-deployment": "inconclusive",
+        "rollout-drift": "inconclusive"
+      },
+      "all_stage_checks_passed": true,
+      "median_stage_ms": 24.499,
+      "median_paired_gain_pct": -0.05,
+      "preserved_gates": true,
+      "promote": false,
+      "stage_ms": [
+        30.302,
+        25.993,
+        24.392,
+        24.697,
+        24.516,
+        24.541,
+        24.309,
+        24.224,
+        24.923,
+        24.549,
+        24.409,
+        24.197,
+        25.389,
+        25.111,
+        24.483,
+        24.357,
+        24.258,
+        24.407
+      ]
+    },
+    {
+      "variant": "cached-identity",
+      "controls": {
+        "healthy": "verified",
+        "bad-behavior": "failed",
+        "wrong-deployment": "inconclusive",
+        "rollout-drift": "verified"
+      },
+      "all_stage_checks_passed": true,
+      "median_stage_ms": 24.25,
+      "median_paired_gain_pct": 0.33,
+      "preserved_gates": false,
+      "promote": false,
+      "stage_ms": [
+        26.449,
+        23.21,
+        25.075,
+        24.422,
+        23.921,
+        24.025,
+        24.293,
+        24.086,
+        24.136,
+        24.208,
+        26.034,
+        24.691,
+        24.766,
+        24.325,
+        24.309,
+        24.084,
+        23.972,
+        24.121
+      ]
+    }
+  ]
+}

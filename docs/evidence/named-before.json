@@ -1,0 +1,73 @@
+{
+  "revision": "0ff0e7502c141115c459841feed4e9dd31959c24",
+  "deployment": "44775213789-1",
+  "contract_sha256": "7c3d280dc2b1e85176cf863c7a728a4a78f8ffa8c827b805a81df0dd1c5a402e",
+  "ci": {
+    "revision": "0ff0e7502c141115c459841feed4e9dd31959c24",
+    "deployment": "44775213789-1",
+    "status": "passed",
+    "artifact_sha256": "67901525e0e6e1a5f688cf93573431011603452abf413c05a6f45a9936629f67",
+    "policy_revision": "0ff0e7502c141115c459841feed4e9dd31959c24",
+    "check": "trusted policy tests and candidate scope",
+    "contract_sha256": "7c3d280dc2b1e85176cf863c7a728a4a78f8ffa8c827b805a81df0dd1c5a402e"
+  },
+  "identity": {
+    "status": 200,
+    "body": {
+      "revision": "0ff0e7502c141115c459841feed4e9dd31959c24",
+      "deployment": "44775213789-1"
+    }
+  },
+  "probes": [
+    {
+      "path": "/health",
+      "expect": {
+        "ready": true
+      },
+      "observed": {
+        "status": 200,
+        "body": {
+          "ready": true
+        }
+      },
+      "passed": true
+    },
+    {
+      "path": "/greet",
+      "expect": {
+        "message": "Hello, world!"
+      },
+      "observed": {
+        "status": 200,
+        "body": {
+          "message": "Hello, world!"
+        }
+      },
+      "passed": true
+    },
+    {
+      "path": "/greet?name=Codex",
+      "expect": {
+        "message": "Hello, Codex!"
+      },
+      "observed": {
+        "status": 200,
+        "body": {
+          "message": "Hello, world!"
+        }
+      },
+      "passed": false
+    }
+  ],
+  "repairs_used": 0,
+  "identity_after": {
+    "status": 200,
+    "body": {
+      "revision": "0ff0e7502c141115c459841feed4e9dd31959c24",
+      "deployment": "44775213789-1"
+    }
+  },
+  "verdict": "failed",
+  "reason": "probe_failed",
+  "next_action": "repair"
+}

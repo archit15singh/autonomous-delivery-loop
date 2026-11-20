@@ -15,6 +15,7 @@ reviewed outcome contract
 - [Hosted workflow](.github/workflows/delivery.yml)
 - [Paired Codex eval and scorecard](evals/README.md)
 - [Ecosystem research](docs/ecosystem.md)
+- [Live delivery evidence](docs/live-delivery.md)
 
 From a clean checkout with Python 3.11 or later:
 
