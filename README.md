@@ -16,6 +16,7 @@ reviewed outcome contract
 - [Paired Codex eval and scorecard](evals/README.md)
 - [Ecosystem research](docs/ecosystem.md)
 - [Live delivery evidence](docs/live-delivery.md)
+- [Upstream contribution evidence](docs/upstream-delivery.md)
 
 From a clean checkout with Python 3.11 or later:
 
