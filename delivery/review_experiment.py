@@ -64,15 +64,14 @@ def _checked_findings(report, subject, model, prompt_digest):
 
 
 def decision_error(case, findings, judgment=None):
-    """Classify one PR decision using any file anchors in its human review."""
+    """Classify one review against its human verdict, file anchors and defect rationale."""
+    model = judgment.get("model") if isinstance(judgment, dict) else None
+    review_judge.validate(case, findings, model, judgment)
     if case["expected"] == "ship":
         return "false_alarms" if findings else None
     paths = {finding["path"] for finding in findings}
-    if review_judge.needs_judge(case, findings):
-        if not isinstance(judgment, dict) or type(judgment.get("matched")) is not bool:
-            raise ValueError("missing or malformed semantic judgment")
-        if not judgment["matched"]:
-            return "misses"
+    if judgment is not None and not judgment["matched"]:
+        return "misses"
     if not findings or not paths.issuperset(case.get("finding_paths", [])):
         return "misses"
     return None
@@ -107,7 +106,8 @@ def rescore(cases, receipt):
         case = cohort[pr]
         _checked_findings(report, case, receipt["model"], hashes[variant])
         judgment = trial.get("judgment")
-        review_judge.validate(case, report["findings"], receipt["model"], judgment)
+        if isinstance(judgment, dict) and judgment.get("model") != receipt["model"]:
+            raise ValueError("semantic judgment does not match the trial model")
         error = decision_error(case, report["findings"], judgment)
         if error:
             summary[number - 1][case["split"]][variant][error] += 1

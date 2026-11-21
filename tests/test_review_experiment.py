@@ -13,6 +13,7 @@ class ReviewExperimentTest(unittest.TestCase):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
+        self.real_compare = experiment.review_judge._compare
         judge = patch.object(experiment.review_judge, "_compare",
                              return_value={"matched": True, "reason": "Same failing behavior."})
         self.judge = judge.start()
@@ -89,6 +90,17 @@ class ReviewExperimentTest(unittest.TestCase):
         trial["judgment"] = None
         with self.assertRaisesRegex(ValueError, "missing semantic"):
             experiment.rescore(self.cases, receipt)
+
+    def test_judge_rejects_tool_use_in_execution_trace(self):
+        import subprocess
+        from delivery import review_judge
+        # Exercise the implementation outside the mocked judge used for paired experiments.
+        real_compare = self.real_compare
+        trace = '{"type":"item.completed","item":{"type":"command_execution"}}'
+        with patch.object(review_judge.subprocess, "run", return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=trace, stderr="")):
+            with self.assertRaisesRegex(ValueError, "attempted to use a tool"):
+                real_compare({}, "codex", 10)
 
     def test_judge_timeout_resumes_after_the_saved_review(self):
         attempts = 0

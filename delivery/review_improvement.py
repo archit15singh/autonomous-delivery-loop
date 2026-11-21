@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 
-from . import factory_feedback, review_cases, review_experiment
+from . import factory_feedback, review_cases, review_experiment, review_judge
 from .review_artifact import publish_new
 from .upstream_actions import digest
 
@@ -101,7 +101,7 @@ def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
         raise ValueError("harvest labeled decisions before running the loop")
     review_cases.check_remote(repo, review_cases.PR_URL.fullmatch(cases[0]["pr"])[1])
     baseline = guidance.read_text()
-    inputs = {"version": 2, "dataset_sha256": digest(cases), "baseline_sha256": digest(baseline),
+    inputs = {"version": 2, "rubric_sha256": review_judge.RUBRIC_SHA256, "dataset_sha256": digest(cases), "baseline_sha256": digest(baseline),
               "model": model, "rounds": rounds}
     run = work_dir / digest(inputs)
     run.mkdir(parents=True, exist_ok=True)

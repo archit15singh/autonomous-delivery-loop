@@ -44,6 +44,8 @@ def _compare(evidence, model, timeout):
 
 
 def bound_result(case, findings, model, result):
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("judge model is required")
     if (not isinstance(result, dict) or result.keys() != {"matched", "reason"}
             or type(result["matched"]) is not bool
             or not isinstance(result["reason"], str) or not result["reason"].strip()):
