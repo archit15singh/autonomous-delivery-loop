@@ -162,6 +162,30 @@ def rollout(kube, namespace, name):
     kube.call("rollout", "status", f"deployment/{name}", "--timeout=60s", namespace=namespace, timeout=68)
 
 
+def wait_for_redis_service(kube, namespace):
+    # Redis readiness only proves the local socket. Check DNS and the Service from the API pod.
+    command = (
+        "import socket, time\n"
+        "deadline = time.monotonic() + 20\n"
+        "while True:\n"
+        "    try:\n"
+        "        with socket.create_connection(('redis', 6379), timeout=2) as connection:\n"
+        "            connection.sendall(b'PING\\r\\n')\n"
+        "            with connection.makefile('rb') as response:\n"
+        "                reply = response.readline(256)\n"
+        "        if reply != b'+PONG\\r\\n':\n"
+        "            raise ValueError(repr(reply))\n"
+        "        print('PONG')\n"
+        "        break\n"
+        "    except (OSError, ValueError):\n"
+        "        if time.monotonic() >= deadline:\n"
+        "            raise\n"
+        "        time.sleep(1)\n"
+    )
+    return kube.call("exec", "deployment/api", "--", "python", "-c", command,
+                     namespace=namespace, timeout=32).strip()
+
+
 def run(config, context, state, revision=None, image=None, *, retry=False, cleanup_only=False,
         rollback_revision=None):
     kube = Kubectl(config, context)
@@ -218,7 +242,7 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
                 kube.call("rollout", "restart", "deployment/redis", namespace=ns)
                 rollout(kube, ns, "redis")
             rollout(kube, ns, "api")
-            receipt["redis_ping"] = kube.call("exec", "deployment/redis", "--", "redis-cli", "ping", namespace=ns).strip()
+            receipt["redis_ping"] = wait_for_redis_service(kube, ns)
             if receipt["redis_ping"] != "PONG":
                 raise ValueError("Redis did not answer PING")
             observation, actual = probe(kube, receipt, contract)
@@ -230,6 +254,7 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
                 deployment = manifests(ns, prior["image"], rollback_revision)["items"][-1]
                 kube.call("apply", "-f", "-", namespace=ns, payload=json.dumps(deployment))
                 rollout(kube, ns, "api")
+                wait_for_redis_service(kube, ns)
                 rollback_contract = Contract.read(ROOT / "contracts/kube-rollback.json")
                 rollback_report, previous_image = probe(kube, prior, rollback_contract)
                 receipt["rollback"] = {"image_id": previous_image, "observation": rollback_report}
