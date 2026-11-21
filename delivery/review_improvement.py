@@ -6,7 +6,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 from . import factory_feedback, review_cases, review_experiment, review_judge
-from .review_artifact import publish_new
+from .review_artifact import cached_json, publish_new, retain
 from .upstream_actions import digest
 
 
@@ -87,14 +87,6 @@ def promotion_patch(cases, receipt, guidance, candidate, output):
             "experiment_sha256": digest(receipt), "candidate_sha256": digest(proposed)}
 
 
-def _retain(path, text):
-    try:
-        publish_new(path, text)
-    except FileExistsError:
-        if path.read_text() != text:
-            raise ValueError(f"saved artifact differs from replayed evidence: {path.name}")
-
-
 def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
     """Run one frozen cohort to a terminal decision; retain completed work on retry."""
     if not cases:
@@ -110,16 +102,14 @@ def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
         frozen = Path(temp) / "baseline.md"
         frozen.write_text(baseline)
         candidate = Path(temp) / "candidate.md"
-        if not proposal.exists():
+        def propose():
             record = draft(repo, cases, frozen, candidate, model, timeout)
             if record["status"] == "proposed":
                 record["guidance"] = candidate.read_text()
                 del record["candidate"]
-            try:
-                publish_new(proposal, json.dumps(record, indent=2) + "\n")
-            except FileExistsError:
-                pass  # A concurrent cycle published its complete proposal first.
-        record = json.loads(proposal.read_text())
+            return record
+
+        record = cached_json(proposal, propose)
         if (record["baseline_sha256"] != inputs["baseline_sha256"] or record["model"] != model
                 or record["development_sha256"] != digest([c for c in cases if c["split"] == "development"])):
             raise ValueError("saved proposal does not match the frozen inputs")
@@ -132,7 +122,7 @@ def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
         receipt = review_experiment.evaluate(repo, cases, frozen, candidate, model, timeout, rounds,
                                              cache_dir=run / "trials")
         saved = run / "experiment.json"
-        _retain(saved, json.dumps(receipt, indent=2) + "\n")
+        retain(saved, json.dumps(receipt, indent=2) + "\n")
         result["experiment"] = str(saved)
         if not receipt["passed"]:
             return {**result, "status": "retained_baseline"}
@@ -140,7 +130,7 @@ def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
         patch = Path(temp) / "guidance.patch"
         promotion_patch(cases, receipt, guidance, candidate, patch)
         exported = run / "guidance.patch"
-        _retain(exported, patch.read_text())
+        retain(exported, patch.read_text())
         return {**result, "status": "awaiting_operator_review", "patch": str(exported)}
 
 

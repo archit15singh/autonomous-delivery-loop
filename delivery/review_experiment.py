@@ -1,6 +1,5 @@
 """Paired cold-review experiments against independently labeled PR revisions."""
 from itertools import product
-import json
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -8,7 +7,7 @@ from tempfile import TemporaryDirectory
 from . import factory_feedback as feedback
 from . import review_judge
 from .github import PR_URL
-from .review_artifact import publish_new
+from .review_artifact import cached_json
 from .review_cases import check_remote
 from .review_judge import adjudicate
 from .revisions import FULL_REVISION
@@ -125,17 +124,12 @@ def rescore(cases, receipt):
 
 
 def _trial(repo, subject, prompt, model, timeout, prompt_digest, cache):
-    if cache is not None and cache.exists():
-        report = json.loads(cache.read_text())
-    else:
+    def run_review():
         report = feedback.review(repo, subject, prompt, model, timeout)
         _checked_findings(report, subject, model, prompt_digest)
-        if cache is not None:
-            # Concurrent evaluators converge on the first complete report published.
-            try:
-                publish_new(cache, json.dumps(report))
-            except FileExistsError:
-                report = json.loads(cache.read_text())
+        return report
+
+    report = cached_json(cache, run_review)
     _checked_findings(report, subject, model, prompt_digest)
     return report
 
@@ -147,15 +141,7 @@ def _judge_trial(case, findings, model, timeout, cache):
     if cache is not None:
         # Keep the completed reviewer output reusable if the separate judge is interrupted.
         path = cache.parent / ("judge-" + review_judge.RUBRIC_SHA256) / cache.name
-    if path is not None and path.exists():
-        judgment = json.loads(path.read_text())
-    else:
-        judgment = adjudicate(case, findings, model, timeout)
-        if path is not None:
-            try:
-                publish_new(path, json.dumps(judgment))
-            except FileExistsError:
-                judgment = json.loads(path.read_text())
+    judgment = cached_json(path, lambda: adjudicate(case, findings, model, timeout))
     review_judge.validate(case, findings, model, judgment)
     return judgment
 
