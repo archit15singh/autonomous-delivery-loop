@@ -8,6 +8,7 @@ from . import factory_learning as learning
 from . import factory_publish as publication
 from .factory_definition import definition
 from .factory_outcomes import outcome_report
+from . import factory_issue as issue_delivery
 from .factory_lifecycle import github_events, read_analysis_run, revert_events
 from .factory_replay import replay_change
 from . import factory_workflow as engine
@@ -70,6 +71,17 @@ def register(commands):
     intake = actions.add_parser("intake")
     intake.add_argument("issue", type=Path)
     intake.add_argument("--github-issue")
+    approve_issue = actions.add_parser("approve-issue")
+    approve_issue.add_argument("issue")
+    approve_issue.add_argument("spec", type=Path)
+    issue_run = actions.add_parser("issue-run")
+    issue_run.add_argument("issue")
+    issue_run.add_argument("spec", type=Path)
+    issue_run.add_argument("--approval", type=Path)
+    issue_run.add_argument("--ledger", type=Path, required=True)
+    issue_run.add_argument("--receipts", type=Path, required=True)
+    issue_run.add_argument("--model", default="gpt-6.2-sol")
+    issue_run.add_argument("--timeout", type=int, choices=range(1, 601), default=180, metavar="SECONDS")
     review = actions.add_parser("handoff")
     review.add_argument("pr", type=Path)
     review.add_argument("findings", type=Path)
@@ -183,6 +195,11 @@ def dispatch(args):
     if op == "intake":
         facts = read(args.issue)
         return (engine.check_issue(args.github_issue, facts) if args.github_issue else engine.intake(facts)), 0
+    if op == "approve-issue":
+        return issue_delivery.approve(args.issue, args.spec), 0
+    if op == "issue-run":
+        return issue_delivery.run_issue(Path.cwd(), args.issue, args.spec, args.approval,
+                                        args.ledger, args.receipts, args.model, args.timeout), 0
     if op == "handoff":
         return engine.review_handoff(read(args.pr), read(args.findings)), 0
     if op == "adoption":

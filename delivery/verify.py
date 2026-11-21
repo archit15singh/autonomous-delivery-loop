@@ -33,13 +33,14 @@ class Contract:
     digest: str
     impact: ImpactPolicy | None = None
     acceptance: dict | None = None
+    technical_brief: str | None = None
 
     @classmethod
     def read(cls, path):
         raw = path.read_bytes()
         data = json.loads(raw)
         fields = {"version", "outcome", "allowed_changes", "max_repairs", "probes"}
-        if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact", "acceptance"}
+        if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact", "acceptance", "technical_brief", "reproduction"}
                 or type(data["version"]) is not int or data["version"] != 1):
             raise ValueError("expected a version 1 outcome contract")
         repairs = data["max_repairs"]
@@ -72,8 +73,11 @@ class Contract:
             or any(not isinstance(value, str) or not value.strip() for value in acceptance.values())
         ):
             raise ValueError("acceptance requires expected, control, and boundary examples")
+        for key in ("technical_brief", "reproduction"):
+            if key in data and (not isinstance(data[key], str) or not data[key].strip()):
+                raise ValueError(f"{key} must be nonempty text")
         return cls(data["outcome"], tuple(paths), repairs, tuple(probes), sha256(raw).hexdigest(), impact,
-                   acceptance)
+                   acceptance, data.get("technical_brief"))
 
 
 def canonical_json(value):

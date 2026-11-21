@@ -50,6 +50,7 @@ def main():
     run.add_argument("--repairs-used", type=int, choices=range(6), default=0)
     run.add_argument("--isolate-candidate", action="store_true")
     run.add_argument("--impact-evidence", type=Path)
+    run.add_argument("--sandbox-local", action="store_true")
     agent = commands.add_parser("propose")
     agent.add_argument("--contract", type=Path, required=True)
     agent.add_argument("--output", type=Path, required=True)
@@ -233,7 +234,7 @@ def main():
     impact = json.loads(args.impact_evidence.read_text()) if args.impact_evidence else None
     report = stage(args.contract, args.bundle / "pilot.tar", args.bundle / "ci.json",
                    args.revision, args.deployment, args.repairs_used, args.isolate_candidate,
-                   impact_evidence=impact)
+                   impact_evidence=impact, sandbox_local=args.sandbox_local)
     write(args.output, report)
     print(f"{report['verdict']} ({report['reason']})", file=sys.stderr)
     return 0 if report["verdict"] == "verified" else 1
