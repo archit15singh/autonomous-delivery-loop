@@ -1,0 +1,11 @@
+browser-after.log
+Test timeout of 60000ms exceeded.
+Error: locator.click: Test timeout of 60000ms exceeded.
+- waiting for getByTestId('settings-screen').getByRole('group', { name: 'Interface layout', exact: true }).getByText('Side tabs', { exact: true })
+1 failed
+22 passed (1.3m)
+browser-base-control.log
+Test timeout of 60000ms exceeded.
+Error: locator.click: Test timeout of 60000ms exceeded.
+- waiting for getByTestId('settings-screen').getByRole('group', { name: 'Interface layout', exact: true }).getByText('Side tabs', { exact: true })
+1 failed

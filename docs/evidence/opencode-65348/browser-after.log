@@ -1,0 +1,163 @@
+$ PLAYWRIGHT_BUILD=1 playwright test --config .adl-playwright.config.ts --output "./.adl/campaign-33/opencode-65348/browser-final" --workers "1" --reporter line "e2e/regression/home.spec.ts" -g "no native Array.toSorted"
+[WebServer] $ vite build
+
+[WebServer] (node:50543) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+[WebServer]   - import "./vite.icons" without a file extension (vite.config.ts:5:23). Add the file extension
+[WebServer]   - import "./vite.pwa" without a file extension (vite.config.ts:6:31). Add the file extension
+[WebServer] Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+[WebServer] Found 12 warnings while optimizing generated CSS:
+[WebServer]
+[WebServer] Issue #1:
+[WebServer] │   }
+[WebServer] │   @supports selector(:host-context(*)) {
+[WebServer] │     [data-slot="session-timeline-scroll"]::selection, :host::selection, :root::highlight(timeline-quote-source), :host::highlight(timeline-quote-source) {
+[WebServer] ┆                                                                                          ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--timeline-quote-background);
+[WebServer] │       color: currentColor;
+[WebServer]
+[WebServer] Issue #2:
+[WebServer] │   }
+[WebServer] │   @supports selector(:host-context(*)) {
+[WebServer] │     [data-slot="session-timeline-scroll"]::selection, :host::selection, :root::highlight(timeline-quote-source), :host::highlight(timeline-quote-source) {
+[WebServer] ┆                                                                                                                                   ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--timeline-quote-background);
+[WebServer] │       color: currentColor;
+[WebServer]
+[WebServer] Issue #3:
+[WebServer] │   }
+[WebServer] │   @supports not selector(:host-context(*)) {
+[WebServer] │     [data-slot="session-timeline-scroll"] ::selection, :host ::selection, ::highlight(timeline-quote-source) {
+[WebServer] ┆                                                                                       ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--timeline-quote-background);
+[WebServer] │       color: currentColor;
+[WebServer]
+[WebServer] Issue #4:
+[WebServer] │   .timeline-quote-highlight-host {
+[WebServer] │     isolation: isolate;
+[WebServer] │     &::highlight(timeline-quote-source) {
+[WebServer] ┆                  ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: transparent;
+[WebServer] │     }
+[WebServer]
+[WebServer] Issue #5:
+[WebServer] │     }
+[WebServer] │     @supports selector(:host-context(*)) {
+[WebServer] │       [data-slot="tool-error-card-content"]::selection, [data-slot="tool-error-card-content"]::highlight(timeline-quote-source), [data-slot="tool-error-card-content"]::highlight(timeline-quote-source-active) {
+[WebServer] ┆                                                                                                          ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │         background: var(--v2-state-bg-danger);
+[WebServer] │         color: var(--v2-text-text-base);
+[WebServer]
+[WebServer] Issue #6:
+[WebServer] │     }
+[WebServer] │     @supports selector(:host-context(*)) {
+[WebServer] │       [data-slot="tool-error-card-content"]::selection, [data-slot="tool-error-card-content"]::highlight(timeline-quote-source), [data-slot="tool-error-card-content"]::highlight(timeline-quote-source-active) {
+[WebServer] ┆                                                                                                                                                                                   ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │         background: var(--v2-state-bg-danger);
+[WebServer] │         color: var(--v2-text-text-base);
+[WebServer]
+[WebServer] Issue #7:
+[WebServer] │     }
+[WebServer] │     @supports not selector(:host-context(*)) {
+[WebServer] │       [data-slot="tool-error-card-content"] :where(*)::selection, [data-slot="tool-error-card-content"] :where(*)::highlight(timeline-quote-source), [data-slot="tool-error-card-content"] :where(*)::highlight(timeline-quote-source-active) {
+[WebServer] ┆                                                                                                                              ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │         background: var(--v2-state-bg-danger);
+[WebServer] │         color: var(--v2-text-text-base);
+[WebServer]
+[WebServer] Issue #8:
+[WebServer] │     }
+[WebServer] │     @supports not selector(:host-context(*)) {
+[WebServer] │       [data-slot="tool-error-card-content"] :where(*)::selection, [data-slot="tool-error-card-content"] :where(*)::highlight(timeline-quote-source), [data-slot="tool-error-card-content"] :where(*)::highlight(timeline-quote-source-active) {
+[WebServer] ┆                                                                                                                                                                                                                 ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │         background: var(--v2-state-bg-danger);
+[WebServer] │         color: var(--v2-text-text-base);
+[WebServer]
+[WebServer] Issue #9:
+[WebServer] │   }
+[WebServer] │   @supports selector(:host-context(*)) {
+[WebServer] │     :root::highlight(timeline-search-hit) {
+[WebServer] ┆                      ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--v2-icon-icon-accent);
+[WebServer] │       @supports (color: color-mix(in lab, red, red)) {
+[WebServer]
+[WebServer] Issue #10:
+[WebServer] │       }
+[WebServer] │     }
+[WebServer] │     :root::highlight(timeline-search-hit-active) {
+[WebServer] ┆                      ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--v2-icon-icon-accent);
+[WebServer] │       color: var(--v2-background-bg-deep);
+[WebServer]
+[WebServer] Issue #11:
+[WebServer] │   }
+[WebServer] │   @supports not selector(:host-context(*)) {
+[WebServer] │     ::highlight(timeline-search-hit) {
+[WebServer] ┆                 ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--v2-icon-icon-accent);
+[WebServer] │       @supports (color: color-mix(in lab, red, red)) {
+[WebServer]
+[WebServer] Issue #12:
+[WebServer] │       }
+[WebServer] │     }
+[WebServer] │     ::highlight(timeline-search-hit-active) {
+[WebServer] ┆                 ^-- 'highlight' is not recognized as a valid pseudo-element. Did you mean ':highlight' (pseudo-class) or is this a typo?
+[WebServer] ┆
+[WebServer] │       background-color: var(--v2-icon-icon-accent);
+[WebServer] │       color: var(--v2-background-bg-deep);
+[WebServer]
+
+[WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] ../plugin/src/gui/file.ts is dynamically imported by src/runtime/plugin/module.ts but also statically imported by ../gui-plugins/src/file/artifact-view.tsx, ../gui-plugins/src/file/renderer.tsx, ../gui-plugins/src/microsoft-office/renderer.tsx, ../gui-plugins/src/review/panel.tsx, dynamic import will not move module into another chunk.
+[WebServer]
+
+[WebServer] [plugin builtin:vite-reporter]
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] ../plugin/src/gui/browser.ts is dynamically imported by src/runtime/plugin/module.ts but also statically imported by ../gui-plugins/src/browser/renderer.tsx, ../gui-plugins/src/file/renderer.tsx, ../gui-plugins/src/sources/panel.tsx, dynamic import will not move module into another chunk.
+[WebServer]
+[WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] ../plugin/src/gui/review.ts is dynamically imported by src/runtime/plugin/module.ts but also statically imported by ../gui-plugins/src/details/location-menu.tsx, ../gui-plugins/src/file/renderer.tsx, ../gui-plugins/src/review/renderer.tsx, dynamic import will not move module into another chunk.
+[WebServer]
+[WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] ../schema/src/rpc.ts is dynamically imported by src/runtime/plugin/module.ts but also statically imported by ../plugin-browser/src/rpc.ts, ../plugin/src/rpc.ts, ../schema/src/goal.ts, ../schema/src/rpc.ts, dynamic import will not move module into another chunk.
+[WebServer]
+
+[WebServer] [PLUGIN_TIMINGS] Your build spent 93% of 4.8s inside plugin hooks (4.5s).
+[WebServer] Measured inside the callback, so queue time is excluded and time the callback itself awaited is not:
+[WebServer]   - solid transform (38%, 1.8s, 5459 calls)
+[WebServer]   - vite:worker load (28%, 1.3s, 1 call)
+[WebServer] Those rows are 66% of the build; the rest of the 93% is below.
+[WebServer] Not measurable — 4 hooks whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+[WebServer]   - vite:asset load (1162 calls)
+[WebServer]   - vite:css transform (93 calls)
+[WebServer]   - @tailwindcss/vite:generate:build transform (93 calls)
+[WebServer]   … and 1 more
+[WebServer] See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+[WebServer]
+
+
+Running 1 test using 1 worker
+
+(node:50545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:50545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/1] [brave] › e2e/regression/home.spec.ts:31:1 › Home loads when the browser has no native Array.toSorted
+  1 passed (8.6s)

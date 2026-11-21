@@ -1,0 +1,12 @@
+bun test v1.4.4 (38afee6c8)
+
+src/runtime/polyfills.test.ts:
+(pass) Array.toSorted copies, sorts and reads sparse positions as undefined [0.25ms]
+(pass) Map.groupBy keeps first-seen key order and passes the index [0.13ms]
+(pass) Promise.withResolvers settles from outside [0.25ms]
+(pass) Promise.try runs synchronously and isolates a throw [0.11ms]
+
+ 4 pass
+ 0 fail
+ 12 expect() calls
+Ran 4 tests across 1 file. [54.00ms]
