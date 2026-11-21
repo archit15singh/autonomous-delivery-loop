@@ -133,3 +133,11 @@ benchmark with a selected cohort and billed `cost_usd` for each trial. The
 baseline remains the recommended route while data is incomplete, independent
 verification fails, or two paired rounds do not each clear the cost gate
 without regressions in latency or interventions. The report is advisory.
+
+`factory assess-process FACTS.json` converts reviewed observations into the
+assessment rubric. The source ties to a full `head` and an `evidence` reference.
+An optional `skills` record declares `complete`, `required`, and `loaded`.
+An optional `tests` record declares `reviewed` and a list of confirmed
+`redundant` tests. An optional `retries` record declares `complete` and
+`repeated_without_change`. Facts can also enter a run directly as the
+`process` receipt. Unobserved dimensions remain unknown.

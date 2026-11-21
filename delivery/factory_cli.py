@@ -46,6 +46,8 @@ def register(commands):
     run = actions.add_parser("record-run")
     run.add_argument("spec", type=Path)
     run.add_argument("--runs", type=Path, required=True)
+    assess = actions.add_parser("assess-process")
+    assess.add_argument("facts", type=Path)
     measure = actions.add_parser("measure-runs")
     measure.add_argument("--runs", type=Path, required=True)
     mine = actions.add_parser("mine-runs")
@@ -135,6 +137,8 @@ def dispatch(args):
         return evidence.portfolio(read(args.ci), read(args.ledger), attachments), 0
     if op == "record-run":
         return learning.run_record(args.spec, args.runs), 0
+    if op == "assess-process":
+        return learning.assess_process(read(args.facts)), 0
     if op == "measure-runs":
         return learning.measure(args.runs), 0
     if op == "mine-runs":

@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from delivery.factory_evidence import browser_evidence, portfolio
-from delivery.factory_learning import measure, mine, pr_evidence, run_record
+from delivery.factory_learning import assess_process, measure, mine, pr_evidence, run_record
 from delivery.factory_benchmark import cost_route
 
 
@@ -89,3 +89,12 @@ class LearningTests(unittest.TestCase):
             self.assertEqual(result["verified_changes"], 1)
             self.assertEqual(result["metrics"]["wall_seconds"]["per_verified_change"], 60)
             self.assertIsNone(result["metrics"]["cost_usd"]["per_verified_change"])
+
+
+    def test_process_assessment_does_not_infer_missing_evidence(self):
+        known = assess_process({"head": "a" * 40, "evidence": "reviewed trace",
+                                "skills": {"complete": True, "required": ["review"], "loaded": []},
+                                "retries": {"complete": True, "repeated_without_change": 1}})
+        result = {key: value["state"] for key, value in known["dimensions"].items()}
+        self.assertEqual(result, {"skill_adherence": "failed", "retry_efficiency": "failed",
+                                  "test_redundancy": "unknown"})

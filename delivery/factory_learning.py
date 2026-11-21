@@ -26,6 +26,40 @@ def read_receipt(path):
     return json.loads(contents), {"file": path.name, "sha256": sha256(contents).hexdigest()}
 
 
+def assess_process(facts):
+    head, source = facts["head"], facts["evidence"]
+    if not FULL_REVISION.fullmatch(head) or not isinstance(source, str) or not source.strip():
+        raise ValueError("process evidence needs an exact head and a source")
+    dimensions = {key: {"state": "unknown", "reason": "missing_observation", "evidence": source}
+                  for key in sorted(ASSESSMENTS)}
+
+    def score(dimension, failed, failure, success):
+        dimensions[dimension] = {"state": "failed" if failed else "passed",
+                                 "reason": failure if failed else success, "evidence": source}
+
+    skills = facts.get("skills", {})
+    if skills.get("complete") is True:
+        required, loaded = skills["required"], skills["loaded"]
+        if not all(isinstance(values, list) and all(isinstance(item, str) and item for item in values)
+                   for values in (required, loaded)):
+            raise ValueError("skill inventory needs lists of nonempty skill IDs")
+        score("skill_adherence", bool(set(required) - set(loaded)),
+              "required_skill_missing", "required_skills_loaded")
+    tests = facts.get("tests", {})
+    if tests.get("reviewed") is True:
+        redundant = tests["redundant"]
+        if not isinstance(redundant, list) or not all(isinstance(item, str) and item for item in redundant):
+            raise ValueError("test review needs a list of confirmed redundant tests")
+        score("test_redundancy", bool(redundant), "redundant_test_confirmed", "no_redundancy_observed")
+    retries = facts.get("retries", {})
+    if retries.get("complete") is True:
+        repeated = retries["repeated_without_change"]
+        if type(repeated) is not int or repeated < 0:
+            raise ValueError("retry observation needs a nonnegative count")
+        score("retry_efficiency", repeated > 0, "repeated_unchanged_failure", "no_unchanged_retries")
+    return {"head": head, "dimensions": dimensions}
+
+
 def run_record(spec, directory):
     """Use operator-owned receipt paths. Store hashes and observations without copying raw traces."""
     request, source = read_receipt(spec)
@@ -44,6 +78,8 @@ def run_record(spec, directory):
     outcome = {}
     retries = {"product": 0, "infrastructure": 0}
     paths = request.get("receipts", {})
+    if "assessment" in paths and "process" in paths:
+        raise ValueError("choose scored process facts or a reviewed assessment")
     for kind, filename in paths.items():
         path = spec.parent / filename
         data, receipts[kind] = read_receipt(path)
@@ -74,7 +110,9 @@ def run_record(spec, directory):
         elif kind == "recipe":
             if data["revision"] != request.get("base", head):
                 raise ValueError("Codex recipe belongs to another starting revision")
-        elif kind == "assessment":
+        elif kind in {"assessment", "process"}:
+            if kind == "process":
+                data = assess_process(data)
             if data["head"] != head:
                 raise ValueError("assessment belongs to another revision")
             for dimension, assessment in data["dimensions"].items():
@@ -83,7 +121,8 @@ def run_record(spec, directory):
                     raise ValueError("assessment requires a known dimension, reason and evidence")
                 if assessment["state"] == "failed":
                     findings[(dimension, assessment["reason"])] = "factory"
-            outcome[kind] = {key: item["state"] for key, item in data["dimensions"].items()}
+            outcome.setdefault("assessment", {}).update({key: item["state"]
+                                                         for key, item in data["dimensions"].items()})
         else:
             raise ValueError(f"unsupported receipt kind: {kind}")
 
