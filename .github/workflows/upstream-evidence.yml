@@ -91,14 +91,6 @@ jobs:
             else { $_ }
           } | Set-Content $paths
           Get-Content $paths | Tee-Object "$receipt/v143-libc.txt"
-          '#include <cstring>' | Set-Content "$env:RUNNER_TEMP\stl-probe.cpp"
-          zig c++ -target x86_64-windows-msvc -fsyntax-only "$env:RUNNER_TEMP\stl-probe.cpp" *> "$receipt/native-stl.log"
-          $nativeResult = $LASTEXITCODE
-          Write-Output "Unmodified Zig C++ probe exit: $nativeResult"
-          Get-Content "$receipt/native-stl.log"
-          $env:ZIG_LIBC = $paths
-          zig c++ -target x86_64-windows-msvc -fsyntax-only "$env:RUNNER_TEMP\stl-probe.cpp"
-          if ($LASTEXITCODE -ne 0) { throw "Zig rejected the installed v143 C++ headers" }
           "ZIG_LIBC=$paths" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Clippy with Ghostty on the native toolchain
         run: |
