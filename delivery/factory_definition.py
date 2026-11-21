@@ -31,3 +31,12 @@ def definition(repo, revision):
 def check_definition(item, revision):
     if item != definition(Path(__file__).resolve().parents[1], revision):
         raise ValueError("factory definition differs from its revision or content digest")
+
+
+def running_definition(repo, expected=None):
+    revision = git("rev-parse", "HEAD", cwd=repo).decode().strip()
+    if (expected and revision != expected) or git(
+        "status", "--porcelain", "--untracked-files=all", "--", *POLICY_PATHS, cwd=repo
+    ):
+        raise ValueError("run indexing requires an unchanged committed factory definition")
+    return definition(repo, revision)

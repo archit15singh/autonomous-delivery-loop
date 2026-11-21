@@ -15,6 +15,14 @@ def metric_coverage(runs):
     return coverage
 
 
+def summarize_verified(rows):
+    result = {}
+    for metric in ("wall_seconds", "cost_usd"):
+        totals = [row["metrics"][metric]["total"] for row in rows]
+        result[metric] = round(sum(totals) / len(totals), 3) if totals and None not in totals else None
+    return result
+
+
 def timestamp(value):
     time = datetime.fromisoformat(value)
     if time.utcoffset() is None:
@@ -72,8 +80,11 @@ def outcome_report(directory, prs, lifecycle, observations, production_environme
                           "failed" if newest and newest["verdict"] == "failed" else "inconclusive",
                           "metrics": metric_coverage(attached_runs)})
     return {"upstream": {"merged": len(upstream), "verified_merges": sum(row["readiness_verified"] for row in upstream),
+                         "per_verified_merge": summarize_verified([row for row in upstream if row["readiness_verified"]]),
                          "changes": upstream},
             "owned_production": {"environment": production_environment,
                                  "observed_environment": lifecycle["environment"],
                                  "verdicts": dict(Counter(row["runtime_verdict"] for row in owned)),
+                                 "per_verified_deployment": summarize_verified(
+                                     [row for row in owned if row["runtime_verdict"] == "verified"]),
                                  "deployments": owned}}
