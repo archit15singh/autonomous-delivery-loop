@@ -64,7 +64,9 @@ After an interruption, rerun with `--socket` and `--state` set to the original
 values and pass `--cleanup-only`. This reconciles the existing project without
 deploying it again. The receipt still records whether verification completed.
 The runner requires 512 MiB of free host disk as a minimum. The Docker engine
-also needs enough space for the two images and build cache.
+also needs enough space for the images and build cache. Use Docker Engine 28
+or later for the isolated bridge. The API and Redis share that bridge. A
+separate probe relay publishes only the three verification routes on loopback.
 
 The main-owned **Trusted candidate** workflow runs this check after the reviewed
 HTTP contract passes. Its `trusted-compose-<run>-<attempt>` artifact carries the
