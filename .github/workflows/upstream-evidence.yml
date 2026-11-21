@@ -1,122 +1,91 @@
-name: Upstream contribution evidence
+name: Herdr Core Windows compatibility evidence
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/upstream-evidence.yml'
-      - 'verification/pvlib-1606.sh'
-      - 'verification/act-upstream.sh'
-      - 'verification/herdr-core-302.sh'
-      - 'verification/herdr-core-305.sh'
-      - 'contracts/upstream/**'
-      - 'delivery/**'
   workflow_dispatch:
-
-defaults:
-  run:
-    shell: bash
 
 permissions:
   contents: read
 
-jobs:
-  pvlib-1606:
-    name: Reproduce pvlib collection failure and verify fix
-    runs-on: ubuntu-24.04
-    timeout-minutes: 7
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.9.25'
-      - run: bash verification/pvlib-1606.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: pvlib-reproduction
-          path: .adl/pvlib-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
+env:
+  CARGO_PROFILE_DEV_DEBUG: '1'
+  CARGO_PROFILE_TEST_DEBUG: '1'
+  HC_TEST_WATCHDOG_S: '120'
+  HC_TEST_SLOW_RUNNER: '1'
 
-  act:
-    name: Replay act #${{ matrix.issue }}
+jobs:
+  core-windows:
+    name: Native Windows 2022 replay (${{ matrix.lane }})
+    runs-on: windows-2022
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { issue: 6236, artifact: act-docker-hub-reproduction }
-          - { issue: 2517, artifact: act-composite-step-reproduction }
-          - { issue: 2708, artifact: act-empty-environment-reproduction }
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+          - {lane: base, repo: herdrdev/herdr-core, sha: c7517808d64f06609e4ecf0db1757005373cc3a3}
+          - {lane: pr-352, repo: archit15singh/herdr-core, sha: 4e15eb4b5dab149ebf746e887e48943beafe4401}
+          - {lane: pr-353, repo: archit15singh/herdr-core, sha: 99f82453f5c45bce03f82fc535719454a3aad5d7}
+          - {lane: pr-356, repo: archit15singh/herdr-core, sha: dc09f059bfa81aca8a9866d47c300199009c7c33}
+    defaults:
+      run:
+        working-directory: core
+        shell: pwsh
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          repository: ${{ matrix.repo }}
+          ref: ${{ matrix.sha }}
+          path: core
+          submodules: true
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
-          go-version: '1.26.11'
-          cache: false
-      - run: bash verification/act-upstream.sh "contracts/upstream/act-$ISSUE.json" ".adl/act-$ISSUE-evidence"
+          toolchain: 1.95.0
+          components: clippy
+          targets: x86_64-pc-windows-msvc
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+          use-cache: false
+      - name: Verify revisions and compiler installation
         env:
-          ISSUE: ${{ matrix.issue }}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+          EXPECTED: ${{ matrix.sha }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force '../.adl/herdr-core-windows' | Out-Null
+          $observed = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $observed -ne $env:EXPECTED) {
+            throw "Unexpected source revision $observed"
+          }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $installation) {
+            throw "Missing Visual Studio C++ build tools"
+          }
+          $toolsets = (Get-ChildItem "$installation\VC\Tools\MSVC" -Directory).Name -join ", "
+          @(
+            "Source: $observed"
+            "Image: $env:ImageOS $env:ImageVersion"
+            "Visual Studio: $installation"
+            "Installed MSVC toolsets: $toolsets"
+            (git submodule status)
+            (rustc --version --verbose)
+            "Zig: $(zig version)"
+          ) | Tee-Object '../.adl/herdr-core-windows/versions.txt'
+      - name: Clippy with Ghostty on the native toolchain
+        run: |
+          cargo clippy --locked --target x86_64-pc-windows-msvc --all-targets -- -D warnings 2>&1 |
+            Tee-Object '../.adl/herdr-core-windows/clippy.log'
+          exit $LASTEXITCODE
+      - name: Install the project's pinned ConPTY
+        run: ./scripts/fetch-conpty.ps1 -Dest target/x86_64-pc-windows-msvc/debug
+      - name: Run the upstream Windows tests
+        run: |
+          cargo test --locked --no-fail-fast --target x86_64-pc-windows-msvc -- --test-threads 2 2>&1 |
+            Tee-Object '../.adl/herdr-core-windows/tests.log'
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
-          name: ${{ matrix.artifact }}
-          path: .adl/act-${{ matrix.issue }}-evidence
+          name: herdr-core-windows-${{ matrix.lane }}
+          path: .adl/herdr-core-windows
           include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-302:
-    name: Replay the sweep test with divergent Linux clocks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    env:
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.16.0
-      - name: Run the exact upstream test with a shifted boot clock
-        run: bash verification/herdr-core-302.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: herdr-core-clock-reproduction
-          path: .adl/herdr-core-302-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-305:
-    name: Compare relay reconnect on two live cores
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    env:
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.16.0
-      - run: bash verification/herdr-core-305.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: reconnect-scrollback-evidence
-          path: .adl/herdr-core-305-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
