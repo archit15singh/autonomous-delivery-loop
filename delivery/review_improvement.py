@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from . import factory_feedback, review_cases, review_experiment, review_judge
 from .review_artifact import cached_json, publish_new, retain
+from .review_calibration import calibrate
 from .upstream_actions import digest
 
 
@@ -139,6 +140,9 @@ def register(actions):
     steps = loop.add_subparsers(dest="review_step", required=True)
     cycle_cmd = steps.add_parser("run", help="propose, compare and export a passing patch in one resumable run")
     cycle_cmd.add_argument("--work-dir", type=Path, default=Path(".adl/review-loop"))
+    calibration = steps.add_parser("calibrate", help="check the production judge on labeled review findings")
+    calibration.add_argument("--dataset", type=Path, default=Path("evals/review-judge.json"))
+    calibration.add_argument("--rounds", type=int, choices=range(1, 11), default=2)
     harvest = steps.add_parser("harvest", help="freeze a GitHub review as a labeled case")
     harvest.add_argument("pr")
     harvest.add_argument("review_id", type=int)
@@ -150,7 +154,7 @@ def register(actions):
         step.add_argument("--cases", required=True, type=Path)
     for step in (harvest, proposal, evaluation, cycle_cmd):
         step.add_argument("--repo", type=Path, default=Path("."))
-    for step in (proposal, evaluation, cycle_cmd):
+    for step in (proposal, evaluation, cycle_cmd, calibration):
         step.add_argument("--model", default="gpt-6.2-sol")
         step.add_argument("--timeout", type=int, choices=range(1, 601), default=180, metavar="SECONDS")
     for step in (proposal, evaluation, promotion):
@@ -163,6 +167,9 @@ def register(actions):
 
 
 def dispatch(args):
+    if args.review_step == "calibrate":
+        result = calibrate(json.loads(args.dataset.read_text()), args.model, args.timeout, args.rounds)
+        return result, int(not result["passed"])
     if args.review_step == "harvest":
         return review_cases.harvest(args.repo, args.pr, args.review_id, args.split, args.cases), 0
     cases = review_cases.load_cases(args.cases)
