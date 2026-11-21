@@ -64,8 +64,12 @@ observe = pilot.Compose.observe
 
 
 def lose_redis(stack, contract, image):
-    stack.compose("stop", "redis")
-    return observe(stack, contract, image)
+    # Keep the endpoint registered so the drill isolates Redis I/O from Docker DNS.
+    stack.compose("pause", "redis")
+    try:
+        return observe(stack, contract, image)
+    finally:
+        stack.compose("unpause", "redis")
 
 
 with patch.object(pilot.Compose, "observe", lose_redis):
