@@ -13,6 +13,7 @@ export KUBECONFIG="$RUNNER_TEMP/argo-4837-kubeconfig"
 cleanup() {
   if [[ -n "${controller_pid:-}" ]]; then kill "$controller_pid" || true; fi
   kubectl -n "$namespace" get events -o json > "$output/events.json" || true
+  kubectl -n "$namespace" get rollout,ingress,pod -o yaml > "$output/objects.yaml" || true
   kind delete cluster --name "$name"
 }
 trap cleanup EXIT
@@ -21,6 +22,7 @@ kind create cluster --name "$name" --wait 120s
 kubectl version
 kubectl apply --server-side -k "$source_dir/manifests/crds"
 kubectl wait --for=condition=Established --timeout=45s crd/rollouts.argoproj.io
+kubectl create namespace argo-rollouts
 kubectl create namespace "$namespace"
 for manifest in services ingress rollout; do
   kubectl -n "$namespace" apply -f "$source_dir/docs/getting-started/nginx/$manifest.yaml"
