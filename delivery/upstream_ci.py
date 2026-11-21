@@ -89,6 +89,8 @@ query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
 """
 
 REPO_AFFILIATION = {"OWNER", "MEMBER", "COLLABORATOR"}
+# The OpenHands automation uses a GitHub User account for SDK reviews.
+SERVICE_REVIEWERS = {"all-hands-bot"}
 
 
 def review_participant(item, pr_author):
@@ -96,7 +98,8 @@ def review_participant(item, pr_author):
     login = author.get("login")
     if not login:
         return "unknown"
-    if author.get("__typename") == "Bot" or login.lower().endswith("[bot]"):
+    if (author.get("__typename") == "Bot" or login.lower().endswith("[bot]")
+        or login.lower() in SERVICE_REVIEWERS):
         return "bot"
     return "author" if login == pr_author else "human"
 
@@ -169,13 +172,22 @@ def inspect_reviews(repo, number, pr, record):
 def inspect_pr(url, repo, number, *, review=False):
     fields = "headRefOid,headRefName,headRepository,baseRefOid,state,isDraft,statusCheckRollup"
     if review:
-        fields += ",reviewDecision,mergeStateStatus,mergeable,mergedAt"
+        fields += ",reviewDecision,mergeStateStatus,mergeable,mergedAt,baseRefName,closingIssuesReferences"
+        fields += ",mergedBy,mergeCommit"
     pr = gh_json("pr", "view", str(number), "--repo", repo, "--json", fields)
     record = {"url": url, "head": pr["headRefOid"], "base": pr["baseRefOid"],
               "state": pr["state"], "draft": pr["isDraft"]}
+    if review:
+        record.update(base_branch=pr["baseRefName"], linked_issues=[
+            issue["url"] for issue in pr["closingIssuesReferences"]
+        ])
     if pr["state"] != "OPEN":
-        return {**record, "action": "closed", "signals": [],
-                **({"merged_at": pr["mergedAt"]} if review else {})}
+        if review:
+            record["merged_at"] = pr["mergedAt"]
+            if pr["state"] == "MERGED":
+                record.update(merged_by=(pr["mergedBy"] or {}).get("login"),
+                              merge_commit=(pr["mergeCommit"] or {}).get("oid"))
+        return {**record, "action": "closed", "signals": []}
     if not re.fullmatch(r"[a-f0-9]{40}", record["head"]):
         raise ValueError("GitHub did not return a full PR head")
     rollup = [
