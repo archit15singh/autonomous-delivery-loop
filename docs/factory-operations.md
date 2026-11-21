@@ -18,12 +18,12 @@ mkdir -p "$run"
 python3 -m delivery propose --contract contracts/named-greeting.json \
   --events "$run/writer.jsonl" --output "$run/candidate.patch" \
   --recipe-output "$run/recipe.json" --subagents 1
-python3 -m delivery.codex_usage "$run/writer.jsonl"
+python3 -m delivery.codex_usage "$run/writer.jsonl" --require-parent-capture
 ```
 
 `--subagents` permits zero to four concurrent local child agents at depth one.
-The default is zero. For owned issues, pass the same limit when planning,
-approving and running the issue. Changing the limit changes the approval identity.
+The default is zero. For owned issues, pass the same limit to `factory approve-issue`
+and `factory issue-run`. Changing the limit changes the approval identity.
 The parent owns the patch and the factory checks every changed path. A successful
 writer exit alone does not verify the product.
 

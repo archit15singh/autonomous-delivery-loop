@@ -4,8 +4,8 @@ from hashlib import sha256
 from pathlib import Path
 import subprocess
 
-from .patch_checkout import collect_patch, patch_checkout
-from .local_codex import require_success, check_local_runner, check_subagents, run_codex
+from .patch_checkout import write_patch
+from .local_codex import check_local_runner, check_subagents
 from .revisions import FULL_REVISION, check_candidate, check_scope, git, paths_between
 from .verify import advice
 
@@ -57,9 +57,6 @@ def propose(contract, output, events, model, timeout, receipt=None, *, recipe_ou
             "subagents": subagents,
             "output": "scope-checked patch and JSONL events",
         }, indent=2) + "\n")
-    with patch_checkout(root, base) as checkout:
-        result = run_codex(cwd=checkout, prompt=prompt, model=model, timeout=timeout,
-                           events=events, role="writer", subagents=subagents)
-        require_success(result, timeout, events)
-        output.write_bytes(collect_patch(checkout, base, contract.allowed_changes))
+    output.write_bytes(write_patch(root, base, prompt, contract.allowed_changes, events=events,
+                                   model=model, timeout=timeout, subagents=subagents))
     return base, attempt

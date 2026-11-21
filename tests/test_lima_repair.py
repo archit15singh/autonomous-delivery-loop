@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from delivery import lima_repair
+from delivery import lima_repair, patch_checkout
 
 
 class LimaRepairTests(unittest.TestCase):
@@ -17,7 +17,9 @@ class LimaRepairTests(unittest.TestCase):
             subprocess.run(["git", "add", "."], cwd=root, check=True)
             subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@localhost",
                             "commit", "-qm", "base"], cwd=root, check=True)
-            revision = lima_repair.git("rev-parse", "HEAD", cwd=root).decode().strip()
+            revision = lima_repair.git("-c", "user.name=Test", "-c", "user.email=test@localhost",
+                                       "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "unreferenced",
+                                       cwd=root).decode().strip()
 
             def write(*, cwd, prompt, role, **kwargs):
                 self.assertEqual(role, "writer")
@@ -25,11 +27,13 @@ class LimaRepairTests(unittest.TestCase):
                 (cwd / prompt).write_text("after\n")
                 return 0
 
-            with patch.object(lima_repair, "ROOT", root), patch.object(lima_repair, "run_codex", write):
-                diff = lima_repair.local_patch(root, revision, "service.py", None, 5, ["service.py"])
+            with patch.object(patch_checkout, "run_codex", write):
+                diff = patch_checkout.write_patch(root, revision, "service.py", ["service.py"],
+                                                  events=root / "events.jsonl", model=None, timeout=5)
                 self.assertIn(b"+after", diff)
                 with self.assertRaisesRegex(ValueError, "protected paths"):
-                    lima_repair.local_patch(root, revision, "extra.py", None, 5, ["service.py"])
+                    patch_checkout.write_patch(root, revision, "extra.py", ["service.py"],
+                                               events=root / "events.jsonl", model=None, timeout=5)
                 self.assertEqual(product.read_text(), "before\n")
 
     def test_verified_failure_gets_one_repair_and_a_fresh_browser_run(self):
@@ -40,7 +44,7 @@ class LimaRepairTests(unittest.TestCase):
              patch.object(lima_repair, "running_definition", return_value={"revision": "a" * 40}), \
              patch.object(lima_repair, "check_candidate"), \
              patch.object(lima_repair, "run", side_effect=[failed, passed]) as run, \
-             patch.object(lima_repair, "local_patch", return_value=b"candidate") as writer, \
+             patch.object(lima_repair, "write_patch", return_value=b"candidate") as writer, \
              patch.object(lima_repair, "repaired_commit", return_value="b" * 40):
             state = Path(folder)
             result = lima_repair.repair(state, "a" * 40, browser=True)
@@ -60,7 +64,7 @@ class LimaRepairTests(unittest.TestCase):
              patch.object(lima_repair, "running_definition", return_value={"revision": "a" * 40}), \
              patch.object(lima_repair, "check_candidate"), \
              patch.object(lima_repair, "run", return_value=failed), \
-             patch.object(lima_repair, "local_patch") as writer:
+             patch.object(lima_repair, "write_patch") as writer:
             result = lima_repair.repair(Path(folder), "a" * 40)
             self.assertEqual(result["repair_attempts"], 0)
             writer.assert_not_called()

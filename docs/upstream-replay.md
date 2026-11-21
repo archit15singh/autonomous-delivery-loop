@@ -1,5 +1,23 @@
 # Verify an upstream fix
 
+## Generate a local candidate
+
+For an upstream project, start with a local checkout, the full base SHA, an
+operator-written task and the paths the worker may change. Run the factory
+from its own checkout. Use a new output directory per attempt.
+
+```sh
+python3 -m delivery upstream-propose --repo /path/to/upstream \
+  --base "$BASE_SHA" --brief task.md --allow src/example.py \
+  --allow tests/test_example.py --subagents 1 --output .adl/upstream/attempt-1
+```
+
+Inspect `candidate.patch` and `proposal.json`. Apply the patch to a branch at
+the specified base, commit it, and give that candidate SHA to `upstream-replay`.
+The proposal command leaves the upstream checkout and its branch untouched.
+For token usage, run `python3 -m delivery.codex_usage .adl/upstream/attempt-1/events.jsonl`.
+
+
 The Codex [upstream PR skill](../.agents/skills/upstream-pr/SKILL.md) covers issue intake, reproduction, patch review, and the evidence to include in a PR. It supports the [official Pstack skills](https://github.com/cursor/plugins/blob/main/pstack/README.md) through the local Codex adapters.
 
 The replay command checks the base and candidate in detached worktrees, one at a time. It applies only the regression fixture to the base. The base must fail with the expected output and the exact candidate must pass with its expected output. The command records both exits, the revisions, the contract digest, and the log digests. A timeout or unexpected output leaves the case unverified.

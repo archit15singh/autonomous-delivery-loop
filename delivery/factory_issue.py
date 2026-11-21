@@ -173,7 +173,9 @@ def index_publication(repo, output, result, index):
         invalid_rates = True
     else:
         invalid_rates = False
-    usage = summarize([trace, *children], rates)
+    recipe = output / "recipe.json"
+    delegation = recipe.is_file() and json.loads(recipe.read_text()).get("subagents", 0) > 0
+    usage = summarize([trace, *children], rates, require_parent_capture=delegation)
     if invalid_rates:
         usage["pricing_signal"] = "invalid_rates_file"
 

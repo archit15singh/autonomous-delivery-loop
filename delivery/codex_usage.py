@@ -66,7 +66,7 @@ def read_transcript(path, *, read_sessions=True):
     except (OSError, UnicodeError):
         transcript.signals.add("unreadable_transcript")
     transcript.digest = digest.hexdigest()
-    if read_sessions and path.with_suffix(".sessions.json").exists():
+    if read_sessions:
         load_sessions(path, transcript, thread_usage(transcript))
     return transcript
 
@@ -170,7 +170,7 @@ def estimate(counts, rates):
     return cost if isfinite(cost) else None
 
 
-def summarize(paths, rates=None):
+def summarize(paths, rates=None, *, require_parent_capture=False):
     """Return observed usage and full-scope totals for the supplied exec logs.
 
     A same-thread copy or prefix is counted once. Divergent logs for a thread
@@ -181,6 +181,8 @@ def summarize(paths, rates=None):
     threads = {}
     anonymous = []
     signals = set()
+    if require_parent_capture and (not sources or not sources[0].capture_expected):
+        signals.add("missing_session_capture")
     for source in sorted(sources, key=lambda source: len(source.events), reverse=True):
         if source.thread_id is None:
             anonymous.append(source)
@@ -219,8 +221,7 @@ def summarize(paths, rates=None):
             if "usage" in entry and entry["parent_thread_id"] is not None:
                 if thread_id in exec_usage and not usage.signals and not matches_exec(entry, usage):
                     signals.add("child_usage_mismatch")
-                children = usage.children
-                usage = ThreadUsage(children=children)
+                usage = ThreadUsage(children=usage.children, signals=usage.signals.copy())
                 usage.add_turn(entry["usage"])
                 usage.turns = entry["turns"]
             if "signal" in entry:
@@ -270,12 +271,14 @@ def main(argv=None):
     parser.add_argument("--rates", type=Path, help=(
         "JSON USD-per-million rates with keys uncached_input, cached_input, and output"
     ))
+    parser.add_argument("--require-parent-capture", action="store_true",
+                        help="require native session evidence for the first, delegated transcript")
     args = parser.parse_args(argv)
     try:
         rates = read_rates(args.rates) if args.rates else None
     except (OSError, ValueError) as error:
         parser.error(str(error))
-    print(json.dumps(summarize(args.events, rates), indent=2, allow_nan=False))
+    print(json.dumps(summarize(args.events, rates, require_parent_capture=args.require_parent_capture), indent=2, allow_nan=False))
 
 
 if __name__ == "__main__":

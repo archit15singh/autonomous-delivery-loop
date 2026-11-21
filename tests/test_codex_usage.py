@@ -129,6 +129,16 @@ class CodexUsageTest(unittest.TestCase):
         self.assertAlmostEqual(spec["codex_usage"]["estimated_cost_usd"], 0.0006)
         self.assertIsNone(spec["codex_usage"]["actual_cost_usd"])
 
+    def test_index_requires_capture_for_delegated_recipe_even_without_visible_spawn_event(self):
+        self.write("recipe.json", {"subagents": 1})
+        self.write("codex.jsonl", started("parent"), completed())
+        with patch("delivery.factory_issue.definition", return_value={}), patch(
+            "delivery.factory_issue.run_record", side_effect=lambda path, _: json.loads(path.read_text()),
+        ):
+            spec = self.index()
+        self.assertNotIn("tokens", spec["metrics"])
+        self.assertIn("missing_session_capture", spec["codex_usage"]["signals"])
+
     def test_factory_omits_incomplete_metrics_and_reuses_legacy_index(self):
         self.write("codex.jsonl", started("main"), spawn("i", "missing"), completed())
         self.write("codex-rates.json", RATES)
@@ -235,6 +245,19 @@ class CodexUsageTest(unittest.TestCase):
         copy.with_suffix(".sessions.json").write_bytes(events.with_suffix(".sessions.json").read_bytes())
         report = summarize([events, copy])
         self.assertIn("invalid_session_capture", report["signals"])
+        self.assertIsNone(report["totals"])
+
+    def test_missing_sidecar_target_and_truncated_supplied_child_stay_incomplete(self):
+        events = self.write("exec.jsonl", started("root"), completed())
+        sidecar = events.with_suffix(".sessions.json")
+        sidecar.symlink_to(self.folder / "missing")
+        self.assertIn("invalid_session_capture", summarize([events])["signals"])
+        sidecar.unlink()
+        self.ledger(self.native("root", child="child"), self.native("child", parent="root"))
+        self.assertEqual(capture_sessions(events, self.env)["status"], "complete")
+        child = self.write("child.jsonl", started("child"), completed(), {"type": "turn.started"})
+        report = summarize([events, child])
+        self.assertIn("unfinished_turn", report["signals"])
         self.assertIsNone(report["totals"])
 
     def test_capture_requires_native_and_exec_parent_completion(self):

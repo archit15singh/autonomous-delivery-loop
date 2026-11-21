@@ -53,7 +53,7 @@ def main():
     if args.command == "factory":
         try:
             result, code = factory_cli.dispatch(args)
-        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error, subprocess.SubprocessError) as exc:
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError, sqlite3.Error, subprocess.SubprocessError) as exc:
             parser.error(str(exc))
         write(args.output, result)
         return code
