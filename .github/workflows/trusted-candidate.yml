@@ -19,6 +19,11 @@ on:
         default: 0
         description: Repair count carried from the previous receipt
 
+      publish:
+        type: boolean
+        default: false
+        description: Publish the independently attested candidate to owned staging
+
 permissions:
   contents: read
 
@@ -94,3 +99,45 @@ jobs:
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: verified-manifest.json
+
+
+  publish:
+    name: Publish to owned staging
+    needs: attest
+    if: github.ref == 'refs/heads/main' && inputs.publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: staging-${{ inputs.candidate }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      attestations: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: verified-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .adl/publisher
+      - name: Reserve, publish and confirm the exact signed candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE: ${{ inputs.candidate }}
+          CONTRACT_NAME: ${{ inputs.contract }}
+        run: >-
+          python -B -m delivery factory --output .adl/publisher/receipt.json
+          publish .adl/publisher/verified-manifest.json --candidate "$CANDIDATE"
+          --contract "$CONTRACT_NAME" --apply --ledger .adl/publisher/actions.sqlite3
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: staging-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .adl/publisher
+          include-hidden-files: true
+          if-no-files-found: warn

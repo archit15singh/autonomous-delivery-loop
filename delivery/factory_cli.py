@@ -55,6 +55,7 @@ def register(commands):
     publish.add_argument("--candidate", required=True)
     publish.add_argument("--contract", choices=("pilot", "named-greeting"), required=True)
     publish.add_argument("--apply", action="store_true")
+    publish.add_argument("--ledger", type=Path)
     combine = actions.add_parser("merge-preview")
     combine.add_argument("--repo", type=Path, default=Path("."))
     combine.add_argument("--base", required=True)
@@ -111,6 +112,7 @@ def dispatch(args):
                                  read(args.approval) if args.approval else None)
         return result, int(result["status"] != "verified")
     if op == "publish":
-        return publication.publish(args.repo, args.manifest, args.candidate, args.contract, apply=args.apply), 0
+        return publication.publish(args.repo, args.manifest, args.candidate, args.contract,
+                                   apply=args.apply, ledger=args.ledger), 0
     result = publication.merge_preview(args.repo, args.base, args.candidate)
     return result, int(result["verdict"] != "mergeable")
