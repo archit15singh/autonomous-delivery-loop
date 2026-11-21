@@ -9,6 +9,7 @@ import sys
 from .candidate import check_candidate, propose
 from .stage import stage
 from .upstream import replay
+from .upstream_ci import inspect_prs
 from .verify import Contract
 
 
@@ -51,7 +52,21 @@ def main():
     upstream.add_argument("--repo", type=Path, required=True)
     upstream.add_argument("--contract", type=Path, required=True)
     upstream.add_argument("--output", type=Path, required=True)
+    ci = commands.add_parser("upstream-ci", help="inspect each PR's current head and Actions runs")
+    ci.add_argument("urls", metavar="PR_URL", nargs="*")
+    ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
+    ci.add_argument("--output", type=Path, default=Path("-"))
     args = parser.parse_args()
+    if args.command == "upstream-ci":
+        urls = args.urls
+        try:
+            if args.file:
+                urls += [line.strip() for line in args.file.read_text().splitlines() if line.strip()]
+            records = inspect_prs(urls)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        write(args.output, records)
+        return int(any(item["action"] == "lookup_failed" for item in records))
     if args.command == "upstream-replay":
         receipt = replay(args.repo, args.contract, args.output)
         write(args.output / "receipt.json", receipt)
