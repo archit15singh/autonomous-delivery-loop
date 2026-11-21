@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from delivery.upstream_ci import inspect_prs, next_action, review_action, signal
+from delivery.upstream_ci import attach_local_replay, inspect_prs, next_action, review_action, signal
 
 
 URL = "https://github.com/owner/project/pull/123"
@@ -79,6 +79,27 @@ class UpstreamCITests(unittest.TestCase):
         for states, expected in cases:
             with self.subTest(states=states):
                 self.assertEqual(next_action([signal("check", state, None) for state in states]), expected)
+
+    def test_local_replay_keeps_head_and_baseline_evidence_separate_from_ci(self):
+        baseline = "b" * 40
+        scan = {"url": URL, "head": HEAD, "base": baseline, "state": "OPEN",
+                "action": "checks_passed"}
+        verified = {"id": "original", "pr": URL.upper(), "head": HEAD, "base": baseline,
+                    "finished_at": "2026-11-21T10:00:00+00:00", "outcome": {"readiness": "verified"}}
+        rows = [dict(scan), {**scan, "base": "c" * 40}, {**scan, "head": "d" * 40},
+                {**scan, "url": URL + "4"}, {**scan, "state": "MERGED"},
+                {"url": URL, "action": "lookup_failed"}]
+        attach_local_replay(rows, [verified])
+        self.assertEqual([row.get("local_replay", {}).get("status") for row in rows],
+                         ["verified", "baseline_needs_replay", "head_needs_replay",
+                          "unindexed", None, None])
+        self.assertEqual(rows[0]["local_replay"]["run_id"], "original")
+        latest = {**verified, "id": "latest", "finished_at": "2026-11-21T10:02:00+00:00",
+                  "outcome": {"readiness": "verified", "browser": "failed"}}
+        attach_local_replay(rows, [latest, verified])
+        self.assertEqual(rows[0]["local_replay"]["status"], "unverified")
+        self.assertEqual(rows[0]["local_replay"]["run_id"], "latest")
+        self.assertEqual(rows[0]["action"], "checks_passed")
 
     def test_review_routing_uses_github_merge_state(self):
         pr = {"reviewDecision": "", "mergeStateStatus": "CLEAN", "mergeable": "MERGEABLE"}

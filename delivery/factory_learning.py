@@ -250,10 +250,15 @@ def measure(directory):
     return {"cohorts": result}
 
 
-def pr_evidence(directory):
+def indexed_runs(directory):
+    if not directory.is_dir():
+        raise ValueError("factory run index must be an existing directory")
+    return [json.loads(path.read_text()) for path in sorted(directory.glob("*.json"))]
+
+
+def pr_evidence(runs):
     entries = {}
-    for path in sorted(directory.glob("*.json")):
-        run = json.loads(path.read_text())
+    for run in runs:
         if not run["pr"]:
             continue
         key = (run["pr"], run["head"])

@@ -12,11 +12,11 @@ import time
 from . import factory_cli
 from .candidate import check_candidate, git, propose
 from .factory_definition import running_definition
-from .factory_learning import run_record
+from .factory_learning import indexed_runs, run_record
 from .stage import stage
 from .upstream import replay
 from .upstream_actions import ActionLedger
-from .upstream_ci import PR_URL, inspect_prs
+from .upstream_ci import PR_URL, attach_local_replay, inspect_prs
 from .upstream_merge import merge_precedents
 from .upstream_pr import prepare
 from .verify import Contract
@@ -77,6 +77,7 @@ def main():
     ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
     ci.add_argument("--output", type=Path, default=Path("-"))
     ci.add_argument("--review", action="store_true", help="include reviews, unresolved threads, and merge state")
+    ci.add_argument("--runs", type=Path, help="compare current revisions with the local factory run index")
     ci.add_argument("--ledger", type=Path, help="record proposed follow-up actions in a local SQLite ledger")
     actions = commands.add_parser("upstream-actions", help="inspect or record exact-head follow-up claims")
     actions.add_argument("--ledger", type=Path, required=True)
@@ -180,10 +181,12 @@ def main():
                 urls += [line.strip() for line in args.file.read_text().splitlines() if line.strip()]
             scan = time.time_ns()
             records = inspect_prs(urls, review=args.review)
+            if args.runs:
+                attach_local_replay(records, indexed_runs(args.runs))
             if args.ledger:
                 report = ActionLedger(args.ledger).observe(records, scan)
                 print(json.dumps(report), file=sys.stderr)
-        except (OSError, ValueError, sqlite3.Error) as exc:
+        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
             parser.error(str(exc))
         write(args.output, records)
         return int(any(item["action"] == "lookup_failed"

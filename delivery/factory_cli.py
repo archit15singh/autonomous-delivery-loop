@@ -13,6 +13,7 @@ from . import factory_feedback as feedback
 from .factory_lifecycle import github_events, read_analysis_run, revert_events
 from .factory_replay import replay_change
 from . import factory_workflow as engine
+from .upstream_ci import attach_local_replay
 from .verify import Contract
 
 
@@ -197,10 +198,13 @@ def dispatch(args):
     if op == "classify":
         return evidence.compare_failures(read(args.head), read(args.base)), 0
     if op == "portfolio":
+        records = read(args.ci)
         attachments = read(args.evidence) if args.evidence else []
         if args.runs:
-            attachments.extend(learning.pr_evidence(args.runs))
-        return evidence.portfolio(read(args.ci), read(args.ledger), attachments), 0
+            runs = learning.indexed_runs(args.runs)
+            attach_local_replay(records, runs)
+            attachments.extend(learning.pr_evidence(runs))
+        return evidence.portfolio(records, read(args.ledger), attachments), 0
     if op == "record-run":
         return learning.run_record(args.spec, args.runs), 0
     if op == "assess-process":
