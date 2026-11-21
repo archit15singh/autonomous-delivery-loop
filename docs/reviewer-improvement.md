@@ -20,7 +20,17 @@ python3 -m delivery factory review-loop harvest \
 
 Repeat for each decision. The harvester writes one immutable JSON file per PR, with the review URL, author, rationale, reviewed commit, merge base, verdict and any file locations on a request for changes. Archive the case files with the experiment. A later repair on the branch can follow the original reviewed revision. Ambiguous, dismissed, retargeted or unrecoverable reviews can be ineligible. GitHub association and current push access establish provenance. An unmarked account can still use automation, and an approved change can still have a bug. Inspect the evidence when selecting cases.
 
-## Propose and replay
+## Run the loop
+
+Once the case directory is ready, use one command for the full cycle.
+
+```sh
+python3 -m delivery factory review-loop run --repo "$repo" --cases "$cases"
+```
+
+The result names the run directory and its decision. A run can finish with no development disagreements, retain the baseline after comparison, or produce a patch awaiting operator review. Repeat the command after an interruption. The loop reuses the saved proposal and completed trial reports for the same cohort, model, prompts and round count. Keep the run directory outside the target repository when possible.
+
+## Run the stages separately
 
 ```sh
 python3 -m delivery factory review-loop propose \

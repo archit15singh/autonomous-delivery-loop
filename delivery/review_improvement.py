@@ -86,9 +86,68 @@ def promotion_patch(cases, receipt, guidance, candidate, output):
             "experiment_sha256": digest(receipt), "candidate_sha256": digest(proposed)}
 
 
+def _retain(path, text):
+    try:
+        publish_new(path, text)
+    except FileExistsError:
+        if path.read_text() != text:
+            raise ValueError(f"saved artifact differs from replayed evidence: {path.name}")
+
+
+def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
+    """Run one frozen cohort to a terminal decision; retain completed work on retry."""
+    if not cases:
+        raise ValueError("harvest labeled decisions before running the loop")
+    review_cases.check_remote(repo, review_cases.PR_URL.fullmatch(cases[0]["pr"])[1])
+    baseline = guidance.read_text()
+    inputs = {"version": 1, "dataset_sha256": digest(cases), "baseline_sha256": digest(baseline),
+              "model": model, "rounds": rounds}
+    run = work_dir / digest(inputs)
+    run.mkdir(parents=True, exist_ok=True)
+    proposal = run / "proposal.json"
+    with TemporaryDirectory(prefix="adl-review-cycle-") as temp:
+        frozen = Path(temp) / "baseline.md"
+        frozen.write_text(baseline)
+        candidate = Path(temp) / "candidate.md"
+        if not proposal.exists():
+            record = draft(repo, cases, frozen, candidate, model, timeout)
+            if record["status"] == "proposed":
+                record["guidance"] = candidate.read_text()
+                del record["candidate"]
+            try:
+                publish_new(proposal, json.dumps(record, indent=2) + "\n")
+            except FileExistsError:
+                pass  # A concurrent cycle published its complete proposal first.
+        record = json.loads(proposal.read_text())
+        if (record["baseline_sha256"] != inputs["baseline_sha256"] or record["model"] != model
+                or record["development_sha256"] != digest([c for c in cases if c["split"] == "development"])):
+            raise ValueError("saved proposal does not match the frozen inputs")
+        result = {**inputs, "run": str(run), "proposal": str(proposal)}
+        if record["status"] == "no_development_disagreements":
+            return {**result, "status": record["status"]}
+        if record["status"] != "proposed" or digest(record["guidance"]) != record["candidate_sha256"]:
+            raise ValueError("invalid saved proposal")
+        candidate.write_text(record["guidance"])
+        receipt = review_experiment.evaluate(repo, cases, frozen, candidate, model, timeout, rounds,
+                                             cache_dir=run / "trials")
+        saved = run / "experiment.json"
+        _retain(saved, json.dumps(receipt, indent=2) + "\n")
+        result["experiment"] = str(saved)
+        if not receipt["passed"]:
+            return {**result, "status": "retained_baseline"}
+        # Always revalidate the live guidance and receipt, including when resuming.
+        patch = Path(temp) / "guidance.patch"
+        promotion_patch(cases, receipt, guidance, candidate, patch)
+        exported = run / "guidance.patch"
+        _retain(exported, patch.read_text())
+        return {**result, "status": "awaiting_operator_review", "patch": str(exported)}
+
+
 def register(actions):
     loop = actions.add_parser("review-loop", help="learn cold-review guidance from human decisions")
     steps = loop.add_subparsers(dest="review_step", required=True)
+    cycle_cmd = steps.add_parser("run", help="propose, compare and export a passing patch in one resumable run")
+    cycle_cmd.add_argument("--work-dir", type=Path, default=Path(".adl/review-loop"))
     harvest = steps.add_parser("harvest", help="freeze a GitHub review as a labeled case")
     harvest.add_argument("pr")
     harvest.add_argument("review_id", type=int)
@@ -96,16 +155,17 @@ def register(actions):
     proposal = steps.add_parser("propose", help="draft a candidate from development disagreements")
     evaluation = steps.add_parser("evaluate", help="replay two prompts on the frozen cases")
     promotion = steps.add_parser("promotion-patch", help="export passing guidance for a reviewed Git change")
-    for step in (harvest, proposal, evaluation, promotion):
+    for step in (harvest, proposal, evaluation, promotion, cycle_cmd):
         step.add_argument("--cases", required=True, type=Path)
-    for step in (harvest, proposal, evaluation):
+    for step in (harvest, proposal, evaluation, cycle_cmd):
         step.add_argument("--repo", type=Path, default=Path("."))
-    for step in (proposal, evaluation):
+    for step in (proposal, evaluation, cycle_cmd):
         step.add_argument("--model", default="gpt-6.2-sol")
         step.add_argument("--timeout", type=int, choices=range(1, 601), default=180, metavar="SECONDS")
     for step in (proposal, evaluation, promotion):
         step.add_argument("--candidate", required=True, type=Path)
-    evaluation.add_argument("--rounds", type=int, choices=range(2, 11), default=3)
+    for step in (evaluation, cycle_cmd):
+        step.add_argument("--rounds", type=int, choices=range(2, 11), default=3)
     evaluation.add_argument("--cache", type=Path, default=Path(".adl/review-trials"))
     promotion.add_argument("--receipt", type=Path, required=True)
     promotion.add_argument("--patch", type=Path, required=True)
@@ -115,6 +175,8 @@ def dispatch(args):
     if args.review_step == "harvest":
         return review_cases.harvest(args.repo, args.pr, args.review_id, args.split, args.cases), 0
     cases = review_cases.load_cases(args.cases)
+    if args.review_step == "run":
+        return cycle(args.repo, cases, GUIDANCE, args.work_dir, args.model, args.timeout, args.rounds), 0
     if cases and args.review_step == "propose":
         review_cases.check_remote(args.repo, review_cases.PR_URL.fullmatch(cases[0]["pr"])[1])
     if args.review_step == "propose":

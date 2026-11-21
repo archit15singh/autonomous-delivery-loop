@@ -65,3 +65,33 @@ class ReviewImprovementTests(unittest.TestCase):
         self.assertEqual(self.baseline.read_text(), self.candidate.read_text())
         with self.assertRaisesRegex(ValueError, "changed"):
             loop.promotion_patch(self.cases, receipt, self.baseline, self.candidate, output)
+
+    def test_cycle_resumes_proposal_and_complete_trials(self):
+        baseline = self.baseline.read_text()
+        dev = [c for c in self.cases if c["split"] == "development"]
+
+        def draft(repo, cases, guidance, output, model, timeout):
+            text = guidance.read_text() + "Check visible behavior.\n"
+            output.write_text(text)
+            return {"status": "proposed", "candidate": str(output), "model": model,
+                    "baseline_sha256": digest(baseline), "development_sha256": digest(dev),
+                    "candidate_sha256": digest(text)}
+
+        def review(repo, subject, prompt, model, timeout):
+            skill = prompt.read_text()
+            found = skill != baseline and subject["head"][0] in {"1", "3"}
+            findings = [{"key": "bug", "path": "app.py", "finding": "Wrong output"}] if found else []
+            return {**subject, "model": model, "skill": digest(skill), "findings": findings}
+
+        with patch.object(loop.review_cases, "check_remote"), patch.object(loop.review_experiment, "check_remote"), \
+             patch.object(loop, "draft", side_effect=draft) as drafter, \
+             patch.object(loop.factory_feedback, "review", side_effect=review) as reviewer:
+            def run():
+                return loop.cycle(self.root, self.cases, self.baseline, self.root / "runs", "m", 5, 2)
+            first = run()
+            self.assertEqual(first["status"], "awaiting_operator_review")
+            self.assertTrue(Path(first["patch"]).is_file())
+            self.assertEqual(run(), first)
+            drafter.assert_called_once()
+            self.assertEqual(reviewer.call_count, 16)
+            self.assertEqual(self.baseline.read_text(), baseline)
