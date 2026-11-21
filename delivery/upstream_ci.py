@@ -1,5 +1,7 @@
 """Read current upstream CI and identify the next action for each pull request."""
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 import json
 import re
 import subprocess
@@ -228,3 +230,34 @@ def inspect_prs(urls, *, review=False):
 
     with ThreadPoolExecutor(max_workers=6) as workers:
         return list(workers.map(inspect, targets))
+
+
+def attach_local_replay(records, directory):
+    """Compare GitHub's current revisions with operator-owned indexed replays."""
+    if not directory.is_dir():
+        raise ValueError("local replay index must be an existing directory")
+    indexed = defaultdict(list)
+    for path in sorted(directory.glob("*.json")):
+        run = json.loads(path.read_text())
+        if run["pr"] and "readiness" in run["outcome"]:
+            indexed[run["pr"].lower()].append(run)
+
+    for record in records:
+        if record.get("state") != "OPEN":
+            continue
+        attempts = indexed[record["url"].lower()]
+        same_head = [run for run in attempts if run["head"] == record["head"]]
+        exact = [run for run in same_head if run.get("base") == record["base"]]
+        latest = max(exact or same_head or attempts, key=lambda run: datetime.fromisoformat(
+            run["finished_at"]), default=None)
+        evidence = {"status": "unindexed"}
+        if latest:
+            if exact:
+                verified = (latest["outcome"]["readiness"] == "verified"
+                            and latest["outcome"].get("browser") != "failed")
+                status = "verified" if verified else "unverified"
+            else:
+                status = "baseline_needs_replay" if same_head else "head_needs_replay"
+            evidence = {"status": status, "run_id": latest["id"], "head": latest["head"],
+                        "base": latest.get("base"), "finished_at": latest["finished_at"]}
+        record["local_replay"] = evidence

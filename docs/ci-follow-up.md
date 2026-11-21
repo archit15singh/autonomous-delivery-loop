@@ -4,10 +4,23 @@ After opening a PR, record its URL in `.adl/upstream-ci/prs.txt` and check the s
 
 ```sh
 python3 -m delivery upstream-ci https://github.com/OWNER/REPO/pull/123
-python3 -m delivery upstream-ci --review --file .adl/upstream-ci/prs.txt --output .adl/upstream-ci/current.json
+python3 -m delivery upstream-ci --review --file .adl/upstream-ci/prs.txt \
+  --runs .adl/factory-runs --output .adl/upstream-ci/current.json
 ```
 
 The command uses the authenticated GitHub CLI. It checks the PR rollup and the latest pull-request workflow runs for the same fork, branch, and head SHA. Actions workflows awaiting approval can be absent from the rollup. The JSON includes the current base and head, draft status, individual check results, and links. Exit 1 means a lookup failed. Read each record's action to determine the CI disposition.
+
+Pass `--runs` to include local replay evidence alongside CI and review. Once a PR exists, provide `--runs` and `--pr` to `upstream-prepare` so the indexed replay binds to that PR. The scan compares the current GitHub head and base with the indexed revisions for each open PR.
+
+| Local replay status | Follow-up |
+| --- | --- |
+| `verified` | The latest indexed replay of the current head and base passed. |
+| `unverified` | Inspect the latest replay of this pair and address the failed or inconclusive check. |
+| `head_needs_replay` | Fetch the current head and run the local gate, including after bot or maintainer commits. |
+| `baseline_needs_replay` | Run the local gate against the current base. The index has work for this head against a different or unknown base. |
+| `unindexed` | Check existing receipts and index a trusted replay or run the gate. |
+
+The report leaves GitHub's CI and review dispositions intact. Each matching record includes the indexed run ID and its revisions for follow-up.
 
 | Action | Codex follow-up |
 | --- | --- |
@@ -30,7 +43,7 @@ Run the existing scan with the ledger enabled. This is a shadow run. It records 
 
 ```sh
 python3 -m delivery upstream-ci --review --file .adl/upstream-ci/prs.txt \
-  --ledger .adl/upstream-ci/actions.sqlite3 --output .adl/upstream-ci/current.json
+  --runs .adl/factory-runs --ledger .adl/upstream-ci/actions.sqlite3 --output .adl/upstream-ci/current.json
 python3 -m delivery upstream-actions --ledger .adl/upstream-ci/actions.sqlite3 status
 ```
 
