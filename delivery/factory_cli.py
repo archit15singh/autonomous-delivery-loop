@@ -8,6 +8,7 @@ from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
 from . import hosted_runtime
+from .lima_pilot import run as lima_pilot
 from .candidate import FULL_REVISION, git
 from .compose_pilot import preflight as compose_preflight, run as compose_pilot
 from .cloud_pilot import manage as cloud_pilot
@@ -37,6 +38,10 @@ def register(commands):
     for action in (start_hosted, collect_hosted):
         action.add_argument("--state", type=Path, required=True)
         action.add_argument("--repo", type=Path, default=Path("."))
+    lima = actions.add_parser("lima-pilot", help="verify the owned pilot in the Docker-free Lima VM")
+    lima.add_argument("--state", type=Path, required=True)
+    lima.add_argument("--revision")
+    lima.add_argument("--cleanup-only", action="store_true")
     preflight = actions.add_parser("compose-preflight", help="inspect the selected Compose runner")
     preflight.add_argument("--socket", type=Path, required=True)
     preflight.add_argument("--state", type=Path, required=True)
@@ -190,6 +195,11 @@ def read(path):
 
 
 def dispatch(args):
+    if args.operation == "lima-pilot":
+        receipt = lima_pilot(args.state.resolve(), args.revision, cleanup_only=args.cleanup_only)
+        success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
+                   else receipt["verdict"] == "verified")
+        return receipt, int(not success)
     if args.operation == "hosted-runtime":
         state = args.state.resolve()
         if args.runtime_action == "start":

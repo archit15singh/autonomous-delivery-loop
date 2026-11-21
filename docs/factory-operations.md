@@ -59,6 +59,28 @@ for a failed or inconclusive run. Read the numbered HTTP and Compose receipts
 and diagnostic logs in the state directory. The command exercises the owned
 pilot on a disposable GitHub runner. It does not publish staging.
 
+### Run the Docker-free Mac pilot
+
+Use Lima with its containerd runtime. Create a dedicated VM once and start it
+before running the pilot.
+
+```sh
+limactl create --name=adl-runtime --mount-none --cpus=2 --memory=3 --disk=12 \
+  --tty=false template:default
+limactl start --tty=false adl-runtime
+python3 -m delivery factory lima-pilot --revision "$REVISION" \
+  --state .adl/lima-pilot/run-1
+```
+
+The runner requires the dedicated VM with host mounts and SSH forwarding disabled.
+It transfers the exact Git service source, starts pinned Redis and Python images
+using nerdctl, and runs HTTP probes from a separate verifier container. The three
+containers share a network namespace with only loopback. The runner reads the
+backing Redis counter, captures the API logs, and confirms per-run teardown.
+Use the same state directory and `--cleanup-only` to reconcile an interruption.
+After a run, stop the dedicated VM with `limactl stop adl-runtime`. The hosted
+command issues the independent attestation used by staging.
+
 ### Run the disposable Redis pilot
 
 On a disposable Linux runner, pass the local Docker socket. For a dedicated
