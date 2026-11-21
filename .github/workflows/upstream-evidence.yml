@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 18
     env:
       ARGO_BASE: 8c9c5ad2182ba7757bb6a35e79d2051afc31feee
-      ARGO_CANDIDATE: 5c78a11cd989da4f4304e5f0b5568d57b88cca13
+      ARGO_CANDIDATE: 4d0c34291171404cef26cd769a2613c45b847657
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
