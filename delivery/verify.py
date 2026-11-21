@@ -32,13 +32,14 @@ class Contract:
     probes: tuple[Probe, ...]
     digest: str
     impact: ImpactPolicy | None = None
+    acceptance: dict | None = None
 
     @classmethod
     def read(cls, path):
         raw = path.read_bytes()
         data = json.loads(raw)
         fields = {"version", "outcome", "allowed_changes", "max_repairs", "probes"}
-        if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact"}
+        if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact", "acceptance"}
                 or type(data["version"]) is not int or data["version"] != 1):
             raise ValueError("expected a version 1 outcome contract")
         repairs = data["max_repairs"]
@@ -65,7 +66,14 @@ class Contract:
                 raise ValueError("probe requires a local path and a JSON object")
             probes.append(Probe(endpoint, expect))
         impact = ImpactPolicy.read(data["impact"]) if "impact" in data else None
-        return cls(data["outcome"], tuple(paths), repairs, tuple(probes), sha256(raw).hexdigest(), impact)
+        acceptance = data.get("acceptance")
+        if "acceptance" in data and (
+            not isinstance(acceptance, dict) or acceptance.keys() != {"expected", "control", "boundary"}
+            or any(not isinstance(value, str) or not value.strip() for value in acceptance.values())
+        ):
+            raise ValueError("acceptance requires expected, control, and boundary examples")
+        return cls(data["outcome"], tuple(paths), repairs, tuple(probes), sha256(raw).hexdigest(), impact,
+                   acceptance)
 
 
 def canonical_json(value):

@@ -137,6 +137,8 @@ def workflow(plan, workspace, folder, tier, approval=None):
                 continue
             if kind == "approval":
                 expected = {**identity, "step": name}
+                if "decision" in step:
+                    expected["decision"] = step["decision"]
                 if approval != expected:
                     state.update(status="waiting_for_approval", approval_request=expected)
                     break

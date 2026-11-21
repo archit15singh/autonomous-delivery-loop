@@ -44,7 +44,7 @@ def promotion(dataset_ids, rows):
         for field in ("seconds", "tokens"):
             values = [(before[field] - after[field]) / before[field]
                       for before, after in pairs if before[field] > 0]
-            gains[field] = round(100 * median(values), 2) if values else None
+            gains[field] = round(100 * median(values), 2) if values and len(values) == len(pairs) else None
         quality = all(after["verified"] is True for _, after in pairs)
         assistance = sum(after["interventions"] - before["interventions"] for before, after in pairs)
         observed = [value for value in gains.values() if value is not None]

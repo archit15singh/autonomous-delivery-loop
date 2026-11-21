@@ -1,5 +1,6 @@
 """Run Codex in a disposable checkout and export a scope-checked patch."""
 import json
+from hashlib import sha256
 import os
 from pathlib import Path
 import re
@@ -49,18 +50,20 @@ def repair_context(contract, revision, receipt):
     return "\nTrusted verification result:\n" + json.dumps(failed, indent=2), repairs + 1
 
 
-def propose(contract, output, events, model, timeout, receipt=None):
+def propose(contract, output, events, model, timeout, receipt=None, *, recipe_output=None):
     root = Path(git("rev-parse", "--show-toplevel").decode().strip())
     base = git("rev-parse", "HEAD", cwd=root).decode().strip()
     context, attempt = repair_context(contract, base, receipt)
     output.parent.mkdir(parents=True, exist_ok=True)
     events.parent.mkdir(parents=True, exist_ok=True)
+    examples = f"Reviewed acceptance examples: {json.dumps(contract.acceptance)}\n" if contract.acceptance else ""
     prompt = (
         "Use $deliver-outcome. Implement the approved outcome in this clean Git checkout.\n"
         "The harness already confirmed the checkout and state. Use python3 -m unittest discover -s tests.\n"
         f"Approved outcome: {contract.outcome}\n"
         f"Files you may modify: {', '.join(contract.allowed_changes)}\n"
         f"Required HTTP behavior: {json.dumps([p.__dict__ for p in contract.probes])}\n"
+        f"{examples}"
         "Leave changes in the working tree and report your local checks. "
         "The release operator owns GitHub and the independent verdict."
         + context
@@ -71,6 +74,16 @@ def propose(contract, output, events, model, timeout, receipt=None):
         "-c", "sandbox_workspace_write.network_access=false",
         "-c", 'model_reasoning_effort="medium"', "--model", model, "--json", prompt,
     ]
+    if recipe_output:
+        skill = git("show", f"{base}:.agents/skills/deliver-outcome/SKILL.md", cwd=root)
+        version = subprocess.check_output(["codex", "--version"], text=True, timeout=10).strip()
+        recipe_output.parent.mkdir(parents=True, exist_ok=True)
+        recipe_output.write_text(json.dumps({
+            "revision": base, "contract_sha256": contract.digest, "skill_sha256": sha256(skill).hexdigest(),
+            "codex": version, "model": model, "seconds_budget": timeout, "repair_attempt": attempt,
+            "sandbox": "workspace-write", "network": False, "approval": "never",
+            "output": "scope-checked patch and JSONL events",
+        }, indent=2) + "\n")
     with TemporaryDirectory(prefix="adl-codex-") as folder:
         checkout = Path(folder) / "checkout"
         git("clone", "--quiet", "--no-local", str(root), str(checkout))

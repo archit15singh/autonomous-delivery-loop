@@ -24,6 +24,8 @@ python3 -m delivery factory handoff pr-record.json findings.json
 
 Record contributor policy, scope, reproduction, and an `acceptance` object with `expected`, `control`, and `boundary`. Provide `policy_checked` and `scope_agreed` booleans. The live option rechecks PR links, issue state, and assignment before scheduling. Keep maintainer-owned requirements and broader duplicate searches in the intake facts. Each review finding carries a head, disposition, and reproduction if confirmed. Use the generated handoff when a second Codex pass is warranted.
 
+The reviewed outcome contract accepts the same three optional examples as strings. Codex receives them alongside the executable probes. Use `delivery propose --recipe-output FILE` to record the exact model, CLI version, skill digest, reviewed contract digest, time budget, and sandbox settings with its patch and event log.
+
 ## Run a pinned workflow
 
 ```sh

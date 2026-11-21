@@ -51,6 +51,7 @@ def main():
     agent.add_argument("--contract", type=Path, required=True)
     agent.add_argument("--output", type=Path, required=True)
     agent.add_argument("--events", type=Path, required=True)
+    agent.add_argument("--recipe-output", type=Path, help="record the reviewed Codex execution recipe")
     agent.add_argument("--evidence", type=Path)
     agent.add_argument("--model", default="gpt-6.2-sol")
     agent.add_argument("--timeout", type=int, default=180)
@@ -172,7 +173,7 @@ def main():
         contract = Contract.read(args.contract)
         receipt = json.loads(args.evidence.read_text()) if args.evidence else None
         revision, repairs_used = propose(contract, args.output, args.events, args.model,
-                                         args.timeout, receipt)
+                                         args.timeout, receipt, recipe_output=args.recipe_output)
         print(json.dumps({"revision": revision, "repairs_used": repairs_used,
                           "patch": str(args.output)}))
         return 0
