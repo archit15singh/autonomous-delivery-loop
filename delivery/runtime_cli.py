@@ -26,7 +26,7 @@ def register(actions):
     lima.add_argument("--revision")
     lima.add_argument("--cleanup-only", action="store_true")
     lima.add_argument("--browser", action="store_true", help="verify browser to Redis worker to SQLite")
-    repair = actions.add_parser("lima-repair", help="verify, repair once in guest Codex, and verify again")
+    repair = actions.add_parser("lima-repair", help="verify, repair once with host-local Codex, and verify again")
     repair.set_defaults(runtime_handler=lima_repair_command)
     repair.add_argument("--state", type=Path, required=True)
     repair.add_argument("--revision", required=True)

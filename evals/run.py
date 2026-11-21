@@ -7,13 +7,20 @@ from pathlib import Path
 import re
 import shlex
 import shutil
-import signal
 import subprocess
+import sys
 import tarfile
 import time
 from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parent
+# Keep the documented direct script entry point alongside python -m evals.run.
+if not __package__:
+    sys.path.insert(0, str(ROOT.parent))
+
+from delivery.codex_usage import summarize
+from delivery.local_codex import run_codex
+
 SKILL = ROOT.parent / ".agents/skills/deliver-outcome/SKILL.md"
 
 
@@ -153,10 +160,7 @@ def run_agent(case, python, model, variant, tree, run, timeout):
                    "then run the narrowest applicable reproduction before changing code.")
     if variant == "equipped-check":
         prompt += " The local test command also accepts explicit pytest paths or selectors."
-    args = ["codex", "-a", "never", "exec", "--ignore-user-config", "--ephemeral",
-            "--sandbox", "workspace-write", "-c", 'web_search="disabled"',
-            "-c", "sandbox_workspace_write.network_access=false",
-            "-c", 'model_reasoning_effort="medium"', "--model", model, "--json"]
+    schema = None
     if variant == "equipped-receipt":
         schema = run / "receipt-schema.json"
         schema.write_text(json.dumps({
@@ -165,34 +169,30 @@ def run_agent(case, python, model, variant, tree, run, timeout):
                            for field in ("change", "observed_checks", "pending_evidence")},
             "required": ["change", "observed_checks", "pending_evidence"],
         }))
-        args.extend(["--output-schema", str(schema)])
-    args.append(prompt)
     started = time.monotonic()
-    with (run / "events.jsonl").open("w") as out, (run / "agent.stderr").open("w") as err:
-        proc = subprocess.Popen(args, cwd=tree, env=test_env(case, tree), stdout=out, stderr=err,
-                                start_new_session=True)
-        try:
-            exit_code = proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
-            exit_code = 124
-    if with_skill:
-        skill.unlink(missing_ok=True)
-    if variant == "equipped-check":
-        helper.unlink(missing_ok=True)
+    events_path = run / "events.jsonl"
+    try:
+        exit_code = run_codex(cwd=tree, prompt=prompt, model=model, timeout=timeout,
+                              events=events_path, role="writer", schema=schema,
+                              env=test_env(case, tree))
+    finally:
+        stderr = events_path.with_suffix(".stderr")
+        if stderr.exists():
+            stderr.replace(run / "agent.stderr")
+        if with_skill:
+            skill.unlink(missing_ok=True)
+        if variant == "equipped-check":
+            helper.unlink(missing_ok=True)
     return {"exit": exit_code, "seconds": round(time.monotonic() - started, 2)}
 
 
 def events(path):
-    commands, reports, usage = [], [], {}
+    commands, reports = [], []
     for line in path.read_text().splitlines():
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if event["type"] == "turn.completed":
-            usage = event.get("usage", {})
         item = event.get("item", {})
         if event["type"] == "item.completed" and item.get("type") == "command_execution":
             invocation = item["command"]
@@ -207,6 +207,7 @@ def events(path):
             commands.append({"command": invocation, "exit": exit_code, "test_outcome": outcome})
         if event["type"] == "item.completed" and item.get("type") == "agent_message":
             reports.append(item.get("text", ""))
+    usage = summarize([path])["totals"] or {}
     return commands, reports[-1] if reports else "", usage
 
 

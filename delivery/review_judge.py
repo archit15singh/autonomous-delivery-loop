@@ -1,9 +1,10 @@
 """Judge whether a cold review found the defects described in human review evidence."""
 import json
 from pathlib import Path
-import subprocess
 from tempfile import TemporaryDirectory
 
+from .factory_feedback import review_events
+from .local_codex import require_success, run_codex
 from .upstream_actions import digest
 
 
@@ -27,19 +28,10 @@ def _compare(evidence, model, timeout):
         root = Path(temp)
         schema, result = root / "schema.json", root / "result.json"
         schema.write_text(json.dumps(SCHEMA))
-        run = subprocess.run(
-            ["codex", "-a", "never", "exec", "--ephemeral", "--ignore-user-config",
-             "--skip-git-repo-check", "--sandbox", "read-only", "--disable", "apps",
-             "--disable", "plugins", "--disable", "shell_tool", "--disable", "unified_exec",
-             "-c", 'web_search="disabled"', "-c", "project_doc_max_bytes=0", "--json",
-             "--model", model, "--output-schema", str(schema), "--output-last-message", str(result), "-"],
-            cwd=root, input=RUBRIC + "\n" + json.dumps(evidence), text=True,
-            capture_output=True, check=True, timeout=timeout)
-        for line in run.stdout.splitlines():
-            event = json.loads(line)
-            if event.get("type", "").startswith("item.") and event["item"]["type"] not in (
-                    "agent_message", "reasoning"):
-                raise ValueError("judge attempted to use a tool")
+        events = review_events("judge")
+        status = run_codex(cwd=root, prompt=RUBRIC + "\n" + json.dumps(evidence), model=model,
+                           timeout=timeout, events=events, role="judge", result=result, schema=schema)
+        require_success(status, timeout, events)
         return json.loads(result.read_text())
 
 

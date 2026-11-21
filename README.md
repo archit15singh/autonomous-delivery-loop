@@ -1,6 +1,6 @@
 # Autonomous Delivery Loop
 
-Codex implements the change. A deterministic verifier checks the exact artifact in GitHub-hosted staging. The release operator controls merge and deployment.
+The factory runs coding workers, subagents, reviewers and model judges through the Codex CLI on the operator’s machine. A separate verifier checks the exact candidate. GitHub hosts PR checks and the optional staging workflow. The release operator controls merge and deployment.
 
 ```text
 reviewed outcome contract
@@ -11,6 +11,7 @@ reviewed outcome contract
   → complete, bounded repair, or escalate
 ```
 
+- [Run local Codex workers and inspect usage](docs/factory-operations.md#local-codex-workers)
 - [Outcome contract](contracts/pilot.json)
 - [Hosted workflow](.github/workflows/delivery.yml)
 - [Paired Codex eval and scorecard](evals/README.md)

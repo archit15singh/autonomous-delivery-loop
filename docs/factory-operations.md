@@ -1,5 +1,48 @@
 # Factory operations
 
+## Local Codex workers
+
+Authenticate the CLI on the machine running the factory. The factory invokes
+`codex exec --json` there and uses the CLI’s model provider for inference.
+Writers work in disposable local checkouts with workspace-write permissions.
+Cold reviews read the exact base checkout. The semantic judge receives findings
+and maintainer evidence in a fresh, tool-disabled session. GitHub Actions checks
+published code; the factory rejects agent launches on GitHub-hosted runners.
+
+From a clean checkout, point the writer at an approved contract. Choose a new
+output directory for each attempt.
+
+```sh
+run=.adl/local-attempt-1
+mkdir -p "$run"
+python3 -m delivery propose --contract contracts/named-greeting.json \
+  --events "$run/writer.jsonl" --output "$run/candidate.patch" \
+  --recipe-output "$run/recipe.json" --subagents 1
+python3 -m delivery.codex_usage "$run/writer.jsonl" --require-parent-capture
+```
+
+`--subagents` permits zero to four concurrent local child agents at depth one.
+The default is zero. For owned issues, pass the same limit to `factory approve-issue`
+and `factory issue-run`. Changing the limit changes the approval identity.
+The parent owns the patch and the factory checks every changed path. A successful
+writer exit alone does not verify the product.
+
+The JSONL stream and its `.stderr` file are private operator artifacts. A
+delegated attempt also writes `.sessions.json`, which binds the stream’s digest
+to its parent thread, child thread IDs and local Codex rollout paths. Capture
+supports the Codex 0.170 native ledger. Missing, interrupted or incompatible
+session evidence leaves the aggregate unknown. Review-loop invocations save
+their streams under `.adl/review-transcripts/` in the invoking workspace.
+
+For a price estimate, pass `--rates rates.json` to `delivery.codex_usage`.
+Supply `uncached_input`, `cached_input` and `output` as USD prices per million
+tokens for the selected model. Cached tokens are part of the input count. The
+report separates observed tokens, estimates and billed cost. Actual subscription
+or API charges require billing evidence. Owned-issue indexing can read the same
+prices from `codex-rates.json` in the attempt directory. Keep raw transcripts
+local when publishing PR evidence.
+
+
 The factory uses the existing Codex executor and the upstream action ledger. The new commands add evidence checks, trusted workflow steps, and an owned staging publisher. Run them from the checkout containing the reviewed factory code.
 
 ## Verify the judge and classify failures
@@ -81,25 +124,21 @@ Use the same state directory and `--cleanup-only` to reconcile an interruption.
 After a run, stop the dedicated VM with `limactl stop adl-runtime`. The hosted
 command issues the independent attestation used by staging.
 
-For the browser workload and guest Codex, stream the pinned tool setup into the
-Apple Silicon VM. Authenticate Codex in the guest with its own device login
-before requesting a repair.
+Install the browser tools in the dedicated Lima VM and authenticate the Codex CLI on the host.
 
 ```sh
 limactl shell --preserve-env=false --tty=false --workdir /tmp adl-runtime sh -s \
   < verification/lima-pilot-tools.sh
-limactl shell --preserve-env=false --tty=false --workdir /tmp adl-runtime \
-  sh -c '"$HOME/.local/bin/codex" login --device-auth'
+codex login status
 python3 -m delivery factory lima-repair --revision "$REVISION" \
   --state .adl/lima-repair/run-1 --browser
 ```
 
-The repair command accepts a commit derived from the current trusted checkout
-and only allows changes to the pilot service. A verified product failure with
-confirmed cleanup allows one time-limited guest Codex attempt. The worker has
-no host mounts or outbound shell network access. ADL checks the returned patch,
-creates a local candidate commit, and verifies it in a fresh stack. Inspect
-`repair.json`, the two runtime receipts, and the attempt logs before publishing.
+After a verified product failure and confirmed cleanup, the host runs one
+time-limited Codex worker in a disposable local checkout. ADL checks the patch
+against the approved paths, creates a candidate commit, and verifies that commit
+in a fresh Lima stack. The guest needs only the product and verification tools.
+Inspect `repair.json`, the two runtime receipts and the local attempt transcript.
 
 With `--browser`, Chromium clicks through the jobs UI. The API pushes a job to
 Redis, a separate worker consumes it, and only that worker can write the

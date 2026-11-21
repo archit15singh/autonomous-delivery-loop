@@ -59,7 +59,8 @@ def summarize(state, rounds):
                 red_green |= saw_red and attempt["test_outcome"] == "passed"
             fresh_input = usage.get("input_tokens")
             if fresh_input is not None:
-                fresh_input -= usage.get("cached_input_tokens", 0)
+                cached = usage.get("cached_input_tokens")
+                fresh_input = fresh_input - cached if cached is not None else None
             agent_exit = run["agent"]["exit"]
             stderr = path.with_name("agent.stderr")
             capacity = stderr.exists() and "Selected model is at capacity" in stderr.read_text()

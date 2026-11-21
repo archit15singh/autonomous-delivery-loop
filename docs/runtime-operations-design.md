@@ -68,7 +68,7 @@ attestation when the local VM is unavailable.
 
 Extend the pilot in three steps. Add a browser interaction backed by Redis and
 SQLite, checking the worker's persisted result and retaining a screenshot.
-Then route confirmed product failures to one Codex attempt in a guest checkout
-with separate authentication, an offline shell, and a fixed scope. Finally
+Then route confirmed product failures to one host-local Codex attempt in a disposable checkout
+with host authentication, an offline shell, and a fixed scope. Finally
 import only the scope-checked patch, rerun the same workload in a fresh stack,
 and retain both receipts. Infrastructure or cleanup failures stop the loop.
