@@ -4,7 +4,7 @@ The target is three verified, non-draft upstream PRs in each of 11 repositories.
 
 ## Snapshot
 
-GitHub state checked on November 21, 2026 at 05:23 UTC. Counts are **21 non-draft**, **3 drafts**, and **9 staged on public forks**. All 24 upstream PRs were open at their verified heads. The campaign window ends at 08:19 UTC.
+GitHub state checked on November 21, 2026 at 07:12 UTC. The original repository targets account for **21 non-draft PRs**, **3 drafts**, and **9 staged fixes**. After the request to keep creating PRs, two additional Herdr Core PRs were opened and one additional OpenCode fix was verified on its public fork. The original per-repository shortfall is still 12. The campaign window ends at 08:19 UTC.
 
 | Repository | Non-draft / target | Shortfall | Verified PRs and review state |
 | --- | ---: | ---: | --- |
@@ -19,6 +19,14 @@ GitHub state checked on November 21, 2026 at 05:23 UTC. Counts are **21 non-draf
 | Dagger | 0 / 3 | 3 | Three fixes verified on the public fork. The contribution workflow requires an issue claim and author DCO sign-off. [Contribution guide](https://github.com/dagger/dagger/blob/main/CONTRIBUTING.md#contribution-workflow) |
 | Argo Rollouts | 0 / 3 | 3 | Three fixes verified on the public fork. The PR checklist requires author DCO sign-off. [PR template](https://github.com/argoproj/argo-rollouts/blob/master/.github/pull_request_template.md) |
 | Herdr App | 3 / 3 | 0 | Hosted checks and targeted application replays passed. Platform-specific coverage is listed in the PRs. [#1295](https://github.com/herdrdev/herdr-app/pull/1295), [#1297](https://github.com/herdrdev/herdr-app/pull/1297), [#1300](https://github.com/herdrdev/herdr-app/pull/1300) |
+
+## Additional verified work
+
+| Repository | Submission status | Behavior and evidence |
+| --- | --- | --- |
+| Herdr Core | [Open PR #362](https://github.com/herdrdev/herdr-core/pull/362) | The host sees Herdr’s persistent-terminal capabilities without an unconditional delegation instruction. The exact skill discovery and compiled CLI replays passed. [Codex replay](https://gist.github.com/archit15singh/8c5cc76b5c9db90dc99fabc9bd85ad98) · [Hosted replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44877944182/job/136766704895) |
+| Herdr Core | [Open PR #363](https://github.com/herdrdev/herdr-core/pull/363) | `hc ls --table` prints the terminal table with captured stdout. Default pipe output and `--json` still return JSON. [Live CLI replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44878574564/job/136768628450) |
+| OpenCode | [Verified public fork](https://github.com/archit15singh/opencode/commit/f4e9cf9979923d2c1b187d0dd33e9335d329dce6) | The built web UI reaches Home when `Array.prototype.toSorted` is absent. GitHub denied PR creation for the authenticated account. [Issue #65348](https://github.com/anomalyco/opencode/issues/65348) · [Browser screenshots and replay](https://github.com/archit15singh/autonomous-delivery-loop/tree/fdfeec7e17149b67e24b9a24b8f59d5a4eff9ced/docs/evidence/opencode-65348) |
 
 ## Verified fork candidates
 
