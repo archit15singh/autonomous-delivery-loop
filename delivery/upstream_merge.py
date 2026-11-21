@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 import json
 import re
 import statistics
-import subprocess
 from urllib.parse import quote
 
-from .upstream_ci import PR_URL, REPO_AFFILIATION, gh_json, review_participant
+from .github import LOOKUP_ERRORS, PR_URL, gh_json
+from .upstream_ci import REPO_AFFILIATION, review_participant
 
 
 MERGE_QUERY = """
@@ -128,7 +128,7 @@ def inspect_branch(repo, branch, since, limit, own_urls):
             allowed_merge_methods=sorted(set.intersection(*methods)) if methods else None,
             merge_queue=any(rule["type"] == "merge_queue" for rule in active_rules),
         )
-    except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
+    except LOOKUP_ERRORS as exc:
         rules["error"] = str(exc)
     return {
         "repo": repo, "branch": branch, "search": search,
@@ -220,13 +220,13 @@ def merge_precedents(records, *, days, limit):
         (repo, branch), prs = item
         try:
             cohort = inspect_branch(repo, branch, since, limit, own_urls)
-        except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
+        except LOOKUP_ERRORS as exc:
             cohort = {"repo": repo, "branch": branch, "error": str(exc)}
         issues = sorted({issue for pr in prs if pr.get("state") == "OPEN"
                          for issue in pr.get("linked_issues", [])})
         try:
             cohort["linked_issue_results"] = inspect_issue_merges(issues)
-        except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
+        except LOOKUP_ERRORS as exc:
             cohort["linked_issue_error"] = str(exc)
         return {**cohort, "tracked_prs": [advise(pr, cohort) for pr in prs]}
 

@@ -3,36 +3,12 @@ import json
 from hashlib import sha256
 import os
 from pathlib import Path
-import re
 import signal
 import subprocess
 from tempfile import TemporaryDirectory
 
+from .revisions import FULL_REVISION, check_candidate, check_scope, git, paths_between
 from .verify import advice
-
-FULL_REVISION = re.compile(r"[0-9a-f]{40}")
-
-
-def git(*args, cwd=None):
-    return subprocess.check_output(["git", *args], cwd=cwd)
-
-
-def check_scope(changed, allowed):
-    outside = sorted(set(changed) - set(allowed))
-    if outside:
-        raise ValueError("Candidate changed protected paths: " + ", ".join(outside))
-
-
-def paths_between(base, candidate, *, cwd=None):
-    return git("diff", "--no-renames", "--name-only", "-z", base, candidate, "--", cwd=cwd).decode().split("\0")[:-1]
-
-
-def check_candidate(head, base, allowed, *, cwd=None):
-    if not FULL_REVISION.fullmatch(head) or not FULL_REVISION.fullmatch(base):
-        raise ValueError("trusted and candidate revisions must be full Git SHAs")
-    git("merge-base", "--is-ancestor", base, head, cwd=cwd)
-    check_scope(paths_between(base, head, cwd=cwd), allowed)
-
 
 def repair_context(contract, revision, receipt):
     if receipt is None:

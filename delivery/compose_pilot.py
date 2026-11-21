@@ -1,5 +1,4 @@
 """Run the owned Redis pilot against an explicitly selected local Docker engine."""
-from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
@@ -11,25 +10,19 @@ import subprocess
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-from .candidate import FULL_REVISION, git
+from .revisions import FULL_REVISION, git
 from .factory_definition import running_definition
-from .factory_learning import run_record
-from .factory_workflow import file_digest, lock, record
+from .run_index import run_record
+from .run_state import file_digest, lock, record
+from .runtime_checks import CONTRACT, ROOT, RUNTIME_ERRORS, assess_cleanup, assess_observation, now
 from .verify import Contract, verify
 
-ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "verification/compose-pilot.yaml"
 RECIPE = ROOT / "verification/compose-pilot.Dockerfile"
 PRODUCT_RECIPE = ROOT / "verification/compose-product.Dockerfile"
-CONTRACT = ROOT / "contracts/compose-pilot.json"
 PROJECT = re.compile(r"adl-pilot-[a-f0-9]{16}")
-DOCKER_ERRORS = (OSError, ValueError, subprocess.SubprocessError)
 MIN_FREE_BYTES = 512 * 1024**2
 MIN_ENGINE_MAJOR = 28
-
-
-def now():
-    return datetime.now(timezone.utc).isoformat()
 
 
 def docker_cli(socket, config, cwd, *argv, variables=None, timeout=15):
@@ -85,7 +78,7 @@ def preflight(socket, state):
         try:
             with TemporaryDirectory(prefix="adl-docker-config-") as config:
                 runtime = inspect_runner(lambda *args: docker_cli(socket, config, config, *args))
-        except DOCKER_ERRORS as exc:
+        except RUNTIME_ERRORS as exc:
             blockers.append("docker_runner_unavailable")
             runtime["error"] = str(exc)
     return {"status": "blocked" if blockers else "ready", "socket": str(socket),
@@ -198,10 +191,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             if receipt["cleanup"]["status"] == "confirmed":
                 return receipt
             stack = Compose(socket, state, receipt)
-            receipt["cleanup"] = cleanup(stack)
+            assess_cleanup(receipt, cleanup(stack))
             receipt["finished_at"] = now()
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
             record(receipt_path, receipt)
             return receipt
 
@@ -270,13 +261,12 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
                 record(receipt_path, receipt)
                 start(stack)
             report = stack.observe(contract, image)
-            receipt.update(observation=report, verdict=report["verdict"], reason=report["reason"])
-            if report["verdict"] == "verified" and (product is None or product.redis):
-                receipt["redis_counter"] = stack.compose("exec", "-T", "redis", "redis-cli", "--raw",
-                                                         "GET", "adl:counter")
-                if receipt["redis_counter"] != "2":
-                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
-        except DOCKER_ERRORS as exc:
+
+            def read_counter():
+                return stack.compose("exec", "-T", "redis", "redis-cli", "--raw", "GET", "adl:counter")
+
+            assess_observation(receipt, report, read_counter if product is None or product.redis else None)
+        except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
             try:
@@ -284,9 +274,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             except OSError as exc:
                 receipt["diagnostics_error"] = str(exc)
             finally:
-                receipt["cleanup"] = cleanup(stack)
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
+                assess_cleanup(receipt, cleanup(stack))
             receipt["finished_at"] = now()
             record(receipt_path, receipt)
         if index is not None:
@@ -305,7 +293,7 @@ def start(stack):
 def cleanup(stack):
     try:
         return stack.cleanup()
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         return {"status": "unconfirmed", "error": str(exc)}
 
 
@@ -314,7 +302,7 @@ def save_diagnostics(stack, receipt, phase):
         stack.resources()
         diagnostic = stack.compose("ps", "--all", "--format", "json") + "\n"
         diagnostic += stack.compose("logs", "--no-color", "--tail", "20")
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         diagnostic = str(exc)
     path = stack.state / f"{phase}.log"
     path.write_text(diagnostic[-16000:] + "\n")

@@ -3,7 +3,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 
-from .candidate import FULL_REVISION, git
+from .revisions import FULL_REVISION, git
 
 
 POLICY_PATHS = ("delivery", "contracts", ".agents/skills", ".github/workflows", "verification", "evals")

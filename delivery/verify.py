@@ -44,7 +44,10 @@ class Contract:
 
     @classmethod
     def read(cls, path, *, product=False):
-        raw = path.read_bytes()
+        return cls.from_bytes(path.read_bytes(), product=product)
+
+    @classmethod
+    def from_bytes(cls, raw, *, product=False):
         data = json.loads(raw)
         fields = {"version", "outcome", "allowed_changes", "max_repairs", "probes"}
         if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact", "acceptance", "technical_brief", "reproduction", "reproduction_path"}

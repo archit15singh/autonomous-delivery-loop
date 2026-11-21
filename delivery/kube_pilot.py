@@ -2,25 +2,24 @@
 from base64 import b64encode
 from hashlib import sha256
 import json
-from pathlib import Path
 import re
 import select
 import subprocess
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from .candidate import FULL_REVISION
-from .compose_pilot import CONTRACT, DOCKER_ERRORS, ROOT, now
+from .revisions import FULL_REVISION
 from .factory_definition import running_definition
-from .factory_workflow import lock, record
-from .lima_pilot import PYTHON
+from .run_state import lock, record
+from .runtime_checks import (CONTRACT, PYTHON, REDIS_DIGEST, ROOT, RUNTIME_ERRORS,
+                             assess_cleanup, assess_observation, now)
 from .verify import Contract, verify
 
 NAME = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 CONTEXT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@-]{0,252}")
 NAMESPACE = re.compile(r"adl-run-[a-f0-9]{16}")
 DIGEST = re.compile(r"[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}")
-REDIS = "redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5"
+REDIS = f"redis@{REDIS_DIGEST}"
 
 
 class Kubectl:
@@ -60,7 +59,7 @@ def diagnostics(kube, namespace, deployment):
     try:
         report["logs"] = kube.call("logs", f"deployment/{deployment}", "--tail=25",
                                    "--limit-bytes=8192", namespace=namespace)
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         report["log_error"] = str(exc)
     return report
 
@@ -143,7 +142,7 @@ def cleanup(kube, receipt):
         if ownership(kube, receipt):
             raise ValueError("namespace still exists")
         return {"status": "confirmed"}
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         return {"status": "unconfirmed", "error": str(exc)}
 
 
@@ -283,13 +282,13 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
                 if receipt["redis_ping"] != "PONG":
                     raise ValueError("Redis did not answer PING")
             observation, actual = probe(kube, receipt, contract, product.port if product else 8080)
-            receipt.update(observation=observation, image_id=actual,
-                           verdict=observation["verdict"], reason=observation["reason"])
-            if product and product.redis and receipt["verdict"] == "verified":
-                receipt["redis_counter"] = kube.call("exec", "deployment/redis", "--", "redis-cli",
-                                                     "--raw", "GET", "adl:counter", namespace=ns).strip()
-                if receipt["redis_counter"] != "2":
-                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
+            receipt["image_id"] = actual
+
+            def read_counter():
+                return kube.call("exec", "deployment/redis", "--", "redis-cli",
+                                 "--raw", "GET", "adl:counter", namespace=ns).strip()
+
+            assess_observation(receipt, observation, read_counter if product and product.redis else None)
             if rollback_revision and receipt["verdict"] == "verified":
                 ownership(kube, receipt)
                 prior = {"revision": rollback_revision, "deployment": ns, "image": f"adl-kube:{rollback_revision}"}
@@ -302,17 +301,15 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
                 receipt["rollback"] = {"image_id": previous_image, "observation": rollback_report}
                 if rollback_report["verdict"] != "verified":
                     receipt.update(verdict=rollback_report["verdict"], reason="rollback_unverified")
-        except DOCKER_ERRORS as exc:
+        except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
             try:
                 if ownership(kube, receipt):
                     receipt["diagnostics"] = diagnostics(kube, ns, "api")
-            except DOCKER_ERRORS as exc:
+            except RUNTIME_ERRORS as exc:
                 receipt["diagnostics_error"] = str(exc)
-            receipt["cleanup"] = cleanup(kube, receipt)
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
+            assess_cleanup(receipt, cleanup(kube, receipt))
             receipt["finished_at"] = now()
             record(path, receipt)
         return receipt

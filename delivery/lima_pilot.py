@@ -3,25 +3,23 @@ from base64 import b64decode
 from hashlib import sha256
 from io import BytesIO
 import json
-from pathlib import Path
 import re
 import subprocess
 import tarfile
 from uuid import uuid4
 
-from .candidate import FULL_REVISION, git
+from .revisions import FULL_REVISION, git
 from .factory_definition import running_definition
-from .factory_workflow import lock, record
+from .run_state import lock, record
+from .runtime_checks import (CONTRACT, PYTHON, REDIS_DIGEST, ROOT, RUNTIME_ERRORS,
+                             assess_cleanup, assess_observation)
 from .verify import Contract
 
 
-ROOT = Path(__file__).resolve().parents[1]
 INSTANCE = "adl-runtime"
-PYTHON = "docker.io/library/python:3.12-alpine@sha256:c5ba3deef00c7758561a0f03c26f44f10589263d40e732b8748e0d1f38f6dd89"
-REDIS = "docker.io/library/redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5"
+REDIS = f"docker.io/library/redis@{REDIS_DIGEST}"
 BROWSER = "mcr.microsoft.com/playwright@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f"
 PROJECT = re.compile(r"adl-local-[a-f0-9]{16}")
-ERRORS = (OSError, ValueError, subprocess.SubprocessError)
 
 PROBE = """\
 import json, socket, sys, time
@@ -122,7 +120,7 @@ def payload(source, revision, browser=False, contract_bytes=None):
 def cleanup(lima, receipt):
     try:
         return lima.cleanup(receipt)
-    except ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         return {"status": "unconfirmed", "error": str(exc)}
 
 
@@ -180,7 +178,7 @@ def run(state, revision=None, *, cleanup_only=False, browser=False, product=None
         policy = running_definition(ROOT)
         if product is None:
             source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
-            contract = Contract.read(ROOT / "contracts/compose-pilot.json")
+            contract = Contract.read(CONTRACT)
             contract_bytes = None
             redis_required, port = True, 8080
             app_limits = ["--memory", "96m"]
@@ -250,26 +248,24 @@ def run(state, revision=None, *, cleanup_only=False, browser=False, product=None
                 "python", "-B", "check.py", revision, project, source_sha, str(port),
                 "product" if product is not None else "pilot", timeout=35,
             ))
-            receipt.update(observation=observed, verdict=observed["verdict"], reason=observed["reason"])
-            if redis_required and observed["verdict"] == "verified":
-                receipt["redis_counter"] = lima.nerdctl("exec", redis, "redis-cli", "--raw", "GET", "adl:counter")
-                if receipt["redis_counter"] != "2":
-                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
+
+            def read_counter():
+                return lima.nerdctl("exec", redis, "redis-cli", "--raw", "GET", "adl:counter")
+
+            assess_observation(receipt, observed, read_counter if redis_required else None)
             if browser and receipt["verdict"] == "verified":
                 receipt["browser"] = browser_probe(lima, state, receipt, folder, shared, same_network, redis)
                 if not receipt["browser"]["passed"]:
                     receipt.update(verdict="failed", reason="browser_job_failed")
-        except ERRORS as exc:
+        except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
             if "api_container" in receipt:
                 try:
                     receipt["logs"] = lima.guest("sh", "-c", 'exec nerdctl logs --tail 20 "$1" 2>&1',
                                                   "sh", api)[-16000:]
-                except ERRORS as exc:
+                except RUNTIME_ERRORS as exc:
                     receipt["diagnostics_error"] = str(exc)
-            receipt["cleanup"] = cleanup(lima, receipt)
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
+            assess_cleanup(receipt, cleanup(lima, receipt))
             record(path, receipt)
         return receipt

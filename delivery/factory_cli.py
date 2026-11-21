@@ -6,14 +6,10 @@ from pathlib import Path
 from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
+from . import run_index, work_intake
 from . import factory_publish as publication
-from . import hosted_runtime, product_runtime
-from .lima_pilot import run as lima_pilot
-from .lima_repair import repair as lima_repair
-from .candidate import FULL_REVISION, git
-from .compose_pilot import preflight as compose_preflight, run as compose_pilot
-from .cloud_pilot import manage as cloud_pilot
-from .kube_pilot import Kubectl, diagnostics, run as kube_pilot
+from . import product_runtime, runtime_cli
+from .revisions import FULL_REVISION, git
 from .factory_definition import definition
 from .factory_outcomes import outcome_report
 from . import factory_issue as issue_delivery
@@ -31,57 +27,7 @@ def register(commands):
     actions = root.add_subparsers(dest="operation", required=True)
     product_runtime.register(actions)
     actions.add_parser("self-check")
-    hosted = actions.add_parser("hosted-runtime", help="dispatch or collect a disposable hosted runtime")
-    hosted_actions = hosted.add_subparsers(dest="runtime_action", required=True)
-    start_hosted = hosted_actions.add_parser("start")
-    start_hosted.add_argument("--revision", required=True)
-    start_hosted.add_argument("--contract", choices=hosted_runtime.CONTRACTS, required=True)
-    collect_hosted = hosted_actions.add_parser("collect")
-    for action in (start_hosted, collect_hosted):
-        action.add_argument("--state", type=Path, required=True)
-        action.add_argument("--repo", type=Path, default=Path("."))
-    lima = actions.add_parser("lima-pilot", help="verify the owned pilot in the Docker-free Lima VM")
-    lima.add_argument("--state", type=Path, required=True)
-    lima.add_argument("--revision")
-    lima.add_argument("--cleanup-only", action="store_true")
-    lima.add_argument("--browser", action="store_true", help="verify browser to Redis worker to SQLite")
-    repair = actions.add_parser("lima-repair", help="verify, repair once in guest Codex, and verify again")
-    repair.add_argument("--state", type=Path, required=True)
-    repair.add_argument("--revision", required=True)
-    repair.add_argument("--model")
-    repair.add_argument("--timeout", type=int, default=180)
-    repair.add_argument("--browser", action="store_true")
-    preflight = actions.add_parser("compose-preflight", help="inspect the selected Compose runner")
-    preflight.add_argument("--socket", type=Path, required=True)
-    preflight.add_argument("--state", type=Path, required=True)
-    compose = actions.add_parser("compose-pilot", help="verify and tear down the owned Redis pilot")
-    compose.add_argument("--socket", type=Path, required=True)
-    compose.add_argument("--state", type=Path, required=True)
-    compose.add_argument("--revision")
-    compose.add_argument("--retry-start", action="store_true")
-    compose.add_argument("--cleanup-only", action="store_true")
-    compose.add_argument("--runs", type=Path)
-    kube = actions.add_parser("kube-pilot", help="run the Redis pilot on a disposable kind cluster")
-    kube.add_argument("--kubeconfig", type=Path, required=True)
-    kube.add_argument("--context", required=True)
-    kube.add_argument("--state", type=Path, required=True)
-    kube.add_argument("--revision")
-    kube.add_argument("--image")
-    kube.add_argument("--retry", action="store_true")
-    kube.add_argument("--cleanup-only", action="store_true")
-    kube.add_argument("--rollback-revision")
-    inspect_runtime = actions.add_parser("kube-diagnostics", help="read workload status, events and bounded logs")
-    inspect_runtime.add_argument("--kubeconfig", type=Path, required=True)
-    inspect_runtime.add_argument("--context", required=True)
-    inspect_runtime.add_argument("--namespace", required=True)
-    inspect_runtime.add_argument("--deployment", required=True)
-    cloud = actions.add_parser("cloud-pilot", help="plan and approve a disposable OpenTofu resource")
-    cloud.add_argument("action", choices=("create", "destroy", "approve", "apply", "reconcile"))
-    cloud.add_argument("--state", type=Path, required=True)
-    cloud.add_argument("--backend", choices=("local", "aws"))
-    cloud.add_argument("--region")
-    cloud.add_argument("--account")
-    cloud.add_argument("--approval", type=Path)
+    runtime_cli.register(actions)
     snapshot = actions.add_parser("definition")
     snapshot.add_argument("--repo", type=Path, default=Path("."))
     snapshot.add_argument("--revision", required=True)
@@ -205,47 +151,18 @@ def read(path):
     return json.loads(path.read_text())
 
 
+def benchmark_manifest(repo, frozen):
+    manifest = benchmark.dataset(repo)
+    if frozen and read(frozen) != manifest:
+        raise ValueError("benchmark files differ from the pinned manifest")
+    return manifest
+
+
 def dispatch(args):
     if args.operation == "runtime":
         return product_runtime.dispatch(args)
-    if args.operation == "lima-repair":
-        receipt = lima_repair(args.state.resolve(), args.revision, model=args.model,
-                              timeout=args.timeout, browser=args.browser)
-        return receipt, int(receipt["verdict"] != "verified")
-    if args.operation == "lima-pilot":
-        receipt = lima_pilot(args.state.resolve(), args.revision, cleanup_only=args.cleanup_only, browser=args.browser)
-        success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
-                   else receipt["verdict"] == "verified")
-        return receipt, int(not success)
-    if args.operation == "hosted-runtime":
-        state = args.state.resolve()
-        if args.runtime_action == "start":
-            return hosted_runtime.start(args.repo, state, args.revision, args.contract), 0
-        receipt = hosted_runtime.collect(args.repo, state)
-        if receipt["status"] != "completed":
-            return receipt, 3
-        return receipt, int(receipt["verdict"] != "verified")
-    if args.operation == "compose-preflight":
-        report = compose_preflight(args.socket, args.state)
-        return report, int(report["status"] != "ready")
-    if args.operation == "compose-pilot":
-        receipt = compose_pilot(args.socket, args.state, args.revision, retry_start=args.retry_start,
-                                cleanup_only=args.cleanup_only, index=args.runs)
-        success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
-                   else receipt["verdict"] == "verified")
-        return receipt, int(not success)
-    if args.operation == "kube-pilot":
-        receipt = kube_pilot(args.kubeconfig, args.context, args.state, args.revision, args.image,
-                             retry=args.retry, cleanup_only=args.cleanup_only,
-                             rollback_revision=args.rollback_revision)
-        success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
-                   else receipt["verdict"] == "verified")
-        return receipt, int(not success)
-    if args.operation == "kube-diagnostics":
-        return diagnostics(Kubectl(args.kubeconfig, args.context), args.namespace, args.deployment), 0
-    if args.operation == "cloud-pilot":
-        return cloud_pilot(args.state, args.action, backend=args.backend, account=args.account,
-                           region=args.region, approval=args.approval), 0
+    if hasattr(args, "runtime_handler"):
+        return args.runtime_handler(args)
     op = args.operation
     if op == "self-check":
         result = evidence.self_check()
@@ -266,9 +183,7 @@ def dispatch(args):
         if args.frozen:
             if baseline or contract or not args.case:
                 raise ValueError("choose a frozen case or explicit baseline and contract")
-            manifest = benchmark.dataset(args.repo)
-            if read(args.frozen) != manifest:
-                raise ValueError("benchmark files differ from the pinned manifest")
+            manifest = benchmark_manifest(args.repo, args.frozen)
             selected = next((item for item in manifest["factory_replays"] if item["id"] == args.case), None)
             if selected is None:
                 raise ValueError("factory replay case is not frozen")
@@ -280,9 +195,7 @@ def dispatch(args):
             result["frozen_case"] = args.case
         return result, int(not result["passed"])
     if op == "benchmark":
-        manifest = benchmark.dataset(args.repo)
-        if args.frozen and read(args.frozen) != manifest:
-            raise ValueError("benchmark files differ from the pinned manifest")
+        manifest = benchmark_manifest(args.repo, args.frozen)
         if not args.trials:
             if args.cost_routing:
                 raise ValueError("cost routing requires trial receipts")
@@ -304,23 +217,23 @@ def dispatch(args):
         records = read(args.ci)
         attachments = read(args.evidence) if args.evidence else []
         if args.runs:
-            runs = learning.indexed_runs(args.runs)
+            runs = run_index.indexed_runs(args.runs)
             attach_local_replay(records, runs)
             attachments.extend(learning.pr_evidence(runs))
         return evidence.portfolio(records, read(args.ledger), attachments), 0
     if op == "record-run":
-        return learning.run_record(args.spec, args.runs), 0
+        return run_index.run_record(args.spec, args.runs), 0
     if op == "assess-process":
-        return learning.assess_process(read(args.facts)), 0
+        return run_index.assess_process(read(args.facts)), 0
     if op == "measure-runs":
         return learning.measure(args.runs), 0
     if op == "mine-runs":
         if args.spool:
-            learning.index_spool(args.spool, args.runs)
+            run_index.index_spool(args.spool, args.runs)
         return learning.mine(args.runs, minimum=args.minimum), 0
     if op == "intake":
         facts = read(args.issue)
-        return (engine.check_issue(args.github_issue, facts) if args.github_issue else engine.intake(facts)), 0
+        return (work_intake.check_issue(args.github_issue, facts) if args.github_issue else work_intake.intake(facts)), 0
     if op == "approve-issue":
         return issue_delivery.approve(args.issue, args.spec), 0
     if op == "issue-run":
@@ -342,7 +255,7 @@ def dispatch(args):
     if op == "staging-signal":
         return feedback.signal(feedback.staging_observation(args.run_id, drill=args.drill), args.ledger, args.file_issue), 0
     if op == "handoff":
-        return engine.review_handoff(read(args.pr), read(args.findings)), 0
+        return work_intake.review_handoff(read(args.pr), read(args.findings)), 0
     if op == "adoption":
         return evidence.adoption(read(args.events)), 0
     if op == "bundle":
@@ -376,5 +289,7 @@ def dispatch(args):
     if op == "publish":
         return publication.publish(args.repo, args.manifest, args.candidate, args.contract,
                                    apply=args.apply, ledger=args.ledger), 0
-    result = publication.merge_preview(args.repo, args.base, args.candidate)
-    return result, int(result["verdict"] != "mergeable")
+    if op == "merge-preview":
+        result = publication.merge_preview(args.repo, args.base, args.candidate)
+        return result, int(result["verdict"] != "mergeable")
+    raise ValueError(f"unsupported factory operation: {op}")

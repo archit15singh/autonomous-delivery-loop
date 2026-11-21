@@ -6,32 +6,10 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 
-from .candidate import FULL_REVISION, check_candidate, git
+from .revisions import FULL_REVISION, check_candidate, git
+from .github import OWNER_REPO
 from .upstream_actions import ActionLedger
-from .verify import Contract
-
-
-OWNER_REPO = "archit15singh/autonomous-delivery-loop"
-REMOTE = f"https://github.com/{OWNER_REPO}.git"
-SIGNER = f"{OWNER_REPO}/.github/workflows/trusted-candidate.yml"
-
-
-def verify_signature(path, policy):
-    subprocess.run(
-        ["gh", "attestation", "verify", str(path), "--repo", OWNER_REPO, "--signer-workflow",
-         SIGNER, "--source-ref", "refs/heads/main", "--source-digest", policy],
-        stdout=subprocess.DEVNULL, check=True, timeout=40,
-    )
-
-
-def remote_ref(repo, ref):
-    answer = git("ls-remote", "--refs", REMOTE, ref, cwd=repo).decode().strip()
-    if not answer:
-        return None
-    revision, remote_name = answer.split("\t")
-    if remote_name != ref or not FULL_REVISION.fullmatch(revision):
-        raise ValueError("unexpected GitHub ref response")
-    return revision
+from .trusted_policy import CONTRACTS, contract_at, remote_ref, verify_signature
 
 
 def create_staging_ref(repo, ref, candidate):
@@ -51,7 +29,7 @@ def create_staging_ref(repo, ref, candidate):
 
 
 def publish(repo, manifest, candidate, contract_name, *, apply=False, ledger=None):
-    if not FULL_REVISION.fullmatch(candidate) or contract_name not in {"pilot", "named-greeting"}:
+    if not FULL_REVISION.fullmatch(candidate) or contract_name not in CONTRACTS:
         raise ValueError("publication requires an exact pilot candidate and approved contract")
     if apply and (ledger is None or os.getenv("GITHUB_ACTIONS") != "true"
                   or os.getenv("GITHUB_REPOSITORY") != OWNER_REPO
@@ -71,9 +49,7 @@ def publish(repo, manifest, candidate, contract_name, *, apply=False, ledger=Non
         verify_signature(copy, policy)
         if payload.get("runtime", {}).get("kind") != "compose":
             raise ValueError("staging publication requires signed Compose evidence")
-        contract_path = Path(scratch) / "contract.json"
-        contract_path.write_bytes(git("show", f"{policy}:contracts/{contract_name}.json", cwd=repo))
-        contract = Contract.read(contract_path)
+        contract = contract_at(repo, policy, contract_name)
         if payload["contract_sha256"] != contract.digest:
             raise ValueError("manifest does not match the approved contract")
         check_candidate(candidate, policy, contract.allowed_changes, cwd=repo)

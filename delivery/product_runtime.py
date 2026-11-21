@@ -8,7 +8,7 @@ import re
 from tempfile import TemporaryDirectory
 
 from . import compose_pilot, kube_pilot, lima_pilot
-from .candidate import FULL_REVISION, check_candidate, git
+from .revisions import FULL_REVISION, check_candidate, git
 from .verify import Contract, product_path
 
 
