@@ -9,13 +9,15 @@ const diskDescription = "Keep the temporary directory on the engine's disk";
 
 async function measure(browser, route, expectedDisk) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  const assets = new Set();
+  const assets = new Map();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("response", (response) => {
     const url = new URL(response.url());
     if (response.ok() && url.origin === origin && url.pathname.startsWith("/assets/js/")) {
-      assets.add(url.pathname);
+      const kinds = assets.get(url.pathname) ?? new Set();
+      kinds.add(response.request().resourceType());
+      assets.set(url.pathname, kinds);
     }
   });
   await page.route("**/*", async (request) => {
@@ -35,15 +37,29 @@ async function measure(browser, route, expectedDisk) {
   }
   assert.deepEqual(errors, [], route);
   let total = 0;
-  let hasNextSchema = false;
-  for (const asset of assets) {
+  let scriptBytes = 0;
+  const schemaAssets = [];
+  for (const [asset, kinds] of assets) {
     const script = fs.readFileSync(path.join(process.cwd(), "build", asset));
-    hasNextSchema ||= script.includes("temporary directory on the engine");
-    total += gzipSync(script).length;
+    const bytes = gzipSync(script).length;
+    if (asset.includes("dagger-api-schema") || script.includes("temporary directory on the engine")) {
+      schemaAssets.push({ asset, kinds: [...kinds], bytes });
+    }
+    total += bytes;
+    if (kinds.has("script")) scriptBytes += bytes;
   }
+  console.log(JSON.stringify({ route, scripts: assets.size, gzipBytes: total, scriptBytes, schemaAssets }));
   assert.ok(assets.size > 0, route);
-  assert.equal(hasNextSchema, mode !== "candidate" || expectedDisk === true, route);
-  console.log(JSON.stringify({ route, scripts: assets.size, gzipBytes: total, hasNextSchema }));
+  if (mode === "candidate") {
+    const loadedSchemas = schemaAssets.filter(({ kinds }) => kinds.includes("script"));
+    const expectedVersion = expectedDisk === undefined ? null : expectedDisk ? "current" : "1.0-beta";
+    if (expectedVersion === null) {
+      assert.deepEqual(loadedSchemas, [], route);
+    } else {
+      assert.equal(loadedSchemas.length, 1, route);
+      assert.ok(loadedSchemas[0].asset.includes(`dagger-api-schema-${expectedVersion}`), route);
+    }
+  }
   await page.close();
 }
 
