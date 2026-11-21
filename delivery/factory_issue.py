@@ -10,8 +10,9 @@ from tempfile import TemporaryDirectory
 import time
 
 from .candidate import FULL_REVISION, git
-from .factory_definition import running_definition
+from .factory_definition import definition, running_definition
 from .factory_workflow import check_issue, lock, record
+from .factory_learning import run_record
 from .upstream_actions import ActionLedger, digest
 from .upstream_ci import gh_json
 from .verify import Contract
@@ -150,7 +151,28 @@ ran on the approved base and GitHub runs the candidate checks after publication.
     return url
 
 
-def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout):
+def index_publication(repo, output, result, index):
+    trace = output / "codex.jsonl"
+    usage = {}
+    for line in trace.read_text().splitlines():
+        event = json.loads(line)
+        if event.get("type") == "turn.completed":
+            usage = event.get("usage", {})
+    metrics = {"wall_seconds": result["wall_seconds"], "human_interventions": result["human_approvals"]}
+    if all(type(usage.get(key)) is int for key in ("input_tokens", "output_tokens")):
+        metrics["tokens"] = usage["input_tokens"] + usage["output_tokens"]
+    record(output / "definition.json", definition(repo, result["base"]))
+    spec = output / "run-spec.json"
+    record(spec, {"id": f"owned-issue-{result['approval'][:24]}", "head": result["head"],
+                  "base": result["base"], "pr": result["pr"], "factory_revision": result["base"],
+                  "finished_at": result["finished_at"], "metrics": metrics,
+                  "receipts": {"runtime": "candidate.json", "recipe": "recipe.json",
+                               "definition": "definition.json"},
+                  "trace": trace.name, "patch": "candidate.patch"})
+    return run_record(spec, index)
+
+
+def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout, index=None):
     started = time.monotonic()
     plan = issue_plan(url, spec)
     if approval is None:
@@ -169,13 +191,18 @@ def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout):
     key = digest(plan)
     output = output.resolve() / key
     with lock(output):
-        return dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started)
+        return dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started, index)
 
 
-def dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started):
+def dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started, index):
     checkpoint = output / "verified-head.json"
     prior = ledger.reserve_once("owned_issue", url, key)
     if prior is not None and (prior["identity"] != key or prior["result"] or not checkpoint.exists()):
+        if prior["identity"] == key and prior["result"] and prior["result"]["state"] == "published":
+            result = prior["result"]
+            record(output / "publication.json", result)
+            if index is not None:
+                index_publication(repo, output, result, index)
         return {"state": "already_dispatched", "reservation": prior}
     if prior is None:
         frozen_spec = output / "contract.json"
@@ -193,7 +220,9 @@ def dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, 
     result = {"state": "published", "issue": url, "pr": pr, "head": candidate,
               "base": plan["base"], "approval": key,
               "wall_seconds": round(time.monotonic() - started, 3),
-              "human_approvals": 1}
+              "human_approvals": 1, "finished_at": datetime.now(timezone.utc).isoformat()}
     ledger.finish_once("owned_issue", url, key, result)
     record(output / "publication.json", result)
+    if index is not None:
+        index_publication(repo, output, result, index)
     return result
