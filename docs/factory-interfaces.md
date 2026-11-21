@@ -47,9 +47,9 @@ to record an operator's explicit correction while the report's head is current.
 
 Use factory review-replay CORRECTION ORIGINAL CONTROL OLD_SKILL NEW_SKILL to
 rerun both reviewed skills on the original and held-out changes. CONTROL names
-the held-out PR, base, head and expected finding key. The old review must
+the held-out PR, base, head, finding path and expected finding key. The old review must
 reproduce the rejected finding. The proposed review must drop it and both must
-retain the valid control. Evaluate skill changes in their own reviewed PR.
+retain the valid control. A new finding on the corrected path requires another human adjudication. Evaluate skill changes in their own reviewed PR.
 
 Use factory staging-signal RUN_ID --ledger .adl/factory.sqlite3 to read a
 completed main delivery run and its exact hosted-staging evidence. An opted-in

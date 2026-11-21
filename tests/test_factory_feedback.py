@@ -37,7 +37,7 @@ class FeedbackTest(unittest.TestCase):
             original = {**subject, "findings": [rejected], "skill": digest(old.read_text())}
             correction = {**subject, "key": rejected["key"], "finding_sha256": digest(rejected),
                           "report_sha256": digest(original), "operator": "maintainer"}
-            control = {**subject, "head": "c" * 40, "key": valid["key"]}
+            control = {**subject, "head": "c" * 40, "key": valid["key"], "path": valid["path"]}
             for after, passed in (([valid], True), ([], False)):
                 with patch.object(feedback, "review", side_effect=[original, {"findings": []},
                                                                {"findings": [valid]}, {"findings": after}]):

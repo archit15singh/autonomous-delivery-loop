@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 import time
 
 from .candidate import FULL_REVISION, git
-from .factory_definition import running_definition
+from .factory_definition import definition, running_definition
 from .factory_workflow import check_issue, lock, record
 from .factory_learning import run_record
 from .upstream_actions import ActionLedger, digest
@@ -161,7 +161,7 @@ def index_publication(repo, output, result, index):
     metrics = {"wall_seconds": result["wall_seconds"], "human_interventions": result["human_approvals"]}
     if all(type(usage.get(key)) is int for key in ("input_tokens", "output_tokens")):
         metrics["tokens"] = usage["input_tokens"] + usage["output_tokens"]
-    record(output / "definition.json", running_definition(repo, result["base"]))
+    record(output / "definition.json", definition(repo, result["base"]))
     spec = output / "run-spec.json"
     record(spec, {"id": f"owned-issue-{result['approval'][:24]}", "head": result["head"],
                   "base": result["base"], "pr": result["pr"], "factory_revision": result["base"],
@@ -198,6 +198,11 @@ def dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, 
     checkpoint = output / "verified-head.json"
     prior = ledger.reserve_once("owned_issue", url, key)
     if prior is not None and (prior["identity"] != key or prior["result"] or not checkpoint.exists()):
+        if prior["identity"] == key and prior["result"] and prior["result"]["state"] == "published":
+            result = prior["result"]
+            record(output / "publication.json", result)
+            if index is not None:
+                index_publication(repo, output, result, index)
         return {"state": "already_dispatched", "reservation": prior}
     if prior is None:
         frozen_spec = output / "contract.json"

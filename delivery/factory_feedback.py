@@ -48,7 +48,7 @@ def review(repo, subject, guidance, model, timeout):
     base, head = subject["base"], subject["head"]
     if not all(FULL_REVISION.fullmatch(sha) for sha in (base, head)):
         raise ValueError("review must use exact revisions")
-    diff = git("diff", "--no-ext-diff", f"{base}...{head}", cwd=repo).decode()
+    diff = git("diff", "--no-ext-diff", base, head, cwd=repo).decode()
     if not diff or len(diff) > 100_000:
         raise ValueError("split empty or large changes before cold review")
     skill = guidance.read_text()
@@ -95,21 +95,31 @@ def review_replay(repo, correction_record, original, control, old_skill, new_ski
         raise ValueError("correction must identify the original report and skill")
     subject_fields = ("pr", "head", "base")
     subject = {key: correction_record[key] for key in subject_fields}
+    if any(original[key] != value for key, value in subject.items()):
+        raise ValueError("correction subject differs from the original report")
     rejected = correction_record["key"]
-    if not any(row["key"] == rejected and digest(row) == correction_record["finding_sha256"]
-               for row in original["findings"]):
+    original_finding = next((row for row in original["findings"]
+                             if row["key"] == rejected and digest(row) == correction_record["finding_sha256"]), None)
+    if original_finding is None:
         raise ValueError("correction must match an exact original finding")
     held_out = {key: control[key] for key in subject_fields}
-    if held_out["head"] == subject["head"] or not FINDING.fullmatch(control["key"]):
+    if (held_out["head"] == subject["head"] or not FINDING.fullmatch(control["key"])
+            or not control["path"]):
         raise ValueError("select an independent held-out change and valid finding")
     results = {name: {"before": review(repo, case, old_skill, model, timeout),
                       "after": review(repo, case, new_skill, model, timeout)}
                for name, case in (("correction", subject), ("control", held_out))}
     false_positive = results["correction"]
     valid_finding = results["control"]
+    def control_retained(report):
+        return any(row["key"] == control["key"] and row["path"] == control["path"]
+                   for row in report["findings"])
+
     passed = (rejected in finding_keys(false_positive["before"])
               and rejected not in finding_keys(false_positive["after"])
-              and all(control["key"] in finding_keys(report) for report in valid_finding.values()))
+              and not any(row["path"] == original_finding["path"]
+                          for row in false_positive["after"]["findings"])
+              and all(control_retained(report) for report in valid_finding.values()))
     return {"passed": passed, "results": results}
 
 
@@ -147,7 +157,19 @@ def signal(observation, ledger_path, apply=False):
     ledger = ActionLedger(ledger_path)
     prior = ledger.reserve_once("release_signal", key, key)
     if prior is not None:
-        return {"state": "already_observed", "reservation": prior}
+        if prior["result"]:
+            return {"state": "already_observed", "reservation": prior}
+        existing = gh_json("issue", "list", "--repo", REPOSITORY, "--state", "all",
+                           "--search", f'"{key}" in:body', "--limit", "10", "--json", "url,body")
+        matches = [row["url"] for row in existing if f"Signal: {key}" in row["body"].splitlines()]
+        if len(matches) == 1:
+            try:
+                ledger.finish_once("release_signal", key, key,
+                                   {"state": "filed_investigation", "issue": matches[0], "identity": key})
+            except ValueError:
+                pass
+            return {"state": "reconciled_investigation", "issue": matches[0], "identity": key}
+        return {"state": "investigation_publication_uncertain", "identity": key}
     with TemporaryDirectory(prefix="adl-release-signal-") as temp:
         body = Path(temp) / "issue.md"
         body.write_text(f"An approved staging probe failed.\n\n"
