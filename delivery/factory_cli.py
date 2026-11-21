@@ -8,7 +8,7 @@ from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
 from .candidate import FULL_REVISION, git
-from .compose_pilot import run as compose_pilot
+from .compose_pilot import preflight as compose_preflight, run as compose_pilot
 from .cloud_pilot import manage as cloud_pilot
 from .kube_pilot import Kubectl, diagnostics, run as kube_pilot
 from .factory_definition import definition
@@ -27,6 +27,9 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     actions.add_parser("self-check")
+    preflight = actions.add_parser("compose-preflight", help="inspect the selected Compose runner")
+    preflight.add_argument("--socket", type=Path, required=True)
+    preflight.add_argument("--state", type=Path, required=True)
     compose = actions.add_parser("compose-pilot", help="verify and tear down the owned Redis pilot")
     compose.add_argument("--socket", type=Path, required=True)
     compose.add_argument("--state", type=Path, required=True)
@@ -177,6 +180,9 @@ def read(path):
 
 
 def dispatch(args):
+    if args.operation == "compose-preflight":
+        report = compose_preflight(args.socket, args.state)
+        return report, int(report["status"] != "ready")
     if args.operation == "compose-pilot":
         receipt = compose_pilot(args.socket, args.state, args.revision, retry_start=args.retry_start,
                                 cleanup_only=args.cleanup_only, index=args.runs)
