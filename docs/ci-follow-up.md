@@ -20,7 +20,7 @@ Pass `--runs` to include local replay evidence alongside CI and review. Once a P
 | `baseline_needs_replay` | Run the local gate against the current base. The index has work for this head against a different or unknown base. |
 | `unindexed` | Check existing receipts and index a trusted replay or run the gate. |
 
-The report leaves GitHub's CI and review dispositions intact. Each matching record includes the indexed run ID and its revisions for follow-up.
+The report leaves GitHub's CI and review dispositions intact. Each matching record includes the indexed run ID and its revisions for follow-up. The scheduled queue also computes this field when it runs `factory portfolio --runs`, including when its input scan lacks `--runs`.
 
 | Action | Codex follow-up |
 | --- | --- |

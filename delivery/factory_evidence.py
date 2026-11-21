@@ -143,6 +143,7 @@ def portfolio(records, ledger, related=()):
                        "ci": item["action"], "signals": item.get("signals", []), "review": review.get("action"),
                        "decision": review.get("decision"), "actions": queued.get((pr.lower(), head), []),
                        "unconfirmed_push": holds.get(pr.lower()), "evidence": attached,
+                       "local_replay": item.get("local_replay"),
                        "merge": {key: item[key] for key in ("merged_at", "merged_by", "merge_commit") if key in item}})
     return {"counts": dict(Counter(row["state"] or "UNKNOWN" for row in result)), "prs": result}
 

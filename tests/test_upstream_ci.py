@@ -1,6 +1,3 @@
-import json
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
@@ -89,24 +86,20 @@ class UpstreamCITests(unittest.TestCase):
                 "action": "checks_passed"}
         verified = {"id": "original", "pr": URL.upper(), "head": HEAD, "base": baseline,
                     "finished_at": "2026-11-21T10:00:00+00:00", "outcome": {"readiness": "verified"}}
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "original.json").write_text(json.dumps(verified))
-            rows = [dict(scan), {**scan, "base": "c" * 40}, {**scan, "head": "d" * 40},
-                    {**scan, "url": URL + "4"}, {**scan, "state": "MERGED"},
-                    {"url": URL, "action": "lookup_failed"}]
-            attach_local_replay(rows, root)
-            self.assertEqual([row.get("local_replay", {}).get("status") for row in rows],
-                             ["verified", "baseline_needs_replay", "head_needs_replay",
-                              "unindexed", None, None])
-            self.assertEqual(rows[0]["local_replay"]["run_id"], "original")
-            latest = {**verified, "id": "latest", "finished_at": "2026-11-21T10:02:00+00:00",
-                      "outcome": {"readiness": "verified", "browser": "failed"}}
-            (root / "latest.json").write_text(json.dumps(latest))
-            attach_local_replay(rows, root)
-            self.assertEqual(rows[0]["local_replay"]["status"], "unverified")
-            self.assertEqual(rows[0]["local_replay"]["run_id"], "latest")
-            self.assertEqual(rows[0]["action"], "checks_passed")
+        rows = [dict(scan), {**scan, "base": "c" * 40}, {**scan, "head": "d" * 40},
+                {**scan, "url": URL + "4"}, {**scan, "state": "MERGED"},
+                {"url": URL, "action": "lookup_failed"}]
+        attach_local_replay(rows, [verified])
+        self.assertEqual([row.get("local_replay", {}).get("status") for row in rows],
+                         ["verified", "baseline_needs_replay", "head_needs_replay",
+                          "unindexed", None, None])
+        self.assertEqual(rows[0]["local_replay"]["run_id"], "original")
+        latest = {**verified, "id": "latest", "finished_at": "2026-11-21T10:02:00+00:00",
+                  "outcome": {"readiness": "verified", "browser": "failed"}}
+        attach_local_replay(rows, [latest, verified])
+        self.assertEqual(rows[0]["local_replay"]["status"], "unverified")
+        self.assertEqual(rows[0]["local_replay"]["run_id"], "latest")
+        self.assertEqual(rows[0]["action"], "checks_passed")
 
     def test_review_routing_uses_github_merge_state(self):
         pr = {"reviewDecision": "", "mergeStateStatus": "CLEAN", "mergeable": "MERGEABLE"}

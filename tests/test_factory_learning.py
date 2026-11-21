@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from delivery.factory_evidence import browser_evidence, portfolio
-from delivery.factory_learning import assess_process, measure, mine, pr_evidence, run_record
+from delivery.factory_learning import assess_process, indexed_runs, measure, mine, pr_evidence, run_record
 from delivery.factory_benchmark import cost_route
 
 
@@ -32,7 +32,7 @@ class LearningTests(unittest.TestCase):
                     self.assertEqual(mine(workspace)["proposals"], [])
             report = mine(workspace)
             self.assertEqual([row["reason"] for row in report["proposals"]], ["revision_changed"])
-            paired = pr_evidence(workspace)
+            paired = pr_evidence(indexed_runs(workspace))
             snapshots = [{"url": pr, "head": head, "action": "checks_passed"},
                          {"url": pr, "head": factory, "action": "wait_for_ci"}]
             view = portfolio(snapshots, {}, paired)["prs"]

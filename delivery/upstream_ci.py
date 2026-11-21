@@ -232,13 +232,10 @@ def inspect_prs(urls, *, review=False):
         return list(workers.map(inspect, targets))
 
 
-def attach_local_replay(records, directory):
+def attach_local_replay(records, runs):
     """Compare GitHub's current revisions with operator-owned indexed replays."""
-    if not directory.is_dir():
-        raise ValueError("local replay index must be an existing directory")
     indexed = defaultdict(list)
-    for path in sorted(directory.glob("*.json")):
-        run = json.loads(path.read_text())
+    for run in runs:
         if run["pr"] and "readiness" in run["outcome"]:
             indexed[run["pr"].lower()].append(run)
 

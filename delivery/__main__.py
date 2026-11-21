@@ -12,7 +12,7 @@ import time
 from . import factory_cli
 from .candidate import check_candidate, git, propose
 from .factory_definition import running_definition
-from .factory_learning import run_record
+from .factory_learning import indexed_runs, run_record
 from .stage import stage
 from .upstream import replay
 from .upstream_actions import ActionLedger
@@ -182,7 +182,7 @@ def main():
             scan = time.time_ns()
             records = inspect_prs(urls, review=args.review)
             if args.runs:
-                attach_local_replay(records, args.runs)
+                attach_local_replay(records, indexed_runs(args.runs))
             if args.ledger:
                 report = ActionLedger(args.ledger).observe(records, scan)
                 print(json.dumps(report), file=sys.stderr)
