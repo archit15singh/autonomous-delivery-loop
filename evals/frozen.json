@@ -104,8 +104,8 @@
     "contracts/upstream/act-2517.json": "da2ed6b21f6525bb4104329b6e67cad19c7e7b1ad5172340b242ca6cdbfa9e67",
     "contracts/upstream/act-2708.json": "d26d27ce121037bfad23d6f366a84d8b6f7b719683811bef1a915775fbfc7cd2",
     "contracts/upstream/act-6236.json": "4e83ca594f339099ab6f408ff511b6180e53ecb521fa9e8ed1761fe985ae0d1d",
-    "contracts/factory/readiness-index.json": "41ac1aa6019afea1d99da33d559ee9bc99491b8f0b5f161fd89bfd08bc1a5c59",
-    "contracts/factory/readiness-index.py": "90d03fcff71688aa7952c692dede694ef936d68a75f7af0441b788a94abd844f",
+    "contracts/factory/readiness-index.json": "6011f23e11a6b279e9a503dc36538ec547dd0c286ca08c6e090e1ec865dbd420",
+    "contracts/factory/readiness-index.py": "78d1342e6961ced1238788a175f16d7d3d8ee82da1b80791ef5f41202fd9378c",
     "contracts/factory/workflow-identity.json": "0c3927c1b4a7b2211136da83f04f48dbdb6ac32ef8abcf2b3be29fa2d1510b09",
     "contracts/factory/workflow-identity.py": "65e06b2698d463611ea17826f11a4c4622cbbd954778deba27853be38355ef36"
   }

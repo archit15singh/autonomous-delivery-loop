@@ -3,7 +3,7 @@
   "baseline": "82496478c60fba0a14e529417773756ac1df41c3",
   "fixed": "939a9c0a84a742946e2bdefd76b7351f80bfb9ff",
   "driver": "readiness-index.py",
-  "driver_sha256": "90d03fcff71688aa7952c692dede694ef936d68a75f7af0441b788a94abd844f",
+  "driver_sha256": "78d1342e6961ced1238788a175f16d7d3d8ee82da1b80791ef5f41202fd9378c",
   "cases": [
     {
       "id": "indexed",

@@ -1,5 +1,6 @@
 """Replay the real regression where readiness accepted --runs and left no record."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -44,7 +45,11 @@ def run(case):
                 "--evidence-url", "https://example.invalid/readiness"]
         if case == "indexed":
             args += ["--runs", str(runs)]
-        subprocess.run(args, check=True)
+        # The synthetic fixture exercises the local CLI in a credential-free subprocess.
+        # Normal hosted calls to upstream-prepare still hit its local-only gate.
+        env = {"PATH": os.environ["PATH"], "HOME": str(root), "GIT_CONFIG_NOSYSTEM": "1",
+               "GIT_CONFIG_GLOBAL": os.devnull, "PYTHONDONTWRITEBYTECODE": "1"}
+        subprocess.run(args, env=env, check=True)
         assert (output / "pr.md").is_file()
         indexed = list(runs.glob("*.json"))
         if case == "ordinary":
