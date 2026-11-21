@@ -1,122 +1,68 @@
-name: Upstream contribution evidence
+name: Herdr Core skill discovery replay
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/upstream-evidence.yml'
-      - 'verification/pvlib-1606.sh'
-      - 'verification/act-upstream.sh'
-      - 'verification/herdr-core-302.sh'
-      - 'verification/herdr-core-305.sh'
-      - 'contracts/upstream/**'
-      - 'delivery/**'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 defaults:
   run:
     shell: bash
 
-permissions:
-  contents: read
-
 jobs:
-  pvlib-1606:
-    name: Reproduce pvlib collection failure and verify fix
+  skill:
     runs-on: ubuntu-24.04
-    timeout-minutes: 7
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.9.25'
-      - run: bash verification/pvlib-1606.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: pvlib-reproduction
-          path: .adl/pvlib-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  act:
-    name: Replay act #${{ matrix.issue }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { issue: 6236, artifact: act-docker-hub-reproduction }
-          - { issue: 2517, artifact: act-composite-step-reproduction }
-          - { issue: 2708, artifact: act-empty-environment-reproduction }
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version: '1.26.11'
-          cache: false
-      - run: bash verification/act-upstream.sh "contracts/upstream/act-$ISSUE.json" ".adl/act-$ISSUE-evidence"
-        env:
-          ISSUE: ${{ matrix.issue }}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: ${{ matrix.artifact }}
-          path: .adl/act-${{ matrix.issue }}-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-302:
-    name: Replay the sweep test with divergent Linux clocks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 18
     env:
+      BASE: c7517808d64f06609e4ecf0db1757005373cc3a3
+      CANDIDATE: c4feaa0fe48b05fc5b7866622fc5b78f5ed01e3c
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          repository: herdrdev/herdr-core
+          ref: ${{ env.BASE }}
+          submodules: true
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+          components: rustfmt
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
         with:
           version: 0.16.0
-      - name: Run the exact upstream test with a shifted boot clock
-        run: bash verification/herdr-core-302.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+          use-cache: false
+      - name: Run the added assertion on the base and the exact candidate
+        run: |
+          mkdir -p "$RUNNER_TEMP/skill-evidence"
+          evidence="$RUNNER_TEMP/skill-evidence"
+          test "$(git rev-parse HEAD)" = "$BASE"
+          git fetch --depth=1 https://github.com/archit15singh/herdr-core.git "$CANDIDATE"
+          test "$(git rev-parse FETCH_HEAD)" = "$CANDIDATE"
+          printf 'Base: %s\nCandidate: %s\n' "$BASE" "$CANDIDATE" | tee "$evidence/revisions.txt"
+          git show "$CANDIDATE:crates/herdr-core/tests/skill.rs" > crates/herdr-core/tests/skill.rs
+          cargo build --locked -p herdr-core > "$evidence/base-build.log" 2>&1
+          target/debug/herdr-core --skill > "$evidence/base-cli.md"
+          if cargo test --locked -p herdr-core --test skill > "$evidence/base-test.log" 2>&1; then
+            echo "Expected the base to fail the skill discovery regression" >&2
+            exit 1
+          fi
+          cat "$evidence/base-test.log"
+          grep -F 'host discovery must leave delegation to the host' "$evidence/base-test.log"
+          git restore crates/herdr-core/tests/skill.rs
+          git checkout --detach "$CANDIDATE"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE"
+          cargo fmt --all -- --check
+          cargo test --locked -p herdr-core --test skill 2>&1 | tee "$evidence/candidate-test.log"
+          cargo build --locked -p herdr-core 2>&1 | tee "$evidence/candidate-build.log"
+          target/debug/herdr-core --skill | tee "$evidence/candidate-cli.md"
+          grep -Fx '## Delegate a task with hc' "$evidence/candidate-cli.md"
+          grep -Fx '## Delegate a task' "$evidence/base-cli.md"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
-          name: herdr-core-clock-reproduction
-          path: .adl/herdr-core-302-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-305:
-    name: Compare relay reconnect on two live cores
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    env:
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.16.0
-      - run: bash verification/herdr-core-305.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: reconnect-scrollback-evidence
-          path: .adl/herdr-core-305-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
+          name: herdr-skill-360
+          path: ${{ runner.temp }}/skill-evidence
