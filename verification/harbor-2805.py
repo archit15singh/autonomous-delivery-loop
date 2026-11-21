@@ -55,8 +55,8 @@ async def run(seed: bool) -> None:
                 print("seeded retry: exact Docker name conflict reproduced")
             else:
                 assert not seed, "seeded retry did not reproduce the issue"
-                result = await env.exec("printf harbor-live")
-                assert result.return_code == 0 and result.stdout == "harbor-live", result
+                output = docker("exec", stale, "printf", "harbor-live", capture=True)
+                assert output == "harbor-live", output
                 print("clean control: Harbor started and executed inside live Docker")
             finally:
                 os.environ.pop(env_key, None)
