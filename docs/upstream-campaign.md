@@ -66,8 +66,8 @@ The required Windows check fails before tests on image `20261116.315.1`. On that
 
 Two already-open upstream upgrades also passed native Clippy and all 39 Windows integration tests on image `20261116.315.1` with the default MSVC 14.52 and Zig 0.17.1. These runs verify the current upgrade heads independently. The original required check on the three campaign PRs remains red.
 
-- \[#289\](https://github.com/herdrdev/herdr-core/pull/289) at `6826d5ab3bdd3cee09e501a0c35499f384f01ad4` passed with the minimum Ghostty update for Zig 0.17. [Replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44870385734/job/136743367076)
-- \[#290\](https://github.com/herdrdev/herdr-core/pull/290) at `48b044651cc565c5017c634d69df4734468bac31` passed with the newer Ghostty API. [Replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44870385734/job/136743367363)
+- [#289](https://github.com/herdrdev/herdr-core/pull/289) at `6826d5ab3bdd3cee09e501a0c35499f384f01ad4` passed with the minimum Ghostty update for Zig 0.17. [Replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44870385734/job/136743367076)
+- [#290](https://github.com/herdrdev/herdr-core/pull/290) at `48b044651cc565c5017c634d69df4734468bac31` passed with the newer Ghostty API. [Replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44870385734/job/136743367363)
 
 ## OpenCode Queue Undo review
 
