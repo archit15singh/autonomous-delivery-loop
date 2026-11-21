@@ -10,7 +10,13 @@ def routes(path, query=""):
     if path == "/health":
         return 200, {"ready": True}
     if path == "/greet":
-        name = parse_qs(query).get("name", ["world"])[0]
+        params = parse_qs(query)
+        names = params.get("name")
+        if not names:
+            return 200, {"message": "Hello, world!"}
+        name = names[0]
+        if params.get("style", [""])[0] == "uppercase":
+            name = name.upper()
         return 200, {"message": f"Hello, {name}!"}
     return 404, {"error": "not found"}
 
