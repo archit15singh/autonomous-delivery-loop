@@ -11,6 +11,7 @@ from . import factory_score, run_index, work_intake
 from . import factory_publish as publication
 from . import product_runtime, runtime_cli
 from .revisions import FULL_REVISION, git
+from .local_codex import MAX_SUBAGENTS
 from .factory_definition import definition
 from .factory_outcomes import outcome_report
 from . import factory_issue as issue_delivery
@@ -105,6 +106,9 @@ def register(commands):
                            help="retry only this interrupted generation using the current approval")
     issue_run.add_argument("--model", default="gpt-6.2-sol")
     issue_run.add_argument("--timeout", type=int, choices=range(1, 601), default=180, metavar="SECONDS")
+    for issue_command in (approve_issue, issue_run):
+        issue_command.add_argument("--subagents", type=int, choices=range(MAX_SUBAGENTS + 1),
+                                   default=0, help="bind the native Codex subagent limit to the approval")
     cold = actions.add_parser("cold-review")
     cold.add_argument("pr")
     correct = actions.add_parser("review-correction")
@@ -258,11 +262,11 @@ def dispatch(args):
         facts = read(args.issue)
         return (work_intake.check_issue(args.github_issue, facts) if args.github_issue else work_intake.intake(facts)), 0
     if op == "approve-issue":
-        return issue_delivery.approve(args.issue, args.spec), 0
+        return issue_delivery.approve(args.issue, args.spec, args.subagents), 0
     if op == "issue-run":
         result = issue_delivery.run_issue(Path.cwd(), args.issue, args.spec, args.approval,
                                           args.ledger, args.receipts, args.model, args.timeout, args.index,
-                                          retry_generation=args.retry_generation)
+                                          retry_generation=args.retry_generation, subagents=args.subagents)
         return result, 3 if result["state"] in {"generation_interrupted", "reconciliation_required"} else 0
     if op == "cold-review":
         return feedback.review(Path.cwd(), feedback.live_review_subject(args.pr),

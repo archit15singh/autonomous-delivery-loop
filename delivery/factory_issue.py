@@ -10,7 +10,9 @@ import sys
 from tempfile import TemporaryDirectory
 import time
 
+from .codex_usage import read_rates, summarize
 from .revisions import FULL_REVISION, checkout, git
+from .local_codex import check_subagents
 from .factory_definition import definition, running_definition
 from .run_state import lock, record
 from .work_intake import check_issue
@@ -24,7 +26,8 @@ ISSUE = re.compile(rf"https://github\.com/{REPOSITORY}/issues/([1-9][0-9]*)")
 LABEL = "adl-candidate"
 
 
-def issue_plan(url, spec_path):
+def issue_plan(url, spec_path, subagents=0):
+    check_subagents(subagents)
     match = ISSUE.fullmatch(url)
     if not match:
         raise ValueError("choose an issue in the owned factory repository")
@@ -50,12 +53,15 @@ def issue_plan(url, spec_path):
     if not FULL_REVISION.fullmatch(base):
         raise ValueError("GitHub did not return a full main revision")
     snapshot = {name: issue[name] for name in ("id", "title", "body", "updated_at")}
-    return {"issue": url, "number": int(number), "base": base,
+    plan = {"issue": url, "number": int(number), "base": base,
             "snapshot_sha256": digest(snapshot), "spec_sha256": contract.digest}
+    if subagents:
+        plan["subagents"] = subagents
+    return plan
 
 
-def approve(url, spec):
-    plan = issue_plan(url, spec)
+def approve(url, spec, subagents=0):
+    plan = issue_plan(url, spec, subagents)
     if not gh_json("api", f"repos/{REPOSITORY}")["permissions"]["push"]:
         raise ValueError("approval requires an authorized operator")
     return {"plan": plan, "operator": gh_json("api", "user")["login"],
@@ -87,9 +93,11 @@ def generate(repo, paths, plan, spec, model, timeout, key):
                     or [probe["path"] for probe in baseline["probes"] if not probe["passed"]] != [reproduction]):
                 raise ValueError("approved probe did not reproduce the issue on main")
             patch = paths / "candidate.patch"
+            subagents = plan.get("subagents", 0)
+            delegation = ("--subagents", subagents) if subagents else ()
             delivery(workspace, "propose", "--contract", spec, "--output", patch,
                      "--events", paths / "codex.jsonl", "--recipe-output", paths / "recipe.json",
-                     "--model", model, "--timeout", timeout)
+                     "--model", model, "--timeout", timeout, *delegation)
             git("apply", "--index", str(patch), cwd=workspace)
             git("commit", "-m", f"fix: resolve owned issue #{plan['number']}", cwd=workspace)
             candidate = git("rev-parse", "HEAD", cwd=workspace).decode().strip()
@@ -145,23 +153,44 @@ ran on the approved base and GitHub runs the candidate checks after publication.
 
 
 def index_publication(repo, output, result, index):
-    trace = output / "codex.jsonl"
-    usage = {}
-    for line in trace.read_text().splitlines():
-        event = json.loads(line)
-        if event.get("type") == "turn.completed":
-            usage = event.get("usage", {})
-    metrics = {"wall_seconds": result["wall_seconds"], "human_interventions": result["human_approvals"]}
-    if all(type(usage.get(key)) is int for key in ("input_tokens", "output_tokens")):
-        metrics["tokens"] = usage["input_tokens"] + usage["output_tokens"]
-    record(output / "definition.json", definition(repo, result["base"]))
     spec = output / "run-spec.json"
-    record(spec, {"id": f"owned-issue-{result['approval'][:24]}", "head": result["head"],
-                  "base": result["base"], "pr": result["pr"], "factory_revision": result["base"],
-                  "finished_at": result["finished_at"], "metrics": metrics,
-                  "receipts": {"runtime": "candidate.json", "recipe": "recipe.json",
-                               "definition": "definition.json"},
-                  "trace": trace.name, "patch": "candidate.patch"})
+    run_id = f"owned-issue-{result['approval'][:24]}"
+    if spec.is_file():
+        saved = json.loads(spec.read_text())
+        # The index is immutable. Replaying a legacy indexed run must retain
+        # its original metrics, and new runs retain the original pricing inputs.
+        if "codex_usage" in saved or (index / f"{run_id}.json").is_file():
+            return run_record(spec, index)
+
+    trace = output / "codex.jsonl"
+    # Operators can supply these alongside the parent log before indexing.
+    children = sorted((output / "codex-children").glob("*.jsonl"))
+    rates_path = output / "codex-rates.json"
+    try:
+        rates = read_rates(rates_path) if rates_path.exists() else None
+    except (OSError, ValueError):
+        rates = None
+        invalid_rates = True
+    else:
+        invalid_rates = False
+    usage = summarize([trace, *children], rates)
+    if invalid_rates:
+        usage["pricing_signal"] = "invalid_rates_file"
+
+    metrics = {"wall_seconds": result["wall_seconds"], "human_interventions": result["human_approvals"]}
+    if usage["complete"]:
+        metrics["tokens"] = usage["totals"]["tokens"]
+    record(output / "definition.json", definition(repo, result["base"]))
+    request = {"id": run_id, "head": result["head"], "base": result["base"],
+               "pr": result["pr"], "factory_revision": result["base"],
+               "finished_at": result["finished_at"], "metrics": metrics,
+               "codex_usage": usage,
+               "receipts": {"runtime": "candidate.json", "recipe": "recipe.json",
+                            "definition": "definition.json"},
+               "patch": "candidate.patch"}
+    if trace.is_file():
+        request["trace"] = trace.name
+    record(spec, request)
     return run_record(spec, index)
 
 
@@ -250,9 +279,9 @@ def locked_attempt(repo, ledger, root, plan, key, retry_generation, index):
 
 
 def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout, index=None, *,
-              retry_generation=None):
+              retry_generation=None, subagents=0):
     started = time.monotonic()
-    plan = issue_plan(url, spec)
+    plan = issue_plan(url, spec, subagents)
     if approval is None:
         return {"state": "waiting_for_approval", "plan": plan}
     grant = json.loads(approval.read_text())
@@ -281,7 +310,7 @@ def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout, in
             candidate = generate(repo, output, plan, frozen_spec, model, timeout, key)
             ledger.verify_issue_attempt(url, attempt.number, candidate)
         record(output / "verified-head.json", {"candidate": candidate})
-        if issue_plan(url, spec) != plan:
+        if issue_plan(url, spec, subagents) != plan:
             return {"state": "stale_before_publication", "candidate": candidate}
         pr = publish(repo, output, plan, candidate)
         result = {"state": "published", "issue": url, "pr": pr, "head": candidate,

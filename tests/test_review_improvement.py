@@ -1,3 +1,4 @@
+from contextlib import chdir
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -12,7 +13,7 @@ class ReviewImprovementTests(unittest.TestCase):
     def setUp(self):
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
-        self.root = Path(directory.name)
+        self.root = Path(directory.name).resolve()
         self.baseline = self.root / loop.GUIDANCE
         self.baseline.parent.mkdir(parents=True)
         self.baseline.write_text("---\nname: review\n---\n\nLook for bugs.\n")
@@ -26,13 +27,17 @@ class ReviewImprovementTests(unittest.TestCase):
                  ("holdout", "changes"), ("holdout", "ship")), 1)]
 
     def test_draft_sees_only_development_disagreements(self):
-        def generate(command, **kwargs):
-            self.assertIn("verify the visible result", kwargs["input"])
-            self.assertNotIn("private holdout", kwargs["input"])
-            self.assertEqual(kwargs["cwd"].is_dir(), True)
-            Path(command[command.index("--output-last-message") + 1]).write_text("Check visible behavior.")
-        with patch.object(loop.factory_feedback, "review", return_value={"findings": []}) as reviewer, \
-             patch.object(loop.subprocess, "run", side_effect=generate):
+        def generate(*, cwd, prompt, model, timeout, events, role, result):
+            self.assertIn("verify the visible result", prompt)
+            self.assertNotIn("private holdout", prompt)
+            self.assertEqual(list(cwd.iterdir()), [])
+            self.assertEqual((model, timeout, role), ("model", 10, "judge"))
+            self.assertEqual(events.parent.parent, self.root / ".adl" / "review-transcripts")
+            result.write_text("Check visible behavior.")
+            return 0
+        with chdir(self.root), \
+             patch.object(loop.factory_feedback, "review", return_value={"findings": []}) as reviewer, \
+             patch.object(loop, "run_codex", side_effect=generate):
             result = loop.draft(self.root, self.cases, self.baseline, self.candidate, "model", 10)
         self.assertEqual(result["disagreements"], 1)
         self.assertEqual(reviewer.call_count, 2)

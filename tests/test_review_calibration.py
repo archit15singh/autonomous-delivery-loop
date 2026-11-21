@@ -1,7 +1,9 @@
 import argparse
+from contextlib import chdir
 import copy
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
@@ -20,15 +22,31 @@ class JudgeCalibrationTests(unittest.TestCase):
         return parser.parse_args(["review-loop", "calibrate", "--rounds", "2"])
 
     def test_complete_repeated_observations_through_cli(self):
-        def compare(evidence, model, timeout):
+        args = self.args()
+        args.dataset = args.dataset.resolve()
+        transcripts = []
+        def run(*, cwd, prompt, model, timeout, events, role, result, schema):
+            rubric, evidence = prompt.rsplit("\n", 1)
+            self.assertEqual(rubric, review_judge.RUBRIC)
+            evidence = json.loads(evidence)
             self.assertEqual(set(evidence), {"maintainer_rationale", "finding_paths", "review_findings"})
+            self.assertEqual(role, "judge")
+            self.assertEqual(timeout, args.timeout)
+            self.assertNotEqual(cwd, events.parent)
+            self.assertEqual(json.loads(schema.read_text()), review_judge.SCHEMA)
+            events.write_text('{"type":"thread.started"}\n')
+            transcripts.append(events)
             matched = self.labels[evidence["review_findings"][0]["finding"]]
-            return {"matched": matched, "reason": "compared the supplied behavior"}
-        with patch.object(review_judge, "_compare", side_effect=compare) as judge:
-            report, status = review_improvement.dispatch(self.args())
+            result.write_text(json.dumps({"matched": matched, "reason": "compared the supplied behavior"}))
+            return 0
+        with TemporaryDirectory() as folder, chdir(folder), patch.object(review_judge, "run_codex", side_effect=run):
+            report, status = review_improvement.dispatch(args)
+            self.assertEqual(len(set(transcripts)), 8)
+            for path in transcripts:
+                self.assertEqual(path.parent.parent, Path.cwd() / ".adl" / "review-transcripts")
+                self.assertTrue(path.is_file())
         self.assertEqual(status, 0)
         self.assertTrue(report["passed"])
-        self.assertEqual(judge.call_count, 8)
         self.assertEqual({(r["round"], r["id"]) for r in report["results"]},
                          {(n, case["id"]) for n in (1, 2) for case in self.dataset["examples"]})
         self.assertEqual(report["counts"], dict(true_matches=4, true_nonmatches=4, false_matches=0, missed_matches=0))

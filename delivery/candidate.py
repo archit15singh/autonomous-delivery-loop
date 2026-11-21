@@ -1,12 +1,11 @@
 """Run Codex in a disposable checkout and export a scope-checked patch."""
 import json
 from hashlib import sha256
-import os
 from pathlib import Path
-import signal
 import subprocess
-from tempfile import TemporaryDirectory
 
+from .patch_checkout import collect_patch, patch_checkout
+from .local_codex import require_success, check_local_runner, check_subagents, run_codex
 from .revisions import FULL_REVISION, check_candidate, check_scope, git, paths_between
 from .verify import advice
 
@@ -26,7 +25,9 @@ def repair_context(contract, revision, receipt):
     return "\nTrusted verification result:\n" + json.dumps(failed, indent=2), repairs + 1
 
 
-def propose(contract, output, events, model, timeout, receipt=None, *, recipe_output=None):
+def propose(contract, output, events, model, timeout, receipt=None, *, recipe_output=None, subagents=0):
+    check_local_runner()
+    check_subagents(subagents)
     root = Path(git("rev-parse", "--show-toplevel").decode().strip())
     base = git("rev-parse", "HEAD", cwd=root).decode().strip()
     context, attempt = repair_context(contract, base, receipt)
@@ -45,12 +46,6 @@ def propose(contract, output, events, model, timeout, receipt=None, *, recipe_ou
         "The release operator owns GitHub and the independent verdict."
         + context
     )
-    args = [
-        "codex", "-a", "never", "exec", "--ignore-user-config", "--ephemeral",
-        "--sandbox", "workspace-write", "-c", 'web_search="disabled"',
-        "-c", "sandbox_workspace_write.network_access=false",
-        "-c", 'model_reasoning_effort="medium"', "--model", model, "--json", prompt,
-    ]
     if recipe_output:
         skill = git("show", f"{base}:.agents/skills/deliver-outcome/SKILL.md", cwd=root)
         version = subprocess.check_output(["codex", "--version"], text=True, timeout=10).strip()
@@ -59,29 +54,12 @@ def propose(contract, output, events, model, timeout, receipt=None, *, recipe_ou
             "revision": base, "contract_sha256": contract.digest, "skill_sha256": sha256(skill).hexdigest(),
             "codex": version, "model": model, "seconds_budget": timeout, "repair_attempt": attempt,
             "sandbox": "workspace-write", "network": False, "approval": "never",
+            "subagents": subagents,
             "output": "scope-checked patch and JSONL events",
         }, indent=2) + "\n")
-    with TemporaryDirectory(prefix="adl-codex-") as folder:
-        checkout = Path(folder) / "checkout"
-        git("clone", "--quiet", "--no-local", str(root), str(checkout))
-        git("checkout", "--quiet", "--detach", base, cwd=checkout)
-        git("remote", "remove", "origin", cwd=checkout)
-        with events.open("wb") as log, events.with_suffix(".stderr").open("wb") as stderr:
-            proc = subprocess.Popen(args, cwd=checkout, stdout=log, stderr=stderr,
-                                    start_new_session=True)
-            try:
-                result = proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.wait()
-                raise RuntimeError(f"Codex exceeded the {timeout}s attempt budget")
-        if result:
-            raise RuntimeError(f"Codex exited with status {result}; see {events}")
-        git("add", "-A", cwd=checkout)
-        paths = git("diff", "--no-renames", "--name-only", "-z", base, "--", cwd=checkout)
-        check_scope(paths.decode().split("\0")[:-1], contract.allowed_changes)
-        patch = git("diff", "--binary", base, "--", cwd=checkout)
-        if not patch:
-            raise ValueError("Codex produced no change")
-        output.write_bytes(patch)
+    with patch_checkout(root, base) as checkout:
+        result = run_codex(cwd=checkout, prompt=prompt, model=model, timeout=timeout,
+                           events=events, role="writer", subagents=subagents)
+        require_success(result, timeout, events)
+        output.write_bytes(collect_patch(checkout, base, contract.allowed_changes))
     return base, attempt

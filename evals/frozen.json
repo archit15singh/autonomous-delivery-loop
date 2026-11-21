@@ -99,8 +99,12 @@
   "files": {
     "evals/cases.json": "7dd6ecd7b36e69562e3c5c7f1ecac1c73de716e88ef3180b48c58f7381a55ff4",
     "evals/requirements.txt": "9870317ad50bd1fb1898fca12c51c867a9cb7ef91fc89511a5a69be96a6624b4",
-    "evals/run.py": "346a545b946818be3fa809d85db3e71f5605ca25ad90da8c327e8e3c31b2b5af",
+    "evals/run.py": "175714df3fceae4d75e0f0acb3259492c5b85d1a943929d6ef1057f4699e91ac",
     "evals/replay.py": "5fed6c2fb8ffb1a5d78f04d4400292e3c4f2c5808379c93b3ba2b0f6413035c9",
+    "delivery/local_codex.py": "5af13779f1ff6559031a726ec85f9a4f04e3efeff33d2ad3a01b92b0500c0b67",
+    "delivery/codex_usage.py": "411b957dd52b81acffe380fc3b5084138140a1a430949cebc214c2e06c922a0a",
+    "delivery/codex_sessions.py": "84215fcc5ec4c2d4ce18d3739cbf11157e0dc2dd6467c659d609830654144d11",
+    "delivery/run_state.py": "e517521a874cad0db1f986442fae689d115521ef45b83f8db5f6cae625523cfa",
     "contracts/upstream/act-2517.json": "da2ed6b21f6525bb4104329b6e67cad19c7e7b1ad5172340b242ca6cdbfa9e67",
     "contracts/upstream/act-2708.json": "d26d27ce121037bfad23d6f366a84d8b6f7b719683811bef1a915775fbfc7cd2",
     "contracts/upstream/act-6236.json": "4e83ca594f339099ab6f408ff511b6180e53ecb521fa9e8ed1761fe985ae0d1d",

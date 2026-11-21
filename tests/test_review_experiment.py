@@ -1,7 +1,10 @@
 import copy
+from contextlib import chdir
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from textwrap import dedent
 from unittest.mock import patch
 
 from delivery import review_experiment as experiment
@@ -92,15 +95,25 @@ class ReviewExperimentTest(unittest.TestCase):
             experiment.rescore(self.cases, receipt)
 
     def test_judge_rejects_tool_use_in_execution_trace(self):
-        import subprocess
-        from delivery import review_judge
-        # Exercise the implementation outside the mocked judge used for paired experiments.
-        real_compare = self.real_compare
-        trace = '{"type":"item.completed","item":{"type":"command_execution"}}'
-        with patch.object(review_judge.subprocess, "run", return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=trace, stderr="")):
-            with self.assertRaisesRegex(ValueError, "attempted to use a tool"):
-                real_compare({}, "codex", 10)
+        codex = self.root / "codex"
+        codex.write_text(dedent("""\
+            #!/bin/sh
+            cat >/dev/null
+            printf '%s\\n' '{"type":"item.completed","item":{"type":"command_execution"}}'
+            while [ "$#" -gt 0 ]; do
+                if [ "$1" = "--output-last-message" ]; then
+                    printf '%s\\n' '{"matched":true,"reason":"tool-assisted answer"}' >"$2"
+                    break
+                fi
+                shift
+            done
+            """))
+        codex.chmod(0o700)
+        with chdir(self.root), patch.dict(os.environ, {"GITHUB_ACTIONS": "false", "PATH": f"{self.root}{os.pathsep}{os.environ['PATH']}"}):
+            with self.assertRaisesRegex((ValueError, RuntimeError), "tool"):
+                self.real_compare({}, "codex", 10)
+        events, = (self.root / ".adl" / "review-transcripts").glob("judge-*/events.jsonl")
+        self.assertIn("command_execution", events.read_text())
 
     def test_judge_timeout_resumes_after_the_saved_review(self):
         attempts = 0

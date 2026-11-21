@@ -10,6 +10,7 @@ import sys
 from . import factory_cli, upstream_cli
 from .cli_output import write
 from .candidate import propose
+from .local_codex import MAX_SUBAGENTS
 from .revisions import check_candidate
 from .stage import stage
 from .verify import Contract
@@ -44,6 +45,8 @@ def main():
     agent.add_argument("--evidence", type=Path)
     agent.add_argument("--model", default="gpt-6.2-sol")
     agent.add_argument("--timeout", type=int, default=180)
+    agent.add_argument("--subagents", type=int, choices=range(MAX_SUBAGENTS + 1), default=0,
+                       help="allow up to this many concurrent native Codex subagents")
     upstream_cli.register(commands)
     factory_cli.register(commands)
     args = parser.parse_args()
@@ -63,7 +66,8 @@ def main():
         contract = Contract.read(args.contract)
         receipt = json.loads(args.evidence.read_text()) if args.evidence else None
         revision, repairs_used = propose(contract, args.output, args.events, args.model,
-                                         args.timeout, receipt, recipe_output=args.recipe_output)
+                                         args.timeout, receipt, recipe_output=args.recipe_output,
+                                         subagents=args.subagents)
         print(json.dumps({"revision": revision, "repairs_used": repairs_used,
                           "patch": str(args.output)}))
         return 0

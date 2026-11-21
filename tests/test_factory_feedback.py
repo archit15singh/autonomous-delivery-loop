@@ -1,13 +1,57 @@
+from contextlib import chdir, nullcontext
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
 from delivery import factory_feedback as feedback
+from delivery.local_codex import TIMEOUT_EXIT
 from delivery.upstream_actions import digest
 
 
 class FeedbackTest(unittest.TestCase):
+    def test_cold_review_retains_distinct_private_invocation_logs_on_failure_and_retry(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            repo = root / "source"
+            repo.mkdir()
+            guidance = root / "guidance.md"
+            guidance.write_text("Review policy")
+            subject = {"pr": "original", "head": "a" * 40, "base": "b" * 40}
+            invocations = []
+
+            def run(**kwargs):
+                events = kwargs["events"]
+                self.assertEqual(events.parent.parent, root / ".adl" / "review-transcripts")
+                self.assertEqual(events.parent.stat().st_mode & 0o777, 0o700)
+                self.assertEqual(kwargs["cwd"], checkout.call_args.args[1])
+                self.assertEqual(kwargs["role"], "reviewer")
+                self.assertEqual(kwargs["model"], "model")
+                self.assertEqual(kwargs["timeout"], 30)
+                self.assertEqual(json.loads(kwargs["schema"].read_text()), feedback.SCHEMA)
+                self.assertIn("untrusted diff", kwargs["prompt"])
+                events.write_text('{"type":"thread.started"}\n')
+                events.with_suffix(".stderr").write_text("diagnostics")
+                invocations.append(events)
+                kwargs["result"].write_text('{"findings":[]}')
+                return (TIMEOUT_EXIT, 9, 0)[len(invocations) - 1]
+
+            with chdir(root), patch.object(feedback, "git", return_value=b"untrusted diff"), \
+                 patch.object(feedback, "checkout", side_effect=lambda repo, path, base: nullcontext(path)) as checkout, \
+                 patch.object(feedback, "run_codex", side_effect=run):
+                with self.assertRaisesRegex(TimeoutError, "exceeded the 30s budget"):
+                    feedback.review(repo, subject, guidance, "model", 30)
+                with self.assertRaisesRegex(RuntimeError, "exited with status 9"):
+                    feedback.review(repo, subject, guidance, "model", 30)
+                report = feedback.review(repo, subject, guidance, "model", 30)
+                self.assertEqual(checkout.call_args.args[::2], (repo, subject["base"]))
+            self.assertEqual(report, {**subject, "skill": digest("Review policy"), "model": "model", "findings": []})
+            self.assertEqual(len(set(invocations)), 3)
+            for events in invocations:
+                self.assertEqual(events.read_text(), '{"type":"thread.started"}\n')
+                self.assertEqual(events.with_suffix(".stderr").read_text(), "diagnostics")
+
     def test_failure_creates_one_issue_and_health_creates_none(self):
         with TemporaryDirectory() as folder:
             ledger = Path(folder) / "ledger.sqlite3"

@@ -48,6 +48,32 @@ class IssueDispatchTest(unittest.TestCase):
                 self.assertEqual(first["state"], "published")
                 self.assertEqual(second["reservation"]["result"], first)
 
+    def test_subagent_opt_in_is_bound_to_the_reviewed_plan(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            spec, approval = root / "spec.json", root / "approval.json"
+            spec.write_text(json.dumps({
+                "version": 1, "outcome": "Return health", "allowed_changes": ["pilot/service.py"],
+                "max_repairs": 0, "probes": [{"path": "/health", "expect": {"ready": True}}],
+                "reproduction": "Request health", "reproduction_path": "/health",
+            }))
+            url = f"https://github.com/{factory_issue.REPOSITORY}/issues/34"
+            issue = {"id": 34, "title": "Health", "body": "", "updated_at": "today",
+                     "labels": [{"name": factory_issue.LABEL}]}
+            base = {"object": {"sha": "a" * 40}}
+            with (
+                patch.object(factory_issue, "check_issue", return_value={"route": "implement"}),
+                patch.object(factory_issue, "gh_json", side_effect=[issue, base] * 3),
+            ):
+                original = factory_issue.issue_plan(url, spec)
+                opted_in = factory_issue.issue_plan(url, spec, 2)
+                self.assertNotIn("subagents", original)
+                self.assertEqual(opted_in, {**original, "subagents": 2})
+                approval.write_text(json.dumps({"plan": opted_in, "operator": "owner"}))
+                result = factory_issue.run_issue(root, url, spec, approval, root / "ledger",
+                                                 root / "runs", "model", 50)
+                self.assertEqual(result["state"], "stale_approval")
+
     def test_unfinished_reservation_cannot_be_launched_again(self):
         with TemporaryDirectory() as garden:
             path = Path(garden) / "actions.sqlite3"

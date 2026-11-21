@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 import re
 import subprocess
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, mkdtemp
 
+from .local_codex import require_success, run_codex
 from .revisions import FULL_REVISION, checkout, git
 from .github import OWNER_REPO as REPOSITORY, gh_json
 from .upstream_actions import ActionLedger, digest
@@ -44,6 +45,13 @@ def finding_keys(report):
     return keys
 
 
+def review_events(kind):
+    # Anchor private logs in the operator's workspace, outside disposable model checkouts.
+    root = Path.cwd() / ".adl" / "review-transcripts"
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return Path(mkdtemp(prefix=f"{kind}-", dir=root)) / "events.jsonl"
+
+
 def review(repo, subject, guidance, model, timeout):
     base, head = subject["base"], subject["head"]
     if not all(FULL_REVISION.fullmatch(sha) for sha in (base, head)):
@@ -63,12 +71,10 @@ def review(repo, subject, guidance, model, timeout):
         schema, output = folder / "schema.json", folder / "report.json"
         schema.write_text(json.dumps(SCHEMA))
         with checkout(repo, folder / "base", base) as workspace:
-            subprocess.run(["codex", "-a", "never", "exec", "--ignore-user-config", "--ephemeral",
-                            "--sandbox", "read-only", "-c", 'web_search="disabled"',
-                            "--model", model, "--output-schema", str(schema),
-                            "--output-last-message", str(output), "-"],
-                           input=instruction, text=True, cwd=workspace, stdout=subprocess.DEVNULL,
-                           stderr=subprocess.DEVNULL, check=True, timeout=timeout)
+            events = review_events("reviewer")
+            status = run_codex(cwd=workspace, prompt=instruction, model=model, timeout=timeout,
+                               events=events, role="reviewer", result=output, schema=schema)
+            require_success(status, timeout, events)
         findings = json.loads(output.read_text())
     finding_keys(findings)
     return {**subject, "skill": digest(skill), "model": model, **findings}
