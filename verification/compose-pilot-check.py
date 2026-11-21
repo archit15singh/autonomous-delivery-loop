@@ -74,6 +74,12 @@ assert failed["verdict"] == "failed" and not failed["recovery"], failed
 assert failed["observation"]["probes"][1]["observed"]["status"] == 503
 assert_clean(failed)
 
+with patch.object(pilot.Compose, "cleanup", side_effect=ValueError("simulated teardown interruption")):
+    uncertain = run("cleanup-unconfirmed")
+assert uncertain["observation"]["verdict"] == "verified"
+assert uncertain["verdict"] == "inconclusive" and uncertain["reason"] == "cleanup_unconfirmed"
+assert_clean(run("cleanup-unconfirmed", cleanup_only=True))
+
 interrupted = subprocess.run([sys.executable, __file__, revision, str(root), "interrupt"])
 assert interrupted.returncode == 76
 state = root / "interrupted"

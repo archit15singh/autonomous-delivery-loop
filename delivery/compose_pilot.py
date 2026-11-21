@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from .candidate import FULL_REVISION, git
+from .factory_definition import running_definition
 from .factory_learning import run_record
 from .factory_workflow import file_digest, lock, record
 from .verify import Contract, verify
@@ -124,6 +125,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             receipt = json.loads(receipt_path.read_text())
             if receipt["socket"] != str(socket):
                 raise ValueError("cleanup must use the original socket")
+            if receipt["cleanup"]["status"] == "confirmed":
+                return receipt
             stack = Compose(socket, state, receipt)
             receipt["cleanup"] = cleanup(stack)
             receipt["finished_at"] = now()
@@ -141,13 +144,14 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             raise ValueError("Compose pilot requires at least 512 MiB available on the runner")
         source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
         compile(source, "pilot/service.py", "exec")
-        policy = git("rev-parse", "HEAD", cwd=ROOT).decode().strip()
+        policy = running_definition(ROOT)
         contract = Contract.read(CONTRACT)
         template = TEMPLATE.read_bytes()
         (state / "compose.yaml").write_bytes(template)
         receipt = {
             "revision": revision, "deployment": f"adl-pilot-{uuid4().hex[:16]}",
-            "policy_revision": policy, "socket": str(socket), "started_at": now(),
+            "policy_revision": policy["revision"], "policy_sha256": policy["sha256"],
+            "socket": str(socket), "started_at": now(),
             "template_sha256": sha256(template).hexdigest(), "source_sha256": sha256(source).hexdigest(),
             "recipe_sha256": file_digest(RECIPE), "contract_sha256": contract.digest,
             "verdict": "inconclusive", "reason": "interrupted", "cleanup": {"status": "pending"},
@@ -187,6 +191,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
         finally:
             try:
                 save_diagnostics(stack, receipt, "final")
+            except OSError as exc:
+                receipt["diagnostics_error"] = str(exc)
             finally:
                 receipt["cleanup"] = cleanup(stack)
             if receipt["cleanup"]["status"] != "confirmed":
@@ -195,7 +201,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             record(receipt_path, receipt)
         if index is not None:
             spec = state / "run-spec.json"
-            record(spec, {"id": receipt["deployment"], "head": revision, "factory_revision": policy,
+            record(spec, {"id": receipt["deployment"], "head": revision, "factory_revision": policy["revision"],
                           "finished_at": receipt["finished_at"], "receipts": {"runtime": receipt_path.name}})
             run_record(spec, index)
         return receipt
