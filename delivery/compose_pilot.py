@@ -20,6 +20,7 @@ from .verify import Contract, verify
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "verification/compose-pilot.yaml"
 RECIPE = ROOT / "verification/compose-pilot.Dockerfile"
+PRODUCT_RECIPE = ROOT / "verification/compose-product.Dockerfile"
 CONTRACT = ROOT / "contracts/compose-pilot.json"
 PROJECT = re.compile(r"adl-pilot-[a-f0-9]{16}")
 DOCKER_ERRORS = (OSError, ValueError, subprocess.SubprocessError)
@@ -106,7 +107,17 @@ class Compose:
         self.socket = socket
         self.config = state / "docker-config"
         self.config.mkdir(exist_ok=True)
-        self.variables = {"ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
+        # Preserve cleanup for receipts written by earlier versions of the runner.
+        runtime = identity.get("compose_options", {})
+        redis = runtime.get("redis", True)
+        self.variables = {"COMPOSE_PROFILES": "redis" if redis else "",
+                          "ADL_REDIS_HOST": "redis" if redis else "",
+                          "ADL_API_PORT": str(runtime.get("port", 8080)),
+                          "ADL_API_MEMORY": f"{runtime.get('memory_mb', 96)}m",
+                          "ADL_API_CPUS": str(runtime.get("cpu_limit", 0.5)),
+                          "ADL_HEALTH_PATH": runtime.get("health_path", "/health"),
+                          "ADL_PROBE_PATHS": json.dumps(runtime.get("paths", ["/_revision", "/health", "/counter"])),
+                          "ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
                           "ADL_REVISION": identity["revision"]}
 
     def docker(self, *argv, timeout=15):
@@ -172,7 +183,7 @@ class Compose:
         return report
 
 
-def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index=None):
+def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index=None, product=None):
     socket, state = socket.resolve(strict=True), state.resolve()
     if not stat.S_ISSOCK(socket.stat().st_mode):
         raise ValueError("select a local Docker Unix socket")
@@ -180,6 +191,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
     with lock(state):
         if cleanup_only:
             receipt = json.loads(receipt_path.read_text())
+            if product is not None and receipt.get("product") != product.identity:
+                raise ValueError("cleanup must use the original product identity")
             if receipt["socket"] != str(socket):
                 raise ValueError("cleanup must use the original socket")
             if receipt["cleanup"]["status"] == "confirmed":
@@ -196,13 +209,21 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             raise ValueError("use a new state directory or reconcile the existing run with --cleanup-only")
         if not revision or not FULL_REVISION.fullmatch(revision):
             raise ValueError("provide the full candidate revision")
-        git("cat-file", "-e", f"{revision}^{{commit}}", cwd=ROOT)
         if disk_usage(state).free < MIN_FREE_BYTES:
             raise ValueError("Compose pilot requires at least 512 MiB available on the runner")
-        source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
-        compile(source, "pilot/service.py", "exec")
+        if product is None:
+            git("cat-file", "-e", f"{revision}^{{commit}}", cwd=ROOT)
+            source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
+            source_path = "pilot/service.py"
+            recipe = RECIPE
+            contract = Contract.read(CONTRACT)
+        else:
+            if product.revision != revision:
+                raise ValueError("product revision differs from the selected candidate")
+            source, source_path = product.source, product.source_path
+            recipe, contract = PRODUCT_RECIPE, product.contract
+        compile(source, source_path, "exec")
         policy = running_definition(ROOT)
-        contract = Contract.read(CONTRACT)
         template = TEMPLATE.read_bytes()
         (state / "compose.yaml").write_bytes(template)
         receipt = {
@@ -210,10 +231,18 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             "policy_revision": policy["revision"], "policy_sha256": policy["sha256"],
             "socket": str(socket), "started_at": now(),
             "template_sha256": sha256(template).hexdigest(), "source_sha256": sha256(source).hexdigest(),
-            "recipe_sha256": file_digest(RECIPE), "contract_sha256": contract.digest,
+            "recipe_sha256": file_digest(recipe), "contract_sha256": contract.digest,
             "verdict": "inconclusive", "reason": "interrupted", "cleanup": {"status": "pending"},
             "recovery": [],
         }
+        if product is not None:
+            receipt["product"] = product.identity
+            paths = {probe.path for probe in contract.probes}
+            paths.add("/_revision")
+            receipt["compose_options"] = {
+                "port": product.port, "redis": product.redis, "memory_mb": product.memory_mb,
+                "cpu_limit": product.cpu_limit, "health_path": "/_revision", "paths": sorted(paths),
+            }
         stack = Compose(socket, state, receipt)
         receipt.update(inspect_runner(stack.docker))
         if any(stack.resources().values()):
@@ -223,7 +252,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             with TemporaryDirectory(prefix="adl-compose-build-") as folder:
                 context = Path(folder)
                 (context / "service.py").write_bytes(source)
-                (context / "Dockerfile").write_bytes(RECIPE.read_bytes())
+                (context / "Dockerfile").write_bytes(recipe.read_bytes())
                 stack.docker("build", "--tag", stack.image, "--label", f"adl.run={stack.project}",
                              str(context), timeout=120)
             image = stack.docker("image", "inspect", "--format", "{{.Id}}", stack.image)
@@ -242,7 +271,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
                 start(stack)
             report = stack.observe(contract, image)
             receipt.update(observation=report, verdict=report["verdict"], reason=report["reason"])
-            if report["verdict"] == "verified":
+            if report["verdict"] == "verified" and (product is None or product.redis):
                 receipt["redis_counter"] = stack.compose("exec", "-T", "redis", "redis-cli", "--raw",
                                                          "GET", "adl:counter")
                 if receipt["redis_counter"] != "2":

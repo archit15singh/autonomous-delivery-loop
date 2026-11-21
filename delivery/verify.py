@@ -3,11 +3,18 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 from http.client import HTTPException
 import json
+import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, build_opener
 
 from .impact import ImpactPolicy, impact_verdict
+
+
+def product_path(value):
+    return (isinstance(value, str) and len(value) <= 256
+            and all(re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", part)
+                    for part in value.split("/")))
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -36,7 +43,7 @@ class Contract:
     technical_brief: str | None = None
 
     @classmethod
-    def read(cls, path):
+    def read(cls, path, *, product=False):
         raw = path.read_bytes()
         data = json.loads(raw)
         fields = {"version", "outcome", "allowed_changes", "max_repairs", "probes"}
@@ -50,10 +57,12 @@ class Contract:
             raise ValueError("outcome must describe the expected behavior")
         paths = data["allowed_changes"]
         if not isinstance(paths, list) or not paths or any(
-            not isinstance(item, str) or not item.startswith("pilot/")
+            not isinstance(item, str) or (not product and not item.startswith("pilot/"))
+            or (product and not product_path(item))
             or ".." in item.split("/") or item.endswith("/") for item in paths
         ):
-            raise ValueError("allowed_changes must name files inside pilot/")
+            raise ValueError("allowed_changes must name product files" if product else
+                             "allowed_changes must name files inside pilot/")
         probes = []
         if not isinstance(data["probes"], list) or not data["probes"]:
             raise ValueError("at least one behavior probe is required")

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "catalog",
+  "build": {"kind": "python-stdlib", "source": "app.py"},
+  "contract": "outcome.json",
+  "port": 8317,
+  "fixture": "none",
+  "limits": {"memory_mb": 64, "cpu": 0.5},
+  "cleanup": "always"
+}

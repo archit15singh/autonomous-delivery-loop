@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "outcome": "A shopper can read the available catalog items.",
+  "allowed_changes": ["app.py"],
+  "max_repairs": 0,
+  "probes": [{"path": "/catalog", "expect": {"items": ["notebook"]}}]
+}
