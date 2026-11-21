@@ -47,7 +47,7 @@ assert digest == args.expected_routes_digest, "Public route set changed from the
 
 count_links = count_fences = 0
 directory_languages = set()
-git_repository_queries = False
+git_repository_queries = install_tab_labels = False
 for i, record in enumerate(records):
     assert json.loads(record[1]), f"Missing title at {record[3]}"
     assert isinstance(json.loads(record[2]), str), f"Invalid description at {record[3]}"
@@ -56,6 +56,13 @@ for i, record in enumerate(records):
     end = records[i + 1].start() if i + 1 < len(records) else len(corpus)
     body = corpus[record.end():end]
     assert body.strip(), f"Empty doc body at {record[3]}"
+    if source.path == "/getting-started/install":
+        labels = list(re.finditer(r"^\*\*(macOS|Linux|Windows)\*\*$", body, re.MULTILINE))
+        assert [label[1] for label in labels[:3]] == ["macOS", "Linux", "Windows"]
+        assert "https://dl.dagger.io/dagger/install.sh" in body[labels[0].end():labels[1].start()]
+        assert "/usr/local/bin" in body[labels[1].end():labels[2].start()]
+        assert "```powershell" in body[labels[2].end():]
+        install_tab_labels = True
     tokens = markdown.parse(body)
     for link in link_targets(tokens):
         url = urlsplit(link)
@@ -74,10 +81,11 @@ for i, record in enumerate(records):
                 query in token.content for query in ("query CurrentCommit {", "query InDefaultBranch(")
             )
 
+assert install_tab_labels
 assert git_repository_queries, "Previously unexpanded GraphQL example is still missing"
 assert {"go", "python", "typescript"} <= directory_languages, directory_languages
 print(f"routes={len(records)} exact_base_route_digest={digest} ordered_match=true")
 print(f"pointer={introduction_links[0]}")
 print(f"absolute_corpus_links={count_links} source_mdx_links=0 relative_links=0")
-print(f"code_fences={count_fences} snippet_directives=0 git_repository_graphql_queries=true")
+print(f"code_fences={count_fences} snippet_directives=0 git_repository_graphql_queries=true labelled_install_examples=true")
 print(f"directory_languages={','.join(sorted(directory_languages))}")

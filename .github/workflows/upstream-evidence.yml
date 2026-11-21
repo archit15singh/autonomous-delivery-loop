@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 14
     env:
-      DAGGER_CANDIDATE: a5eeca38648011d6b8137bf78bb01ea4c301a4ba
+      DAGGER_CANDIDATE: cbc171fa4bdf23e63720741c679e372a0d587c74
       DAGGER_ROUTE_DIGEST: ce62fe64326c486d62f3d2cb2b4d2566ace6e7430bcbd0ca17d91d3eb2adb7a3
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -34,6 +34,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/.adl/dagger-docs"
           cd "$RUNNER_TEMP/dagger/docs"
           npm exec --yes --package yarn@1.22.22 -- yarn install --frozen-lockfile
+          node "$GITHUB_WORKSPACE/verification/dagger-13559-fixture.cjs" "$PWD"
           npm exec --yes --package yarn@1.22.22 -- yarn build
           cp build/llms.txt build/llms-full.txt "$GITHUB_WORKSPACE/.adl/dagger-docs/"
           python3 "$GITHUB_WORKSPACE/verification/dagger-13559-candidate.py" build/llms.txt build/llms-full.txt "$DAGGER_ROUTE_DIGEST" |
