@@ -1,0 +1,54 @@
+package evaluate
+
+import (
+	"math"
+	"os"
+	"regexp"
+	"testing"
+
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
+)
+
+func TestDocumentedMetricConditions(t *testing.T) {
+	doc, err := os.ReadFile("../../docs/features/analysis.md")
+	require.NoError(t, err)
+	examples := regexp.MustCompile("(?m)^\\| (Number|List of numbers|Map with a simple key|Map with punctuation in the key) \\| " + "`" + "([^`]+)" + "`" + " \\|$").FindAllStringSubmatch(string(doc), -1)
+	require.Len(t, examples, 4)
+
+	pairs := map[string][2]any{
+		"Number":                          {0.98, 0.8},
+		"List of numbers":                 {[]float64{0.98}, []float64{}},
+		"Map with a simple key":           {map[string]float64{"successRate": 0.98}, map[string]float64{"successRate": 0.8}},
+		"Map with punctuation in the key": {map[string]float64{"average.duration": 140}, map[string]float64{"average.duration": 320}},
+	}
+	logger := *logrus.NewEntry(logrus.New())
+	for _, example := range examples {
+		result, ok := pairs[example[1]]
+		require.True(t, ok)
+		t.Run(example[1], func(t *testing.T) {
+			metric := v1alpha1.Metric{SuccessCondition: example[2]}
+			phase, err := EvaluateResult(result[0], metric, logger)
+			require.NoError(t, err)
+			require.Equal(t, v1alpha1.AnalysisPhaseSuccessful, phase)
+			phase, err = EvaluateResult(result[1], metric, logger)
+			require.NoError(t, err)
+			require.Equal(t, v1alpha1.AnalysisPhaseFailed, phase)
+		})
+	}
+
+	for _, trial := range []struct {
+		expr string
+		result any
+	}{
+		{`asInt("2") == 2 && asFloat("0.97") >= 0.95`, 2},
+		{"isNaN(result)", math.NaN()},
+		{"isInf(result)", math.Inf(1)},
+		{"isNil(result) && default(result, 0) == 0", nil},
+	} {
+		matched, err := EvalCondition(trial.result, trial.expr)
+		require.NoError(t, err)
+		require.True(t, matched, trial.expr)
+	}
+}
