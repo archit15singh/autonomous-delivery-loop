@@ -1,0 +1,3 @@
+revision=902d4b20a1e843b959efdd61003bd22afa8dad67 served=260 persisted_rows=128 omitted=132 metadata_bytes=12728 message_page_bytes=14599
+tui_low=['     + 260 tools']
+tui_high=['     … 132 calls omitted']
