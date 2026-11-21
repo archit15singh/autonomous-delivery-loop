@@ -6,6 +6,8 @@ from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
+from .factory_definition import definition
+from .factory_outcomes import outcome_report
 from .factory_lifecycle import github_events, read_analysis_run, revert_events
 from .factory_replay import replay_change
 from . import factory_workflow as engine
@@ -17,6 +19,15 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     actions.add_parser("self-check")
+    snapshot = actions.add_parser("definition")
+    snapshot.add_argument("--repo", type=Path, default=Path("."))
+    snapshot.add_argument("--revision", required=True)
+    outcomes = actions.add_parser("outcome-report")
+    outcomes.add_argument("--runs", type=Path, required=True)
+    outcomes.add_argument("--ci", type=Path, required=True)
+    outcomes.add_argument("--lifecycle", type=Path, required=True)
+    outcomes.add_argument("--observations", type=Path)
+    outcomes.add_argument("--production-environment", required=True)
     lifecycle = actions.add_parser("lifecycle")
     lifecycle.add_argument("--repository", required=True)
     lifecycle.add_argument("--environment", required=True)
@@ -102,6 +113,12 @@ def dispatch(args):
     if op == "self-check":
         result = evidence.self_check()
         return result, int(not result["passed"])
+    if op == "definition":
+        return definition(args.repo, args.revision), 0
+    if op == "outcome-report":
+        return outcome_report(args.runs, read(args.ci), read(args.lifecycle),
+                              read(args.observations) if args.observations else [],
+                              args.production_environment), 0
     if op == "lifecycle":
         result = github_events(args.repository, args.environment, args.limit)
         if args.reverts:

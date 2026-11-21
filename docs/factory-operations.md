@@ -154,3 +154,22 @@ An optional `tests` record declares `reviewed` and a list of confirmed
 `redundant` tests. An optional `retries` record declares `complete` and
 `repeated_without_change`. Facts can also enter a run directly as the
 `process` receipt. Unobserved dimensions remain unknown.
+
+## Bind run provenance and report outcomes
+
+`factory definition --revision SHA` emits the committed factory files and
+Git object IDs for an exact policy revision. `upstream-prepare --runs DIR`
+records that snapshot, the base and candidate, and the exact patch digest.
+Other producers can supply a `definition` receipt and a local `patch` path in
+the run spec. Definition receipts are checked against the committed policy.
+Old immutable records continue to load with their original coverage.
+
+`factory outcome-report --runs DIR --ci CI.json --lifecycle LIFECYCLE.json
+--production-environment NAME` joins upstream merges to readiness proof for the
+submitted head. The GitHub merge commit remains a separate identity. An optional
+`--observations FILE` supplies an array of trusted impact verdicts from
+`factory analysis`. An owned production outcome requires the designated
+environment, a successful deployment, a matching deployment ID and revision,
+and a threshold observation after deployment creation. Staging and missing
+analysis evidence do not establish production success. Metric totals stay
+unknown if any indexed attempt in that outcome is missing the measurement.

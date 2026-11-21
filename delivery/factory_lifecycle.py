@@ -29,6 +29,7 @@ def github_events(repository, environment, limit):
         latest = status[0] if status else None
         result["deployments"].append({"id": str(deployment["id"]), "revision": revision,
                                      "reported_state": latest["state"] if latest else "unknown",
+                                     "created_at": deployment["created_at"],
                                      "at": latest["created_at"] if latest else deployment["created_at"],
                                      "runtime_verdict": "inconclusive"})
     for release in releases:
