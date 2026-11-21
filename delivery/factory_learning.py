@@ -114,6 +114,11 @@ def run_record(spec, directory):
     return result
 
 
+def index_spool(spool, directory):
+    for path in sorted(spool.glob("*.json")):
+        run_record(path, directory)
+
+
 def mine(directory, *, minimum=2):
     """A cluster produces a proposal brief. Review and independent replay govern adoption."""
     if not 2 <= minimum <= 50:

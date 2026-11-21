@@ -89,3 +89,8 @@ contract and pass `--browser-proof PATH/browser.json` to `upstream-prepare`.
 It checks both revisions, all four scenario outcomes, and the screenshot digests.
 The preparation gate packages the artifacts alongside the generated PR body.
 Upload the bundle to the PR's approved evidence destination.
+
+Set `--runs .adl/factory-runs --pr PR_URL` on `upstream-prepare` to index the
+readiness and browser receipts as part of verification. For other producers,
+drop reviewed specifications in a private spool and pass `--spool DIR` to
+`mine-runs`. A repeated scan retains each immutable run once.

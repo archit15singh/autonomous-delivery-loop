@@ -34,6 +34,7 @@ def register(commands):
     mine = actions.add_parser("mine-runs")
     mine.add_argument("--runs", type=Path, required=True)
     mine.add_argument("--minimum", type=int, default=2)
+    mine.add_argument("--spool", type=Path, help="approved run specs to index before mining")
     intake = actions.add_parser("intake")
     intake.add_argument("issue", type=Path)
     intake.add_argument("--github-issue")
@@ -103,6 +104,8 @@ def dispatch(args):
     if op == "record-run":
         return learning.run_record(args.spec, args.runs), 0
     if op == "mine-runs":
+        if args.spool:
+            learning.index_spool(args.spool, args.runs)
         return learning.mine(args.runs, minimum=args.minimum), 0
     if op == "intake":
         facts = read(args.issue)
