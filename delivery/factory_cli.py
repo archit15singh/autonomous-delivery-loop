@@ -9,6 +9,7 @@ from . import factory_learning as learning
 from . import factory_publish as publication
 from . import hosted_runtime
 from .lima_pilot import run as lima_pilot
+from .lima_repair import repair as lima_repair
 from .candidate import FULL_REVISION, git
 from .compose_pilot import preflight as compose_preflight, run as compose_pilot
 from .cloud_pilot import manage as cloud_pilot
@@ -42,6 +43,13 @@ def register(commands):
     lima.add_argument("--state", type=Path, required=True)
     lima.add_argument("--revision")
     lima.add_argument("--cleanup-only", action="store_true")
+    lima.add_argument("--browser", action="store_true", help="verify browser to Redis worker to SQLite")
+    repair = actions.add_parser("lima-repair", help="verify, repair once in guest Codex, and verify again")
+    repair.add_argument("--state", type=Path, required=True)
+    repair.add_argument("--revision", required=True)
+    repair.add_argument("--model")
+    repair.add_argument("--timeout", type=int, default=180)
+    repair.add_argument("--browser", action="store_true")
     preflight = actions.add_parser("compose-preflight", help="inspect the selected Compose runner")
     preflight.add_argument("--socket", type=Path, required=True)
     preflight.add_argument("--state", type=Path, required=True)
@@ -195,8 +203,12 @@ def read(path):
 
 
 def dispatch(args):
+    if args.operation == "lima-repair":
+        receipt = lima_repair(args.state.resolve(), args.revision, model=args.model,
+                              timeout=args.timeout, browser=args.browser)
+        return receipt, int(receipt["verdict"] != "verified")
     if args.operation == "lima-pilot":
-        receipt = lima_pilot(args.state.resolve(), args.revision, cleanup_only=args.cleanup_only)
+        receipt = lima_pilot(args.state.resolve(), args.revision, cleanup_only=args.cleanup_only, browser=args.browser)
         success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
                    else receipt["verdict"] == "verified")
         return receipt, int(not success)

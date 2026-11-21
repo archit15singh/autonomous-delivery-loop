@@ -81,6 +81,32 @@ Use the same state directory and `--cleanup-only` to reconcile an interruption.
 After a run, stop the dedicated VM with `limactl stop adl-runtime`. The hosted
 command issues the independent attestation used by staging.
 
+For the browser workload and guest Codex, stream the pinned tool setup into the
+Apple Silicon VM. Authenticate Codex in the guest with its own device login
+before requesting a repair.
+
+```sh
+limactl shell --preserve-env=false --tty=false --workdir /tmp adl-runtime sh -s \
+  < verification/lima-pilot-tools.sh
+limactl shell --preserve-env=false --tty=false --workdir /tmp adl-runtime \
+  sh -c '"$HOME/.local/bin/codex" login --device-auth'
+python3 -m delivery factory lima-repair --revision "$REVISION" \
+  --state .adl/lima-repair/run-1 --browser
+```
+
+The repair command accepts a commit derived from the current trusted checkout
+and only allows changes to the pilot service. A verified product failure with
+confirmed cleanup allows one time-limited guest Codex attempt. The worker has
+no host mounts or outbound shell network access. ADL checks the returned patch,
+creates a local candidate commit, and verifies it in a fresh stack. Inspect
+`repair.json`, the two runtime receipts, and the attempt logs before publishing.
+
+With `--browser`, Chromium clicks through the jobs UI. The API pushes a job to
+Redis, a separate worker consumes it, and only that worker can write the
+SQLite volume. The verifier reads the SQLite row independently and confirms
+the queue drained. The receipt binds the screenshot digest and job ID to the
+exact revision. Use `lima-pilot --browser` to run this path on its own.
+
 ### Run the disposable Redis pilot
 
 On a disposable Linux runner, pass the local Docker socket. For a dedicated
