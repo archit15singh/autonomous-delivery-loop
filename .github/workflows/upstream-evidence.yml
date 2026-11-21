@@ -21,7 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {lane: base, repo: herdrdev/herdr-core, sha: c7517808d64f06609e4ecf0db1757005373cc3a3}
+          - {lane: pr-352, repo: archit15singh/herdr-core, sha: 4e15eb4b5dab149ebf746e887e48943beafe4401}
+          - {lane: pr-353, repo: archit15singh/herdr-core, sha: 99f82453f5c45bce03f82fc535719454a3aad5d7}
+          - {lane: pr-356, repo: archit15singh/herdr-core, sha: dc09f059bfa81aca8a9866d47c300199009c7c33}
     defaults:
       run:
         working-directory: core
