@@ -1,118 +1,52 @@
 name: Upstream contribution evidence
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/upstream-evidence.yml'
-      - 'verification/pvlib-1606.sh'
-      - 'verification/act-upstream.sh'
-      - 'verification/herdr-core-302.sh'
-      - 'verification/herdr-core-305.sh'
-      - 'contracts/upstream/**'
-      - 'delivery/**'
   workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
 
 permissions:
   contents: read
 
 jobs:
-  pvlib-1606:
-    name: Reproduce pvlib collection failure and verify fix
-    runs-on: ubuntu-24.04
-    timeout-minutes: 7
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.9.25'
-      - run: bash verification/pvlib-1606.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: pvlib-reproduction
-          path: .adl/pvlib-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  act:
-    name: Replay act #${{ matrix.issue }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { issue: 6236, artifact: act-docker-hub-reproduction }
-          - { issue: 2517, artifact: act-composite-step-reproduction }
-          - { issue: 2708, artifact: act-empty-environment-reproduction }
+  dagger-sdk-node20-base:
+    name: Reproduce the Dagger SDK engine mismatch on Node 20
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version: '1.26.11'
-          cache: false
-      - run: bash verification/act-upstream.sh "contracts/upstream/act-$ISSUE.json" ".adl/act-$ISSUE-evidence"
-        env:
-          ISSUE: ${{ matrix.issue }}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: ${{ matrix.artifact }}
-          path: .adl/act-${{ matrix.issue }}-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-302:
-    name: Replay the sweep test with divergent Linux clocks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
     env:
-      CARGO_PROFILE_TEST_DEBUG: '0'
+      DAGGER_BASE: c1f8e9ae88f6c238ee02bef12ff131847052abc2
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.16.0
-      - name: Run the exact upstream test with a shifted boot clock
-        run: bash verification/herdr-core-302.sh
+          node-version: '20.20.2'
+      - name: Fetch and verify the exact upstream revision
+        run: |
+          git init "$RUNNER_TEMP/dagger"
+          git -C "$RUNNER_TEMP/dagger" fetch --depth 1 https://github.com/dagger/dagger.git "$DAGGER_BASE"
+          git -C "$RUNNER_TEMP/dagger" sparse-checkout set sdk/typescript
+          git -C "$RUNNER_TEMP/dagger" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/dagger" rev-parse HEAD)" = "$DAGGER_BASE"
+      - name: Measure the actual frozen Yarn installation
+        run: |
+          output="$GITHUB_WORKSPACE/.adl/dagger-13610"
+          mkdir -p "$output"
+          cd "$RUNNER_TEMP/dagger/sdk/typescript"
+          node --version | tee "$output/node.txt"
+          node -p 'require("./package.json").engines.node' | tee "$output/declared-engine.txt"
+          set +e
+          npm exec --yes --package yarn@1.22.22 -- yarn install --frozen-lockfile --ignore-scripts 2>&1 | tee "$output/yarn.log"
+          result=${PIPESTATUS[0]}
+          set -e
+          test "$result" -eq 1
+          grep -F 'graphql@17.0.1: The engine "node" is incompatible' "$output/yarn.log"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
-          name: herdr-core-clock-reproduction
-          path: .adl/herdr-core-302-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-305:
-    name: Compare relay reconnect on two live cores
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
-    env:
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
-        with:
-          toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with:
-          version: 0.16.0
-      - run: bash verification/herdr-core-305.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: reconnect-scrollback-evidence
-          path: .adl/herdr-core-305-evidence
-          include-hidden-files: true
+          name: dagger-13610-base
+          path: .adl/dagger-13610
           if-no-files-found: warn
