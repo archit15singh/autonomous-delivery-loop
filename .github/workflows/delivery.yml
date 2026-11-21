@@ -118,6 +118,22 @@ jobs:
           python -m delivery factory compose-pilot --socket /var/run/docker.sock \
             --state .adl/compose-pilot/normal --revision "$REVISION" --runs .adl/compose-pilot/index
           PYTHONPATH=. python verification/compose-pilot-check.py "$REVISION" .adl/compose-pilot/drills
+      - name: Require the recorded runtime before assembling the staging manifest
+        run: |
+          state=.adl/compose-pilot
+          python -m delivery build --trusted-base "$REVISION" --revision "$REVISION" \
+            --contract contracts/pilot.json --deployment "$DEPLOYMENT" --output "$state/bundle"
+          python -m delivery stage --contract contracts/pilot.json --bundle "$state/bundle" \
+            --revision "$REVISION" --deployment "$DEPLOYMENT" --output "$state/stage.json"
+          python -m delivery factory --output "$state/manifest.json" bundle \
+            "$state/stage.json" "$state/bundle/pilot.tar" --compose-receipt "$state/normal/runtime.json"
+          jq -e --arg revision "$REVISION" '.revision==$revision and .runtime.kind=="compose"' "$state/manifest.json"
+          for drill in redis-not-written cleanup-unconfirmed; do
+            if python -m delivery factory bundle "$state/stage.json" "$state/bundle/pilot.tar" \
+              --compose-receipt "$state/drills/$drill/runtime.json"; then
+              exit 1
+            fi
+          done
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
