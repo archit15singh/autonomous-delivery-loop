@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 
+from . import factory_cli
 from .candidate import check_candidate, propose
 from .stage import stage
 from .upstream import replay
@@ -93,7 +94,15 @@ def main():
     precedents.add_argument("--days", type=int, default=60)
     precedents.add_argument("--limit", type=int, default=30, help="maximum examples per target branch")
     precedents.add_argument("--output", type=Path, default=Path("-"))
+    factory_cli.register(commands)
     args = parser.parse_args()
+    if args.command == "factory":
+        try:
+            result, code = factory_cli.dispatch(args)
+        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error, subprocess.SubprocessError) as exc:
+            parser.error(str(exc))
+        write(args.output, result)
+        return code
     if args.command == "upstream-actions":
         try:
             ledger = ActionLedger(args.ledger)

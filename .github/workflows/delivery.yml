@@ -26,6 +26,7 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+      - run: python -m delivery factory self-check
       - run: python -m delivery build --revision "$REVISION" --deployment "$DEPLOYMENT" --output .adl/bundle
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
