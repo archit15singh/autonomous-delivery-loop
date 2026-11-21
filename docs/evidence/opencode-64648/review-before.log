@@ -1,0 +1,60 @@
+$ playwright test --config .adl-playwright.config.ts --output "./.adl/campaign-33/opencode-64648/review-before" --workers "1" --reporter line "e2e/regression/session-queue.spec.ts" -g "Undo keeps the draft"
+[WebServer] $ vite --host "127.0.0.1" --port "4378" --strictPort
+
+[WebServer] (node:46004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+[WebServer]   - import "./vite.icons" without a file extension (vite.config.ts:5:23). Add the file extension
+[WebServer]   - import "./vite.pwa" without a file extension (vite.config.ts:6:31). Add the file extension
+[WebServer] Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+
+Running 1 test using 1 worker
+
+(node:46005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:46005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/1] [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session
+[WebServer] 10:27:54 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+[WebServer] 10:27:54 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+  1) [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('This prompt was already sent')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText('This prompt was already sent')
+
+
+      1000 |   await undo.click()
+      1001 |
+    > 1002 |   await expect(page.getByText("This prompt was already sent")).toBeVisible()
+           |                                                                ^
+      1003 |   await expect(page.getByText("Request failed")).toHaveCount(0)
+      1004 |   await expect(view.rows.filter({ hasText: text })).toHaveCount(0)
+      1005 |   await expect(view.input).toHaveText("My next draft")
+        at ./.adl/campaign/opencode/packages/app/e2e/regression/session-queue.spec.ts:1002:64
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../../campaign-33/opencode-64648/review-before/regression-session-queue-U-55366-already-reached-the-session-brave/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../../campaign-33/opencode-64648/review-before/regression-session-queue-U-55366-already-reached-the-session-brave/error-context.md
+
+
+  1 failed
+    [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session
+error: script "test:e2e" exited with code 1

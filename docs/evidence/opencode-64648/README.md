@@ -42,3 +42,26 @@ PLAYWRIGHT_BUILD=1 PLAYWRIGHT_PORT=4378 bun run test:e2e -- \
 At the repository root, `bun run check` passed all 35 tasks. The standalone
 `typecheck:e2e` command has identical diagnostics at base and candidate,
 including stylesheet declarations outside the changed files.
+
+## Review follow-up
+
+| Queue Undo after delivery | Original PR head | Revised PR head |
+| --- | --- | --- |
+| Message | Request failed | This prompt was already sent |
+| Existing draft | Preserved | Preserved |
+| Delivered prompt | Stays in history | Stays in history |
+
+The revised test fails on `00dde43a8362ffe4fc2df38cdcf8c936fc83dcfa` with only the test file overlaid. It passes at `39cf7a3c64128c0bce7bc6378488a3e72ed65b80`, along with all 50 cases against the built app in Brave. The revised test also checks that the stale queue row clears and the app issues no new prompt. [Red test](review-before.log) · [Built app run](review-built.log) · [API replay](review-api.log)
+
+```sh
+cd packages/app
+PLAYWRIGHT_PORT=4379 bun run test:e2e:built -- \
+  --config .adl-playwright.config.ts --workers 2 --reporter line \
+  e2e/regression/session-queue.spec.ts
+bun test --conditions=solid --isolate --preload ../ui/test/solid-jsx.ts \
+  --preload ./happydom.ts ./src/session/composer/queue-machine.test.ts \
+  ./src/session/composer/queue.test.ts ./src/session/revert-machine.test.ts \
+  ./src/runtime/i18n/language.test.ts
+```
+
+69 focused tests and the repository's `bun run check` passed. The separate Vite dev-server suite passed 48 of 50 cases and timed out on two cases. The production-build suite passed both. Strobe stopped before measuring because the local volume ran out of space during its baseline checkout.
