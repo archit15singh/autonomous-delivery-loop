@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           - {mode: base, repository: dagger/dagger, sha: c1f8e9ae88f6c238ee02bef12ff131847052abc2}
-          - {mode: candidate, repository: archit15singh/dagger, sha: daeabd438ef5facf39e604e868886f0537bab0c0}
+          - {mode: candidate, repository: archit15singh/dagger, sha: cca0d6fcf66848bacc5865bbcecd155a4979bbae}
     env:
       DAGGER_REVISION: ${{ matrix.sha }}
       DAGGER_REPOSITORY: ${{ matrix.repository }}
