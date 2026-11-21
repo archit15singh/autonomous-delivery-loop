@@ -8,13 +8,14 @@ import secrets
 import sqlite3
 import time
 
-from .upstream_ci import FAILED, PR_URL, gh_json
+from .github import PR_URL, gh_json
+from .revisions import FULL_REVISION as SHA
+from .upstream_ci import FAILED
 
 
 SECOND = 10**9
 MAX_OBSERVATION_AGE = 15 * 60 * SECOND
 REPAIR_LIMIT = 2
-SHA = re.compile(r"[0-9a-f]{40}")
 REPAIR_KEY = re.compile(r"[a-z0-9][a-z0-9._:-]{0,119}", re.ASCII)
 
 SCHEMA = """

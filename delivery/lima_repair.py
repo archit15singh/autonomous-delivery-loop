@@ -7,10 +7,11 @@ import subprocess
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-from .candidate import check_candidate, check_scope, git
+from .revisions import check_candidate, check_scope, git
 from .factory_definition import running_definition
-from .factory_workflow import lock, record
-from .lima_pilot import ERRORS, Lima, ROOT, run
+from .run_state import lock, record
+from .lima_pilot import Lima, run
+from .runtime_checks import CONTRACT, ROOT, RUNTIME_ERRORS
 from .verify import Contract
 
 
@@ -100,7 +101,7 @@ def repair(state, revision, *, model=None, timeout=180, browser=False):
         if path.exists():
             raise ValueError("a repair attempt already owns this state directory")
         policy = running_definition(ROOT)
-        contract = Contract.read(ROOT / "contracts/compose-pilot.json")
+        contract = Contract.read(CONTRACT)
         check_candidate(revision, policy["revision"], contract.allowed_changes, cwd=ROOT)
         result = {"initial_revision": revision, "policy_revision": policy["revision"],
                   "status": "observing", "repair_attempts": 0}
@@ -119,7 +120,7 @@ def repair(state, revision, *, model=None, timeout=180, browser=False):
                 record(path, result)
                 after = run(state / "after", repaired, browser=browser)
                 result.update(verdict=after["verdict"], reason=after["reason"])
-            except ERRORS as exc:
+            except RUNTIME_ERRORS as exc:
                 result.update(verdict="inconclusive", reason="repair_unavailable", error=str(exc))
             result["status"] = "completed"
         record(path, result)

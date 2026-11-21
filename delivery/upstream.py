@@ -1,5 +1,4 @@
 """Run the same regression against pinned upstream and candidate checkouts."""
-from contextlib import contextmanager
 from hashlib import sha256
 import json
 import platform
@@ -7,16 +6,7 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 
-from .candidate import check_candidate, git, paths_between
-
-
-@contextmanager
-def checkout(repo, folder, revision):
-    git("worktree", "add", "--detach", str(folder), revision, cwd=repo)
-    try:
-        yield
-    finally:
-        git("worktree", "remove", "--force", str(folder), cwd=repo)
+from .revisions import check_candidate, checkout, git, paths_between
 
 
 def validate_command(command):

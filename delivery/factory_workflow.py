@@ -1,46 +1,15 @@
 """Run trusted, pinned local workflow steps with durable checkpoints."""
-from contextlib import contextmanager
-from hashlib import sha256
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import signal
-import sqlite3
 import subprocess
-from tempfile import NamedTemporaryFile
 
-from .candidate import FULL_REVISION, git
+from .revisions import FULL_REVISION, git
 from .factory_evidence import classify_check
-
-
-def file_digest(path):
-    return sha256(path.read_bytes()).hexdigest()
-
-
-def record(path, value):
-    with NamedTemporaryFile(mode="w", dir=path.parent, delete=False, encoding="utf-8") as file:
-        tmp = Path(file.name)
-        try:
-            json.dump(value, file, indent=2)
-            file.write("\n")
-            file.flush()
-            os.fsync(file.fileno())
-            os.replace(tmp, path)
-        finally:
-            tmp.unlink(missing_ok=True)
-
-
-@contextmanager
-def lock(folder):
-    folder.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(folder / "workflow.lock", timeout=3)
-    try:
-        connection.execute("BEGIN EXCLUSIVE")
-        yield
-    finally:
-        connection.close()
+from .run_state import file_digest, lock, record
+from .work_intake import check_issue, intake, review_handoff
 
 
 def inside(root, filename):
@@ -190,75 +159,3 @@ def workflow(plan, workspace, folder, tier, approval=None):
                 break
         record(path, state)
         return state
-
-
-def intake(issue):
-    """Route repository facts supplied by an authenticated intake or the operator."""
-    for key, reason in (("duplicate", "existing_fix"), ("assigned", "existing_claim"),
-                        ("maintainer_only", "maintainer_owned"), ("locked", "locked")):
-        if issue.get(key) is True:
-            return {"route": "skip", "reason": reason}
-    if issue.get("state") != "OPEN":
-        return {"route": "skip", "reason": "issue_not_open"}
-    if issue.get("policy_checked") is not True:
-        return {"route": "wait", "reason": "contribution_policy_unchecked"}
-    if issue.get("scope_agreed") is not True:
-        return {"route": "plan", "reason": "scope_unconfirmed"}
-    if not issue.get("reproduction"):
-        return {"route": "investigate", "reason": "reproduction_missing"}
-    cases = issue.get("acceptance", {})
-    if not all(cases.get(kind) for kind in ("expected", "control", "boundary")):
-        return {"route": "plan", "reason": "acceptance_examples_missing"}
-    return {"route": "implement", "reason": "scoped_reproducible_issue", "acceptance": cases}
-
-
-def review_handoff(record, findings):
-    actionable = []
-    for finding in findings:
-        if finding["head"] != record["head"]:
-            continue
-        if finding["disposition"] not in {"confirmed", "resolved", "maintainer_decision", "unverified"}:
-            raise ValueError("invalid review disposition")
-        if finding["disposition"] == "confirmed" and not finding.get("reproduction"):
-            raise ValueError("confirmed feedback needs a reproduction")
-        actionable.append(finding)
-    return {"pr": record["url"], "head": record["head"], "base": record["base"],
-            "findings": actionable, "ci": record["action"],
-            "review": record.get("review", {}).get("action")}
-
-
-def check_issue(url, facts):
-    """Refresh GitHub state, claim and linked fixes immediately before dispatch."""
-    from .upstream_ci import gh_json
-
-    match = re.fullmatch(r"https://github\.com/([\w.-]+)/([\w.-]+)/issues/([1-9][0-9]*)",
-                         url, re.ASCII)
-    if not match:
-        raise ValueError("expected an exact GitHub issue URL")
-    owner, repo, number = match.groups()
-    query = """
-    query($owner:String!, $repo:String!, $number:Int!) {
-      repository(owner:$owner, name:$repo) {
-        issue(number:$number) {
-          state locked updatedAt assignees(first:1) { totalCount }
-          closedByPullRequestsReferences(first:30, includeClosedPrs:true) {
-            nodes { state }
-            pageInfo { hasNextPage }
-          }
-        }
-      }
-    }
-    """
-    response = gh_json("api", "graphql", "-f", f"query={query}", "-f", f"owner={owner}",
-                       "-f", f"repo={repo}", "-F", f"number={number}")
-    issue = response["data"]["repository"]["issue"]
-    linked = issue["closedByPullRequestsReferences"]
-    if linked["pageInfo"]["hasNextPage"]:
-        return {"route": "wait", "reason": "linked_fixes_incomplete"}
-    if facts.get("updated_at") and facts["updated_at"] != issue["updatedAt"]:
-        return {"route": "wait", "reason": "issue_changed_since_intake"}
-    return {**intake({**facts, "state": issue["state"], "locked": issue["locked"],
-                      "assigned": issue["assignees"]["totalCount"] > 0,
-                      "duplicate": facts.get("duplicate") is True or
-                      any(pr["state"] in {"OPEN", "MERGED"} for pr in linked["nodes"])}),
-            "issue": url, "updated_at": issue["updatedAt"]}

@@ -1,43 +1,42 @@
-"""Verify the owned Redis pilot in a dedicated Docker-free Lima VM."""
+"""Verify exact product sources in a dedicated Docker-free Lima VM."""
 from base64 import b64decode
 from hashlib import sha256
 from io import BytesIO
 import json
-from pathlib import Path
 import re
 import subprocess
 import tarfile
 from uuid import uuid4
 
-from .candidate import FULL_REVISION, git
+from .revisions import FULL_REVISION, git
 from .factory_definition import running_definition
-from .factory_workflow import lock, record
+from .run_state import lock, record
+from .runtime_checks import (CONTRACT, PYTHON, REDIS_DIGEST, ROOT, RUNTIME_ERRORS,
+                             assess_cleanup, assess_observation)
 from .verify import Contract
 
 
-ROOT = Path(__file__).resolve().parents[1]
 INSTANCE = "adl-runtime"
-PYTHON = "docker.io/library/python:3.12-alpine@sha256:c5ba3deef00c7758561a0f03c26f44f10589263d40e732b8748e0d1f38f6dd89"
-REDIS = "docker.io/library/redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5"
+REDIS = f"docker.io/library/redis@{REDIS_DIGEST}"
 BROWSER = "mcr.microsoft.com/playwright@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f"
 PROJECT = re.compile(r"adl-local-[a-f0-9]{16}")
-ERRORS = (OSError, ValueError, subprocess.SubprocessError)
 
 PROBE = """\
 import json, socket, sys, time
 from pathlib import Path
 from delivery.verify import Contract, fetch, verify
 
-revision, deployment, source = sys.argv[1:]
+revision, deployment, source, port, mode = sys.argv[1:]
 interfaces = [name for _, name in socket.if_nameindex()]
 if interfaces != ["lo"]:
     raise SystemExit(f"unexpected interfaces in the pilot network: {interfaces}")
-origin = "http://127.0.0.1:8080"
+origin = f"http://127.0.0.1:{port}"
 for _ in range(20):
-    if fetch(origin, "/health").get("status") == 200:
+    if fetch(origin, "/_revision" if mode == "product" else "/health").get("status") == 200:
         break
     time.sleep(0.5)
-contract = Contract.read(Path("/judge/contract.json"))
+contract_path = Path("/judge/contract.json")
+contract = Contract.read(contract_path, product=True) if mode == "product" else Contract.read(contract_path)
 result = verify(contract, origin, revision, deployment, {
     "status": "passed", "source": "lima_exact_source", "revision": revision,
     "deployment": deployment, "artifact_sha256": source,
@@ -98,9 +97,11 @@ class Lima:
         return {"status": "confirmed"}
 
 
-def payload(source, revision, browser=False):
+def payload(source, revision, browser=False, contract_bytes=None):
+    if contract_bytes is None:
+        contract_bytes = git("show", f"{revision}:contracts/compose-pilot.json", cwd=ROOT)
     files = {"service.py": source, "judge/check.py": PROBE.encode(),
-             "judge/contract.json": git("show", f"{revision}:contracts/compose-pilot.json", cwd=ROOT)}
+             "judge/contract.json": contract_bytes}
     for name in ("__init__.py", "verify.py", "impact.py"):
         files[f"judge/delivery/{name}"] = git("show", f"{revision}:delivery/{name}", cwd=ROOT)
     if browser:
@@ -119,7 +120,7 @@ def payload(source, revision, browser=False):
 def cleanup(lima, receipt):
     try:
         return lima.cleanup(receipt)
-    except ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         return {"status": "unconfirmed", "error": str(exc)}
 
 
@@ -156,22 +157,40 @@ def browser_probe(lima, state, receipt, folder, shared, same_network, redis):
     return {**result, "screenshot": "browser.png", "screenshot_sha256": sha256(screenshot).hexdigest()}
 
 
-def run(state, revision=None, *, cleanup_only=False, browser=False):
+def run(state, revision=None, *, cleanup_only=False, browser=False, product=None):
     with lock(state):
         path = state / "runtime.json"
-        lima = Lima()
         if cleanup_only:
             receipt = json.loads(path.read_text())
             if receipt["cleanup"]["status"] != "confirmed":
-                receipt["cleanup"] = cleanup(lima, receipt)
+                receipt["cleanup"] = cleanup(Lima(), receipt)
                 record(path, receipt)
             return receipt
+        lima = Lima()
+        if product is not None:
+            if revision is not None and revision != product.revision:
+                raise ValueError("candidate differs from the selected product revision")
+            if browser:
+                raise ValueError("the browser job probe requires the owned pilot")
+            revision = product.revision
         if path.exists() or not revision or not FULL_REVISION.fullmatch(revision):
             raise ValueError("provide an exact candidate and a fresh state directory")
         policy = running_definition(ROOT)
-        source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
-        compile(source, "pilot/service.py", "exec")
-        contract = Contract.read(ROOT / "contracts/compose-pilot.json")
+        if product is None:
+            source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
+            contract = Contract.read(CONTRACT)
+            contract_bytes = None
+            redis_required, port = True, 8080
+            app_limits = ["--memory", "96m"]
+        else:
+            source = product.source
+            contract = product.contract
+            contract_bytes = product.contract_path.read_bytes()
+            if sha256(contract_bytes).hexdigest() != contract.digest:
+                raise ValueError("product contract changed after selection")
+            redis_required, port = product.redis, product.port
+            app_limits = ["--memory", f"{product.memory_mb}m", "--cpus", str(product.cpu_limit)]
+        compile(source, product.source_path if product is not None else "pilot/service.py", "exec")
         project = f"adl-local-{uuid4().hex[:16]}"
         folder = f"/tmp/{project}"
         redis, api, judge = (f"{project}-{name}" for name in ("redis", "api", "judge"))
@@ -179,8 +198,12 @@ def run(state, revision=None, *, cleanup_only=False, browser=False):
         receipt = {"revision": revision, "policy_revision": policy["revision"],
                    "policy_sha256": policy["sha256"], "deployment": project,
                    "machine": lima.machine, "runtime": lima.version, "source_sha256": source_sha,
-                   "contract_sha256": contract.digest, "api_base_image": PYTHON, "redis_image": REDIS,
+                   "contract_sha256": contract.digest, "api_base_image": PYTHON,
                    "verdict": "inconclusive", "reason": "interrupted", "cleanup": {"status": "pending"}}
+        if redis_required:
+            receipt["redis_image"] = REDIS
+        if product is not None:
+            receipt["product"] = product.identity
         if lima.resources(project):
             raise ValueError("Lima project already exists")
         # Reserve before the first write in the VM so an interruption can be reconciled.
@@ -189,53 +212,60 @@ def run(state, revision=None, *, cleanup_only=False, browser=False):
         try:
             lima.guest("sh", "-ec", 'mkdir -m 755 -- "$1"; printf %s "$2" > "$1/.owner"',
                        "sh", folder, project)
-            lima.guest("tar", "-xf", "-", "-C", folder, payload=payload(source, policy["revision"], browser))
+            lima.guest("tar", "-xf", "-", "-C", folder, payload=payload(source, policy["revision"], browser, contract_bytes))
             if lima.guest("sha256sum", f"{folder}/service.py").split()[0] != source_sha:
                 raise ValueError("transferred candidate differs from Git")
-            receipt["redis_container"] = lima.nerdctl(
-                "run", "-d", "--name", redis, *shared, "--network", "none", "--memory", "64m",
-                "--user", "999:999",
-                "--pids-limit", "32", "--tmpfs", "/data:size=16m", REDIS,
-                "redis-server", "--save", "", "--appendonly", "no", timeout=180,
-            )
-            same_network = ["--network", f"container:{redis}"]
-            restricted = ["--read-only", "--user", "65534:65534", "--memory", "96m", "--pids-limit", "64"]
+            app_network = ["--network", "none"]
+            redis_env = []
+            if redis_required:
+                receipt["redis_container"] = lima.nerdctl(
+                    "run", "-d", "--name", redis, *shared, "--network", "none", "--memory", "64m",
+                    "--user", "999:999",
+                    "--pids-limit", "32", "--tmpfs", "/data:size=16m", REDIS,
+                    "redis-server", "--save", "", "--appendonly", "no", timeout=180,
+                )
+                app_network = ["--network", f"container:{redis}"]
+                redis_env = ["--env", "ADL_REDIS_HOST=127.0.0.1"]
+            restricted = ["--read-only", "--user", "65534:65534", "--pids-limit", "64"]
+            port_env = (["--env", f"PORT={port}", "--env", f"ADL_PORT={port}",
+                         "--env", "ADL_HOST=127.0.0.1", "--env", "HOST=127.0.0.1"]
+                        if product is not None else [])
             job_args = []
             if browser:
                 lima.guest("mkdir", "-m", "777", "--", f"{folder}/data")
                 job_args = ["--env", "ADL_JOB_DB=/data/jobs.sqlite3", "-v", f"{folder}/data:/data:ro"]
             receipt["api_container"] = lima.nerdctl(
-                "run", "-d", "--name", api, *shared, *same_network, *restricted,
+                "run", "-d", "--name", api, *shared, *app_network, *restricted, *app_limits,
                 "--env", f"ADL_REVISION={revision}", "--env", f"ADL_DEPLOYMENT={project}",
-                "--env", "ADL_REDIS_HOST=127.0.0.1", "-v", f"{folder}/service.py:/service.py:ro",
+                *redis_env, *port_env, "-v", f"{folder}/service.py:/service.py:ro",
                 *job_args,
                 PYTHON, "python", "-I", "-B", "/service.py", timeout=180,
             )
+            same_network = ["--network", f"container:{redis if redis_required else api}"]
             observed = json.loads(lima.nerdctl(
-                "run", "--rm", "--name", judge, *shared, *same_network, *restricted,
+                "run", "--rm", "--name", judge, *shared, *same_network, *restricted, "--memory", "96m",
                 "-v", f"{folder}/judge:/judge:ro", "-w", "/judge", PYTHON,
-                "python", "-B", "check.py", revision, project, source_sha, timeout=35,
+                "python", "-B", "check.py", revision, project, source_sha, str(port),
+                "product" if product is not None else "pilot", timeout=35,
             ))
-            receipt.update(observation=observed, verdict=observed["verdict"], reason=observed["reason"])
-            if observed["verdict"] == "verified":
-                receipt["redis_counter"] = lima.nerdctl("exec", redis, "redis-cli", "--raw", "GET", "adl:counter")
-                if receipt["redis_counter"] != "2":
-                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
+
+            def read_counter():
+                return lima.nerdctl("exec", redis, "redis-cli", "--raw", "GET", "adl:counter")
+
+            assess_observation(receipt, observed, read_counter if redis_required else None)
             if browser and receipt["verdict"] == "verified":
                 receipt["browser"] = browser_probe(lima, state, receipt, folder, shared, same_network, redis)
                 if not receipt["browser"]["passed"]:
                     receipt.update(verdict="failed", reason="browser_job_failed")
-        except ERRORS as exc:
+        except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
             if "api_container" in receipt:
                 try:
                     receipt["logs"] = lima.guest("sh", "-c", 'exec nerdctl logs --tail 20 "$1" 2>&1',
                                                   "sh", api)[-16000:]
-                except ERRORS as exc:
+                except RUNTIME_ERRORS as exc:
                     receipt["diagnostics_error"] = str(exc)
-            receipt["cleanup"] = cleanup(lima, receipt)
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
+            assess_cleanup(receipt, cleanup(lima, receipt))
             record(path, receipt)
         return receipt

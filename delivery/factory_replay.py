@@ -5,8 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
 
-from .candidate import FULL_REVISION, git
-from .upstream import checkout, run_check, validate_command
+from .revisions import FULL_REVISION, checkout, git
+from .upstream import run_check, validate_command
 
 
 def replay_change(repo, baseline, candidate, contract_path, output):

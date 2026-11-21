@@ -6,23 +6,15 @@ import re
 import subprocess
 from tempfile import TemporaryDirectory
 
-from .candidate import FULL_REVISION, check_candidate, git
+from .revisions import FULL_REVISION, check_candidate, git
 from .factory_evidence import compose_evidence
-from .factory_publish import OWNER_REPO, remote_ref, verify_signature
-from .factory_workflow import lock, record
-from .upstream_ci import gh_json
-from .verify import Contract, canonical_json
+from .trusted_policy import CONTRACTS, WORKFLOW, contract_at, remote_ref, verify_signature
+from .run_state import lock, record
+from .github import OWNER_REPO, gh_json
+from .verify import canonical_json
 
 
-WORKFLOW = "trusted-candidate.yml"
 RUN_URL = re.compile(rf"https://github\.com/{re.escape(OWNER_REPO)}/actions/runs/([1-9][0-9]*)")
-CONTRACTS = ("pilot", "named-greeting")
-
-
-def contract_at(repo, policy, name, folder):
-    path = Path(folder) / "contract.json"
-    path.write_bytes(git("show", f"{policy}:contracts/{name}.json", cwd=repo))
-    return Contract.read(path)
 
 
 def start(repo, state, revision, name):
@@ -35,8 +27,7 @@ def start(repo, state, revision, name):
         policy = remote_ref(repo, "refs/heads/main")
         if policy is None:
             raise ValueError("owned main is unavailable")
-        with TemporaryDirectory(dir=state) as folder:
-            contract = contract_at(repo, policy, name, folder)
+        contract = contract_at(repo, policy, name)
         check_candidate(revision, policy, contract.allowed_changes, cwd=repo)
         request = {"revision": revision, "contract": name, "contract_sha256": contract.digest,
                    "policy_revision": policy, "status": "dispatch_unconfirmed"}
@@ -104,7 +95,7 @@ def collect(repo, state):
             result["verdict"], result["reason"] = "inconclusive", "hosted_evidence_incomplete"
             if run["conclusion"] == "success" and stage and runtime and "manifest" in evidence:
                 manifest = evidence["manifest"]
-                contract = contract_at(repo, policy, "compose-pilot", folder)
+                contract = contract_at(repo, policy, "compose-pilot")
                 source_hash = sha256(git("show", f"{revision}:pilot/service.py", cwd=repo)).hexdigest()
                 checked = compose_evidence(runtime, revision, policy, source_hash, contract.digest)
                 expected = {"revision": revision, "policy_revision": policy, "deployment": deployment,

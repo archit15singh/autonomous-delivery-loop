@@ -1,5 +1,4 @@
 """Run the owned Redis pilot against an explicitly selected local Docker engine."""
-from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
@@ -11,24 +10,19 @@ import subprocess
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-from .candidate import FULL_REVISION, git
+from .revisions import FULL_REVISION, git
 from .factory_definition import running_definition
-from .factory_learning import run_record
-from .factory_workflow import file_digest, lock, record
+from .run_index import run_record
+from .run_state import file_digest, lock, record
+from .runtime_checks import CONTRACT, ROOT, RUNTIME_ERRORS, assess_cleanup, assess_observation, now
 from .verify import Contract, verify
 
-ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "verification/compose-pilot.yaml"
 RECIPE = ROOT / "verification/compose-pilot.Dockerfile"
-CONTRACT = ROOT / "contracts/compose-pilot.json"
+PRODUCT_RECIPE = ROOT / "verification/compose-product.Dockerfile"
 PROJECT = re.compile(r"adl-pilot-[a-f0-9]{16}")
-DOCKER_ERRORS = (OSError, ValueError, subprocess.SubprocessError)
 MIN_FREE_BYTES = 512 * 1024**2
 MIN_ENGINE_MAJOR = 28
-
-
-def now():
-    return datetime.now(timezone.utc).isoformat()
 
 
 def docker_cli(socket, config, cwd, *argv, variables=None, timeout=15):
@@ -84,7 +78,7 @@ def preflight(socket, state):
         try:
             with TemporaryDirectory(prefix="adl-docker-config-") as config:
                 runtime = inspect_runner(lambda *args: docker_cli(socket, config, config, *args))
-        except DOCKER_ERRORS as exc:
+        except RUNTIME_ERRORS as exc:
             blockers.append("docker_runner_unavailable")
             runtime["error"] = str(exc)
     return {"status": "blocked" if blockers else "ready", "socket": str(socket),
@@ -106,7 +100,17 @@ class Compose:
         self.socket = socket
         self.config = state / "docker-config"
         self.config.mkdir(exist_ok=True)
-        self.variables = {"ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
+        # Preserve cleanup for receipts written by earlier versions of the runner.
+        runtime = identity.get("compose_options", {})
+        redis = runtime.get("redis", True)
+        self.variables = {"COMPOSE_PROFILES": "redis" if redis else "",
+                          "ADL_REDIS_HOST": "redis" if redis else "",
+                          "ADL_API_PORT": str(runtime.get("port", 8080)),
+                          "ADL_API_MEMORY": f"{runtime.get('memory_mb', 96)}m",
+                          "ADL_API_CPUS": str(runtime.get("cpu_limit", 0.5)),
+                          "ADL_HEALTH_PATH": runtime.get("health_path", "/health"),
+                          "ADL_PROBE_PATHS": json.dumps(runtime.get("paths", ["/_revision", "/health", "/counter"])),
+                          "ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
                           "ADL_REVISION": identity["revision"]}
 
     def docker(self, *argv, timeout=15):
@@ -172,23 +176,25 @@ class Compose:
         return report
 
 
-def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index=None):
-    socket, state = socket.resolve(strict=True), state.resolve()
-    if not stat.S_ISSOCK(socket.stat().st_mode):
+def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index=None, product=None):
+    socket, state = socket.resolve(), state.resolve()
+    if not cleanup_only and not stat.S_ISSOCK(socket.stat().st_mode):
         raise ValueError("select a local Docker Unix socket")
     receipt_path = state / "runtime.json"
     with lock(state):
         if cleanup_only:
             receipt = json.loads(receipt_path.read_text())
+            if product is not None and receipt.get("product") != product.identity:
+                raise ValueError("cleanup must use the original product identity")
             if receipt["socket"] != str(socket):
                 raise ValueError("cleanup must use the original socket")
             if receipt["cleanup"]["status"] == "confirmed":
                 return receipt
+            if not stat.S_ISSOCK(socket.stat().st_mode):
+                raise ValueError("select a local Docker Unix socket")
             stack = Compose(socket, state, receipt)
-            receipt["cleanup"] = cleanup(stack)
+            assess_cleanup(receipt, cleanup(stack))
             receipt["finished_at"] = now()
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
             record(receipt_path, receipt)
             return receipt
 
@@ -196,13 +202,21 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             raise ValueError("use a new state directory or reconcile the existing run with --cleanup-only")
         if not revision or not FULL_REVISION.fullmatch(revision):
             raise ValueError("provide the full candidate revision")
-        git("cat-file", "-e", f"{revision}^{{commit}}", cwd=ROOT)
         if disk_usage(state).free < MIN_FREE_BYTES:
             raise ValueError("Compose pilot requires at least 512 MiB available on the runner")
-        source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
-        compile(source, "pilot/service.py", "exec")
+        if product is None:
+            git("cat-file", "-e", f"{revision}^{{commit}}", cwd=ROOT)
+            source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
+            source_path = "pilot/service.py"
+            recipe = RECIPE
+            contract = Contract.read(CONTRACT)
+        else:
+            if product.revision != revision:
+                raise ValueError("product revision differs from the selected candidate")
+            source, source_path = product.source, product.source_path
+            recipe, contract = PRODUCT_RECIPE, product.contract
+        compile(source, source_path, "exec")
         policy = running_definition(ROOT)
-        contract = Contract.read(CONTRACT)
         template = TEMPLATE.read_bytes()
         (state / "compose.yaml").write_bytes(template)
         receipt = {
@@ -210,10 +224,18 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             "policy_revision": policy["revision"], "policy_sha256": policy["sha256"],
             "socket": str(socket), "started_at": now(),
             "template_sha256": sha256(template).hexdigest(), "source_sha256": sha256(source).hexdigest(),
-            "recipe_sha256": file_digest(RECIPE), "contract_sha256": contract.digest,
+            "recipe_sha256": file_digest(recipe), "contract_sha256": contract.digest,
             "verdict": "inconclusive", "reason": "interrupted", "cleanup": {"status": "pending"},
             "recovery": [],
         }
+        if product is not None:
+            receipt["product"] = product.identity
+            paths = {probe.path for probe in contract.probes}
+            paths.add("/_revision")
+            receipt["compose_options"] = {
+                "port": product.port, "redis": product.redis, "memory_mb": product.memory_mb,
+                "cpu_limit": product.cpu_limit, "health_path": "/_revision", "paths": sorted(paths),
+            }
         stack = Compose(socket, state, receipt)
         receipt.update(inspect_runner(stack.docker))
         if any(stack.resources().values()):
@@ -223,7 +245,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             with TemporaryDirectory(prefix="adl-compose-build-") as folder:
                 context = Path(folder)
                 (context / "service.py").write_bytes(source)
-                (context / "Dockerfile").write_bytes(RECIPE.read_bytes())
+                (context / "Dockerfile").write_bytes(recipe.read_bytes())
                 stack.docker("build", "--tag", stack.image, "--label", f"adl.run={stack.project}",
                              str(context), timeout=120)
             image = stack.docker("image", "inspect", "--format", "{{.Id}}", stack.image)
@@ -241,13 +263,12 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
                 record(receipt_path, receipt)
                 start(stack)
             report = stack.observe(contract, image)
-            receipt.update(observation=report, verdict=report["verdict"], reason=report["reason"])
-            if report["verdict"] == "verified":
-                receipt["redis_counter"] = stack.compose("exec", "-T", "redis", "redis-cli", "--raw",
-                                                         "GET", "adl:counter")
-                if receipt["redis_counter"] != "2":
-                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
-        except DOCKER_ERRORS as exc:
+
+            def read_counter():
+                return stack.compose("exec", "-T", "redis", "redis-cli", "--raw", "GET", "adl:counter")
+
+            assess_observation(receipt, report, read_counter if product is None or product.redis else None)
+        except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
             try:
@@ -255,9 +276,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             except OSError as exc:
                 receipt["diagnostics_error"] = str(exc)
             finally:
-                receipt["cleanup"] = cleanup(stack)
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
+                assess_cleanup(receipt, cleanup(stack))
             receipt["finished_at"] = now()
             record(receipt_path, receipt)
         if index is not None:
@@ -276,7 +295,7 @@ def start(stack):
 def cleanup(stack):
     try:
         return stack.cleanup()
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         return {"status": "unconfirmed", "error": str(exc)}
 
 
@@ -285,7 +304,7 @@ def save_diagnostics(stack, receipt, phase):
         stack.resources()
         diagnostic = stack.compose("ps", "--all", "--format", "json") + "\n"
         diagnostic += stack.compose("logs", "--no-color", "--tail", "20")
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         diagnostic = str(exc)
     path = stack.state / f"{phase}.log"
     path.write_text(diagnostic[-16000:] + "\n")

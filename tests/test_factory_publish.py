@@ -1,3 +1,4 @@
+from contextlib import closing
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -71,7 +72,12 @@ class PublisherTests(unittest.TestCase):
             env = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": publisher.OWNER_REPO,
                    "GITHUB_REF": "refs/heads/main", "GH_TOKEN": "unit-test"}
             attempts = []
+            real_run = subprocess.run
+
             def write_ref(args, **options):
+                if args[0] == "git":
+                    return real_run(args, **options)
+                self.assertEqual(args[:4], ["gh", "api", "--method", "POST"])
                 ref = args[-3].removeprefix("ref=")
                 attempts.append(ref)
                 if attempts == [reservation, staging]:
@@ -83,13 +89,12 @@ class PublisherTests(unittest.TestCase):
                  patch.object(publisher, "remote_ref", side_effect=lambda _repo, ref: refs.get(ref)), \
                  patch.object(publisher.subprocess, "run", side_effect=write_ref):
                 # Preserve real Git reads while replacing the authenticated GitHub write.
-                with patch.object(publisher, "git", return_value=(repo / "contracts/pilot.json").read_bytes()):
-                    with self.assertRaises(subprocess.CalledProcessError):
-                        publisher.publish(repo, manifest, candidate, "pilot", apply=True, ledger=ledger)
-                    self.assertEqual(refs[reservation], candidate)
-                    self.assertNotIn(staging, refs)
-                    done = publisher.publish(repo, manifest, candidate, "pilot", apply=True, ledger=ledger)
-                    self.assertEqual(done, publisher.publish(repo, manifest, candidate, "pilot", apply=True, ledger=ledger))
+                with self.assertRaises(subprocess.CalledProcessError):
+                    publisher.publish(repo, manifest, candidate, "pilot", apply=True, ledger=ledger)
+                self.assertEqual(refs[reservation], candidate)
+                self.assertNotIn(staging, refs)
+                done = publisher.publish(repo, manifest, candidate, "pilot", apply=True, ledger=ledger)
+                self.assertEqual(done, publisher.publish(repo, manifest, candidate, "pilot", apply=True, ledger=ledger))
             self.assertEqual(attempts, [reservation, staging, staging])
-            with sqlite3.connect(ledger) as db:
+            with closing(sqlite3.connect(ledger)) as db:
                 self.assertEqual(db.execute("SELECT state FROM staging_publications").fetchall(), [("published",)])

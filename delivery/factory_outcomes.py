@@ -1,9 +1,9 @@
 """Join independently verified outcomes with exact-head delivery evidence."""
 from collections import Counter
 from datetime import datetime
-import json
 
-from .candidate import FULL_REVISION
+from .revisions import FULL_REVISION
+from .run_index import entries
 
 
 def metric_coverage(runs):
@@ -33,12 +33,11 @@ def timestamp(value):
 def outcome_report(directory, prs, lifecycle, observations, production_environment):
     if not production_environment:
         raise ValueError("name the owned production environment explicitly")
-    runs = [json.loads(path.read_text()) for path in sorted(directory.glob("*.json"))]
     repo = lifecycle["repository"].lower()
     owned_prefix = f"https://github.com/{repo}/pull/"
     indexed_prs = {}
     indexed_deployments = {}
-    for run in runs:
+    for _, run in entries(directory):
         if run["pr"]:
             indexed_prs.setdefault(run["pr"].lower(), []).append(run)
         if run.get("runtime_identity") and (not run["pr"] or run["pr"].lower().startswith(owned_prefix)):

@@ -4,7 +4,7 @@ import os
 import shutil
 from urllib.parse import urlsplit
 
-from .candidate import git
+from .revisions import git
 from .factory_evidence import browser_evidence
 from .upstream import replay
 

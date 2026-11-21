@@ -178,3 +178,38 @@ with patch.object(f, 'issue_plan', return_value=grant['plan']), patch.object(f.s
             self.assertEqual(self.run_issue(1)["reason"], "existing_issue_branch")
             self.assertEqual(self.run_issue(1)["generation_attempt"], 2)
         self.generate.assert_called_once()
+
+    def test_legacy_verified_checkpoint_skips_generation_and_retry(self):
+        key = factory_issue.digest(self.plan)
+        ActionLedger(self.ledger).reserve_once("owned_issue", self.issue, key)
+        folder = self.receipts / key
+        with factory_issue.lock(folder):
+            factory_issue.record(folder / "verified-head.json", {"candidate": "d" * 40})
+
+        published = self.run_issue()
+        self.assertEqual((published["state"], published["generation_attempt"]), ("published", 1))
+        self.assertEqual(published["head"], "d" * 40)
+        self.generate.assert_not_called()
+        self.publish.assert_called_once_with(self.root, folder.resolve(), self.plan, "d" * 40)
+
+    def test_retry_restores_published_receipt_and_index_after_indexing_failure(self):
+        index = self.root / "index"
+
+        def dispatch():
+            return factory_issue.run_issue(self.root, self.issue, self.spec, self.approval,
+                                           self.ledger, self.receipts, "model", 50, index)
+
+        with patch.object(factory_issue, "index_publication", side_effect=[OSError("offline"), None]) as store:
+            with self.assertRaisesRegex(OSError, "offline"):
+                dispatch()
+            folder = self.receipts / factory_issue.digest(self.plan)
+            publication = folder / "publication.json"
+            publication.unlink()
+            duplicate = dispatch()
+            self.assertEqual(duplicate["state"], "already_dispatched")
+            result = duplicate["reservation"]["result"]
+            self.assertEqual(json.loads(publication.read_text()), result)
+            self.assertEqual(store.call_count, 2)
+            store.assert_called_with(self.root, folder.resolve(), result, index)
+        self.generate.assert_called_once()
+        self.publish.assert_called_once()

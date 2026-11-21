@@ -2,22 +2,14 @@
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-import json
-import re
-import subprocess
 
+from .github import LOOKUP_ERRORS, PR_URL, gh_json
+from .revisions import FULL_REVISION
 
-PR_URL = re.compile(r"https://github\.com/([\w.-]+/[\w.-]+)/pull/([1-9][0-9]*)", re.ASCII)
 PASS = {"success", "neutral", "skipped"}
 APPROVAL = {"action_required", "waiting"}
 FAILED = {"failure", "timed_out", "startup_failure"}
 PENDING = {"queued", "in_progress", "pending", "requested", "expected", "waiting_for_status"}
-
-
-def gh_json(*args):
-    return json.loads(subprocess.check_output(
-        ["gh", *args], text=True, stdin=subprocess.DEVNULL, timeout=30,
-    ))
 
 
 def signal(name, state, url):
@@ -190,7 +182,7 @@ def inspect_pr(url, repo, number, *, review=False):
                 record.update(merged_by=(pr["mergedBy"] or {}).get("login"),
                               merge_commit=(pr["mergeCommit"] or {}).get("oid"))
         return {**record, "action": "closed", "signals": []}
-    if not re.fullmatch(r"[a-f0-9]{40}", record["head"]):
+    if not FULL_REVISION.fullmatch(record["head"]):
         raise ValueError("GitHub did not return a full PR head")
     rollup = [
         signal(item.get("name") or item["context"],
@@ -206,7 +198,7 @@ def inspect_pr(url, repo, number, *, review=False):
     if review:
         try:
             record["review"] = inspect_reviews(repo, number, pr, record)
-        except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
+        except LOOKUP_ERRORS as exc:
             record["review"] = {"action": "lookup_failed", "error": str(exc)}
     return record
 
@@ -225,7 +217,7 @@ def inspect_prs(urls, *, review=False):
     def inspect(target):
         try:
             return inspect_pr(*target, review=review)
-        except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
+        except LOOKUP_ERRORS as exc:
             return {"url": target[0], "action": "lookup_failed", "error": str(exc)}
 
     with ThreadPoolExecutor(max_workers=6) as workers:

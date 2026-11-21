@@ -1,24 +1,25 @@
 """Operate the owned pilot in a disposable Kubernetes namespace."""
+from base64 import b64encode
 from hashlib import sha256
 import json
-from pathlib import Path
 import re
 import select
 import subprocess
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from .candidate import FULL_REVISION
-from .compose_pilot import CONTRACT, DOCKER_ERRORS, ROOT, now
+from .revisions import FULL_REVISION
 from .factory_definition import running_definition
-from .factory_workflow import lock, record
+from .run_state import lock, record
+from .runtime_checks import (CONTRACT, PYTHON, REDIS_DIGEST, ROOT, RUNTIME_ERRORS,
+                             assess_cleanup, assess_observation, now)
 from .verify import Contract, verify
 
 NAME = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 CONTEXT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@-]{0,252}")
 NAMESPACE = re.compile(r"adl-run-[a-f0-9]{16}")
 DIGEST = re.compile(r"[a-z0-9][a-z0-9._:/-]*@sha256:[a-f0-9]{64}")
-REDIS = "redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5"
+REDIS = f"redis@{REDIS_DIGEST}"
 
 
 class Kubectl:
@@ -58,12 +59,12 @@ def diagnostics(kube, namespace, deployment):
     try:
         report["logs"] = kube.call("logs", f"deployment/{deployment}", "--tail=25",
                                    "--limit-bytes=8192", namespace=namespace)
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         report["log_error"] = str(exc)
     return report
 
 
-def manifests(namespace, image, revision):
+def manifests(namespace, image, revision, product=None):
     def deployment(name, container):
         labels = {"app": name}
         return {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": name},
@@ -81,14 +82,36 @@ def manifests(namespace, image, revision):
     redis.update(args=["redis-server", "--save", "", "--appendonly", "no"],
                  readinessProbe={"exec": {"command": ["redis-cli", "ping"]}, "periodSeconds": 1})
     redis["securityContext"].update(runAsUser=999, runAsNonRoot=True)
-    api = container("api", image, 8080)
+    port = product.port if product else 8080
+    api = container("api", image, port)
     api.update(imagePullPolicy="Never" if image.startswith("adl-kube:") else "IfNotPresent",
                readinessProbe={"httpGet": {"path": "/health", "port": 8080}, "periodSeconds": 1},
                env=[{"name": key, "value": value} for key, value in
                     (("ADL_REVISION", revision), ("ADL_DEPLOYMENT", namespace), ("ADL_REDIS_HOST", "redis"))])
     service = {"apiVersion": "v1", "kind": "Service", "metadata": {"name": "redis"},
                "spec": {"selector": {"app": "redis"}, "ports": [{"port": 6379}]}}
-    return {"apiVersion": "v1", "kind": "List", "items": [service, deployment("redis", redis), deployment("api", api)]}
+    items = []
+    if not product or product.redis:
+        items.extend([service, deployment("redis", redis)])
+    workload = deployment("api", api)
+    if product:
+        # Project the reviewed Git bytes directly into the pod, inside a read-only mount.
+        items.append({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "product-source"},
+                      "immutable": True, "binaryData": {"service.py": b64encode(product.source).decode("ascii")}})
+        workload["spec"]["template"]["spec"]["volumes"] = [
+            {"name": "source", "configMap": {"name": "product-source"}}
+        ]
+        api.update(command=["python", "-I", "-B", "/product/service.py"],
+                   volumeMounts=[{"name": "source", "mountPath": "/product", "readOnly": True}],
+                   readinessProbe={"tcpSocket": {"port": port}, "periodSeconds": 1})
+        api["securityContext"].update(runAsUser=65534, runAsNonRoot=True, readOnlyRootFilesystem=True)
+        api["resources"]["limits"] = {"cpu": str(product.cpu_limit), "memory": f"{product.memory_mb}Mi"}
+        if not product.redis:
+            api["env"] = [env for env in api["env"] if env["name"] != "ADL_REDIS_HOST"]
+        api["env"].extend({"name": key, "value": value} for key, value in
+                          (("HOST", "0.0.0.0"), ("ADL_HOST", "0.0.0.0"),
+                           ("PORT", str(port)), ("ADL_PORT", str(port))))
+    return {"apiVersion": "v1", "kind": "List", "items": [*items, workload]}
 
 
 def ownership(kube, receipt):
@@ -119,11 +142,11 @@ def cleanup(kube, receipt):
         if ownership(kube, receipt):
             raise ValueError("namespace still exists")
         return {"status": "confirmed"}
-    except DOCKER_ERRORS as exc:
+    except RUNTIME_ERRORS as exc:
         return {"status": "unconfirmed", "error": str(exc)}
 
 
-def probe(kube, receipt, contract):
+def probe(kube, receipt, contract, port=8080):
     namespace = receipt["deployment"]
     pods = [pod for pod in kube.get("pods", "-l", "app=api", namespace=namespace)["items"]
             if not pod["metadata"].get("deletionTimestamp")]
@@ -134,12 +157,12 @@ def probe(kube, receipt, contract):
     if pod["spec"]["containers"][0]["image"] != receipt["image"] or "sha256:" not in image:
         raise ValueError("API pod image identity is unavailable")
     with subprocess.Popen([*kube.command, "-n", namespace, "port-forward", "--address=127.0.0.1",
-                           f"pod/{pod['metadata']['name']}", ":8080"], stdout=subprocess.PIPE,
+                           f"pod/{pod['metadata']['name']}", f":{port}"], stdout=subprocess.PIPE,
                           stderr=subprocess.DEVNULL, text=True) as forward:
         try:
             ready, _, _ = select.select([forward.stdout], [], [], 10)
             line = forward.stdout.readline() if ready else ""
-            match = re.fullmatch(r"Forwarding from (127\.0\.0\.1:\d+) -> 8080\s*", line)
+            match = re.fullmatch(rf"Forwarding from (127\.0\.0\.1:\d+) -> {port}\s*", line)
             if not match:
                 raise ValueError("API port forward did not start")
             revision = receipt["revision"]
@@ -187,21 +210,39 @@ def wait_for_redis_service(kube, namespace):
                      namespace=namespace, timeout=32).strip()
 
 
-def run(config, context, state, revision=None, image=None, *, retry=False, cleanup_only=False,
-        rollback_revision=None):
+def owned_cluster(config, context):
     kube = Kubectl(config, context)
     selected = json.loads(kube.call("config", "view", "--minify", "-o", "json"))
     endpoint = urlsplit(selected["clusters"][0]["cluster"]["server"])
     if not context.startswith("kind-adl-") or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}:
         raise ValueError("pilot writes require an owned, loopback kind-adl-* cluster")
+    return kube
+
+
+def run(config, context, state, revision=None, image=None, *, retry=False, cleanup_only=False,
+        rollback_revision=None, product=None):
+    if product:
+        if cleanup_only or image or rollback_revision or (retry and not product.redis):
+            raise ValueError("product runs build from reviewed source; image, rollback, cleanup, and HTTP-only retry are unsupported")
+        if revision and revision != product.revision:
+            raise ValueError("product revision differs from the requested revision")
+        if len(product.source) > 1024 * 1024:
+            raise ValueError("Kubernetes product source exceeds the 1 MiB ConfigMap limit")
+        revision, image = product.revision, PYTHON
+    if not cleanup_only:
+        kube = owned_cluster(config, context)
     state = state.resolve()
     path = state / "runtime.json"
     with lock(state):
         if cleanup_only:
             receipt = json.loads(path.read_text())
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt["cleanup"] = cleanup(kube, receipt)
-                record(path, receipt)
+            if context != receipt["context"]:
+                raise ValueError("cleanup must use the original Kubernetes context")
+            if receipt["cleanup"]["status"] == "confirmed":
+                return receipt
+        if cleanup_only:
+            receipt["cleanup"] = cleanup(owned_cluster(config, context), receipt)
+            record(path, receipt)
             return receipt
         if path.exists():
             raise ValueError("use a new state directory or reconcile the existing run")
@@ -213,14 +254,16 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
         if rollback_revision and (not FULL_REVISION.fullmatch(rollback_revision) or rollback_revision == revision):
             raise ValueError("select a different full revision for the disposable rollback rehearsal")
         policy = running_definition(ROOT)
-        contract = Contract.read(CONTRACT)
+        contract = product.contract if product else Contract.read(CONTRACT)
         ns = f"adl-run-{uuid4().hex[:16]}"
-        payload = json.dumps(manifests(ns, image, revision))
+        payload = json.dumps(manifests(ns, image, revision, product))
         receipt = {"revision": revision, "deployment": ns, "image": image, "started_at": now(),
                    "cluster": kube.get("namespace", "kube-system")["metadata"]["uid"],
                    "context": context, "policy_revision": policy["revision"], "contract_sha256": contract.digest,
                    "manifest_sha256": sha256(payload.encode()).hexdigest(),
                    "verdict": "inconclusive", "reason": "interrupted", "cleanup": {"status": "pending"}}
+        if product:
+            receipt.update(product=product.identity, source_sha256=sha256(product.source).hexdigest())
         if ownership(kube, receipt):
             raise ValueError("pilot namespace already exists")
         record(path, receipt)
@@ -231,24 +274,31 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
             receipt["namespace_uid"] = json.loads(raw)["metadata"]["uid"]
             record(path, receipt)
             ownership(kube, receipt)
-            kube.call("apply", "-f", "-", namespace=ns, payload=payload)
-            try:
-                rollout(kube, ns, "redis")
-            except (ValueError, subprocess.TimeoutExpired) as exc:
-                if not retry or (isinstance(exc, ValueError) and "timed out waiting" not in str(exc)):
-                    raise
-                receipt["before_retry"] = diagnostics(kube, ns, "redis")
-                record(path, receipt)
-                ownership(kube, receipt)
-                kube.call("rollout", "restart", "deployment/redis", namespace=ns)
-                rollout(kube, ns, "redis")
+            kube.call("create" if product else "apply", "-f", "-", namespace=ns, payload=payload)
+            if not product or product.redis:
+                try:
+                    rollout(kube, ns, "redis")
+                except (ValueError, subprocess.TimeoutExpired) as exc:
+                    if not retry or (isinstance(exc, ValueError) and "timed out waiting" not in str(exc)):
+                        raise
+                    receipt["before_retry"] = diagnostics(kube, ns, "redis")
+                    record(path, receipt)
+                    ownership(kube, receipt)
+                    kube.call("rollout", "restart", "deployment/redis", namespace=ns)
+                    rollout(kube, ns, "redis")
             rollout(kube, ns, "api")
-            receipt["redis_ping"] = wait_for_redis_service(kube, ns)
-            if receipt["redis_ping"] != "PONG":
-                raise ValueError("Redis did not answer PING")
-            observation, actual = probe(kube, receipt, contract)
-            receipt.update(observation=observation, image_id=actual,
-                           verdict=observation["verdict"], reason=observation["reason"])
+            if not product or product.redis:
+                receipt["redis_ping"] = wait_for_redis_service(kube, ns)
+                if receipt["redis_ping"] != "PONG":
+                    raise ValueError("Redis did not answer PING")
+            observation, actual = probe(kube, receipt, contract, product.port if product else 8080)
+            receipt["image_id"] = actual
+
+            def read_counter():
+                return kube.call("exec", "deployment/redis", "--", "redis-cli",
+                                 "--raw", "GET", "adl:counter", namespace=ns).strip()
+
+            assess_observation(receipt, observation, read_counter if product and product.redis else None)
             if rollback_revision and receipt["verdict"] == "verified":
                 ownership(kube, receipt)
                 prior = {"revision": rollback_revision, "deployment": ns, "image": f"adl-kube:{rollback_revision}"}
@@ -261,17 +311,15 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
                 receipt["rollback"] = {"image_id": previous_image, "observation": rollback_report}
                 if rollback_report["verdict"] != "verified":
                     receipt.update(verdict=rollback_report["verdict"], reason="rollback_unverified")
-        except DOCKER_ERRORS as exc:
+        except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
             try:
                 if ownership(kube, receipt):
                     receipt["diagnostics"] = diagnostics(kube, ns, "api")
-            except DOCKER_ERRORS as exc:
+            except RUNTIME_ERRORS as exc:
                 receipt["diagnostics_error"] = str(exc)
-            receipt["cleanup"] = cleanup(kube, receipt)
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt.update(verdict="inconclusive", reason="cleanup_unconfirmed")
+            assess_cleanup(receipt, cleanup(kube, receipt))
             receipt["finished_at"] = now()
             record(path, receipt)
         return receipt

@@ -9,7 +9,8 @@ import subprocess
 from uuid import uuid4
 
 from .factory_definition import running_definition
-from .factory_workflow import file_digest, lock, record
+from .run_state import file_digest, lock, record
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = {"local": "terraform_data.pilot", "aws": "aws_ssm_parameter.pilot"}

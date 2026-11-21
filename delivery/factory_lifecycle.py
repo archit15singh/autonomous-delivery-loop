@@ -5,8 +5,8 @@ import re
 import subprocess
 from urllib.parse import quote
 
-from .candidate import FULL_REVISION, git
-from .upstream_ci import gh_json
+from .revisions import FULL_REVISION, git
+from .github import gh_json
 
 
 REPOSITORY = re.compile(r"[\w.-]+/[\w.-]+", re.ASCII)

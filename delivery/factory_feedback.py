@@ -6,10 +6,10 @@ import re
 import subprocess
 from tempfile import TemporaryDirectory
 
-from .candidate import FULL_REVISION, git
-from .factory_issue import REPOSITORY, checkout
+from .revisions import FULL_REVISION, checkout, git
+from .github import OWNER_REPO as REPOSITORY, gh_json
 from .upstream_actions import ActionLedger, digest
-from .upstream_ci import gh_json
+
 
 PR = re.compile(rf"https://github\.com/{REPOSITORY}/pull/([1-9][0-9]*)")
 FINDING = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
