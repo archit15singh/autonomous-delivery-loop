@@ -7,6 +7,7 @@ on:
       - 'pilot/**'
       - 'contracts/**'
       - 'verification/**'
+      - 'examples/catalog/**'
       - '.github/workflows/runtime-operator.yml'
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - 'pilot/**'
       - 'contracts/**'
       - 'verification/**'
+      - 'examples/catalog/**'
       - '.github/workflows/runtime-operator.yml'
 
 permissions:
@@ -29,7 +31,7 @@ jobs:
     name: Kubernetes lifecycle and rollback
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -77,12 +79,24 @@ jobs:
               .redis_ping=="PONG" and .rollback.observation.verdict=="verified" and
               .rollback.observation.revision==$previous and .image_id != .rollback.image_id and
               (.diagnostics.logs | contains("/counter"))' .adl/kube/runtime.json
+      - name: Verify the independent catalog product on kind and Compose
+        run: |
+          python3 verification/product-runtime-check.py kubernetes .adl/products/kind \
+            --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" --context kind-adl-ci
+          python3 verification/product-runtime-check.py compose .adl/products/compose --socket /var/run/docker.sock
       - name: Upload runtime receipt
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: kubernetes-pilot
           path: .adl/kube/runtime.json
+          include-hidden-files: true
+      - name: Upload product runtime receipts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: product-runtime
+          path: .adl/products/*/*/runtime.json
           include-hidden-files: true
       - name: Remove CI cluster
         if: always()

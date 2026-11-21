@@ -7,18 +7,24 @@ services:
     environment:
       ADL_REVISION: ${ADL_REVISION:?}
       ADL_DEPLOYMENT: ${ADL_PROJECT:?}
-      ADL_REDIS_HOST: redis
+      HOST: 0.0.0.0
+      ADL_HOST: 0.0.0.0
+      PORT: ${ADL_API_PORT:?}
+      ADL_PORT: ${ADL_API_PORT:?}
+      ADL_REDIS_HOST: "${ADL_REDIS_HOST-}"
+      ADL_HEALTH_PATH: ${ADL_HEALTH_PATH:?}
     depends_on:
       redis:
         condition: service_healthy
+        required: false
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=1)"]
+      test: [CMD, python, -c, "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['PORT'] + os.environ['ADL_HEALTH_PATH'], timeout=1)"]
       interval: 1s
       timeout: 2s
       retries: 10
-    mem_limit: 96m
+    mem_limit: ${ADL_API_MEMORY:?}
     pids_limit: 64
-    cpus: 0.5
+    cpus: ${ADL_API_CPUS:?}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -30,6 +36,9 @@ services:
     labels:
       adl.run: ${ADL_PROJECT:?}
     user: "65534:65534"
+    environment:
+      ADL_API_PORT: ${ADL_API_PORT:?}
+      ADL_PROBE_PATHS: ${ADL_PROBE_PATHS:?}
     ports: ["127.0.0.1::8080"]
     networks: [default, probe]
     depends_on:
@@ -41,15 +50,19 @@ services:
       - -B
       - -c
       - |
+        import json, os
         from http.client import HTTPConnection, HTTPException
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+        paths = set(json.loads(os.environ["ADL_PROBE_PATHS"]))
+        port = int(os.environ["ADL_API_PORT"])
+
         class ProbeRelay(BaseHTTPRequestHandler):
             def do_GET(self):
-                if self.path not in ("/_revision", "/health", "/counter"):
+                if self.path not in paths:
                     self.send_error(404)
                     return
-                upstream = HTTPConnection("api", 8080, timeout=4)
+                upstream = HTTPConnection("api", port, timeout=4)
                 try:
                     upstream.request("GET", self.path)
                     response = upstream.getresponse()
@@ -77,6 +90,7 @@ services:
     security_opt: [no-new-privileges:true]
     logging: *logs
   redis:
+    profiles: [redis]
     image: redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5
     labels:
       adl.run: ${ADL_PROJECT:?}

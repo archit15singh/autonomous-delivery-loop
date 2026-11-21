@@ -7,7 +7,7 @@ from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
-from . import hosted_runtime
+from . import hosted_runtime, product_runtime
 from .lima_pilot import run as lima_pilot
 from .lima_repair import repair as lima_repair
 from .candidate import FULL_REVISION, git
@@ -29,6 +29,7 @@ def register(commands):
     root = commands.add_parser("factory", help="operate the evidence-first delivery pipeline")
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
+    product_runtime.register(actions)
     actions.add_parser("self-check")
     hosted = actions.add_parser("hosted-runtime", help="dispatch or collect a disposable hosted runtime")
     hosted_actions = hosted.add_subparsers(dest="runtime_action", required=True)
@@ -205,6 +206,8 @@ def read(path):
 
 
 def dispatch(args):
+    if args.operation == "runtime":
+        return product_runtime.dispatch(args)
     if args.operation == "lima-repair":
         receipt = lima_repair(args.state.resolve(), args.revision, model=args.model,
                               timeout=args.timeout, browser=args.browser)
