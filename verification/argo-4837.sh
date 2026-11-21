@@ -65,15 +65,19 @@ owners=$(jq -cn --arg rollout "$rollout" --arg stable "$stable" --arg stable_uid
     {apiVersion:"networking.k8s.io/v1",kind:"Ingress",name:$stable,uid:$stable_uid}
   ]}
 }')
-kubectl -n "$namespace" patch ingress "$canary" --type=merge -p "$owners"
+kubectl -n "$namespace" patch ingress "$canary" --type=merge -p "$owners" -o json > "$output/restored-ingress.json"
+jq -e --arg stale "$stale" 'any(.metadata.ownerReferences[]; .controller == true and .uid == $stale)' "$output/restored-ingress.json"
 kubectl -n "$namespace" annotate rollout "$rollout" adl.example.test/replay=stale --overwrite
 for attempt in {1..30}; do
   if grep -q 'canary ingress controlled by different object' "$output/controller.log"; then break; fi
   sleep 2
 done
 grep -m1 'canary ingress controlled by different object' "$output/controller.log"
-test "$(owner_uid)" = "$stale"
-printf 'Restored fixture has stale owner %s, destination Rollout has %s\n' "$stale" "$expected"
+observed=$(owner_uid)
+# Kubernetes may strip the dangling Rollout reference while retaining the Ingress.
+[[ "$observed" = "$stale" || -z "$observed" ]]
+printf 'Restored fixture has controller UID %s, destination Rollout has %s\n' "${observed:-<missing>}" "$expected"
+kubectl -n "$namespace" get events -o json | jq -e 'any(.items[]; .reason == "TrafficRoutingError")'
 
 kubectl -n "$namespace" delete ingress "$canary"
 for attempt in {1..45}; do
