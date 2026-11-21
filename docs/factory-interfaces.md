@@ -103,3 +103,5 @@ only push runs.
   · [Investigation #39](https://github.com/archit15singh/autonomous-delivery-loop/issues/39)
 - The normal staging run verified the same main commit and emitted no
   investigation. [Normal staging](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44906367389)
+
+For repeated comparisons on a frozen cohort of independent GitHub decisions, use the [reviewer improvement loop](reviewer-improvement.md). The same cold-review guidance is the target of its promotion patch.

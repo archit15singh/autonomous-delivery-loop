@@ -15,6 +15,7 @@ from .factory_definition import definition
 from .factory_outcomes import outcome_report
 from . import factory_issue as issue_delivery
 from . import factory_feedback as feedback
+from . import review_improvement
 from .factory_lifecycle import github_events, read_analysis_run, revert_events
 from .factory_replay import replay_change
 from . import factory_workflow as engine
@@ -27,6 +28,7 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     product_runtime.register(actions)
+    review_improvement.register(actions)
     recovery = actions.add_parser("resume", help="recover operator notes, checkout and live PR state")
     recovery.add_argument("--workspace", type=Path, default=Path("."))
     recovery.add_argument("--state-dir", type=Path, default=Path(".adl"))
@@ -174,6 +176,8 @@ def dispatch(args):
     if hasattr(args, "runtime_handler"):
         return args.runtime_handler(args)
     op = args.operation
+    if op == "review-loop":
+        return review_improvement.dispatch(args)
     if op == "self-check":
         result = evidence.self_check()
         return result, int(not result["passed"])
@@ -262,7 +266,7 @@ def dispatch(args):
         return result, 3 if result["state"] in {"generation_interrupted", "reconciliation_required"} else 0
     if op == "cold-review":
         return feedback.review(Path.cwd(), feedback.live_review_subject(args.pr),
-                               Path(".agents/skills/factory-cold-review/SKILL.md"),
+                               review_improvement.GUIDANCE,
                                args.model, args.timeout), 0
     if op == "review-correction":
         return feedback.correction(read(args.report), args.key, args.rationale), 0
