@@ -11,6 +11,7 @@ import time
 
 from . import factory_cli
 from .candidate import check_candidate, git, propose
+from .factory_definition import running_definition
 from .factory_learning import run_record
 from .stage import stage
 from .upstream import replay
@@ -145,6 +146,8 @@ def main():
         try:
             if args.pr and (not args.runs or not PR_URL.fullmatch(args.pr)):
                 raise ValueError("--pr needs an exact GitHub PR URL and --runs")
+            factory_repo = Path(__file__).resolve().parents[1]
+            factory = running_definition(factory_repo)["revision"] if args.runs else None
             started = time.monotonic()
             receipt = prepare(args.repo, args.contract, args.template, args.evidence_url,
                               args.output, browser=args.browser_proof)
@@ -153,12 +156,15 @@ def main():
                 if args.browser_proof and receipt["verdict"] == "verified":
                     verified_files["browser"] = "browser-evidence/" + args.browser_proof.name
                 spec = args.output / "run-spec.json"
-                factory = git("rev-parse", "HEAD", cwd=Path(__file__).resolve().parents[1]).decode().strip()
+                write(args.output / "factory-definition.json", running_definition(factory_repo, factory))
+                (args.output / "candidate.patch").write_bytes(git(
+                    "diff", "--binary", receipt["base"], receipt["candidate"], "--", cwd=args.repo))
+                verified_files["definition"] = "factory-definition.json"
                 write(spec, {"id": f"upstream-{receipt['candidate'][:12]}-{time.time_ns()}",
                              "head": receipt["candidate"], "base": receipt["base"], "pr": args.pr,
                              "factory_revision": factory, "finished_at": datetime.now(timezone.utc).isoformat(),
                              "metrics": {"wall_seconds": round(time.monotonic() - started, 3)},
-                             "receipts": verified_files})
+                             "receipts": verified_files, "patch": "candidate.patch"})
                 run_record(spec, args.runs)
         except (OSError, ValueError, TypeError, KeyError, subprocess.CalledProcessError) as exc:
             parser.error(str(exc))

@@ -9,6 +9,7 @@ from statistics import median
 import re
 
 from .candidate import FULL_REVISION
+from .factory_definition import check_definition
 from .factory_evidence import browser_evidence
 from .factory_workflow import lock, record
 from .upstream_ci import PR_URL
@@ -67,6 +68,8 @@ def run_record(spec, directory):
     if (not KEY.fullmatch(run_id) or not FULL_REVISION.fullmatch(head)
             or not FULL_REVISION.fullmatch(factory)):
         raise ValueError("run needs a stable ID and full candidate and factory revisions")
+    if request.get("base") and not FULL_REVISION.fullmatch(request["base"]):
+        raise ValueError("run baseline must be an exact Git revision")
     if datetime.fromisoformat(request["finished_at"]).utcoffset() is None:
         raise ValueError("run timestamp needs a timezone")
     pr = request.get("pr")
@@ -80,10 +83,16 @@ def run_record(spec, directory):
     paths = request.get("receipts", {})
     if "assessment" in paths and "process" in paths:
         raise ValueError("choose scored process facts or a reviewed assessment")
+    provenance = {}
+    runtime_identity = None
     for kind, filename in paths.items():
         path = spec.parent / filename
         data, receipts[kind] = read_receipt(path)
-        if kind == "workflow":
+        if kind == "definition":
+            check_definition(data, factory)
+            provenance["definition"] = data["sha256"]
+        elif kind == "workflow":
+            provenance["workflow_plan"] = data["identity"].get("plan_sha256")
             if data["identity"]["revision"] != head:
                 raise ValueError("workflow receipt belongs to another revision")
             outcome["workflow"] = data["status"]
@@ -107,9 +116,18 @@ def run_record(spec, directory):
                 outcome[kind] = "verified" if passed else "failed"
             else:
                 outcome[kind] = data["verdict"]
+                if kind == "readiness":
+                    if request.get("base") and data["base"] != request["base"]:
+                        raise ValueError("readiness receipt belongs to another baseline")
+                    provenance["contract"] = data.get("contract_sha256")
+                else:
+                    runtime_identity = {"deployment": data.get("deployment")}
+                    provenance["runtime_contract"] = data.get("contract_sha256")
         elif kind == "recipe":
             if data["revision"] != request.get("base", head):
                 raise ValueError("Codex recipe belongs to another starting revision")
+            provenance["recipe"] = {key: data[key] for key in (
+                "model", "codex", "skill_sha256", "contract_sha256", "sandbox") if key in data}
         elif kind in {"assessment", "process"}:
             if kind == "process":
                 data = assess_process(data)
@@ -128,6 +146,11 @@ def run_record(spec, directory):
 
     if not paths:
         raise ValueError("record at least one receipt")
+    patch = request.get("patch")
+    if patch:
+        path = spec.parent / patch
+        with path.open("rb") as file:
+            receipts["patch"] = {"file": path.name, "sha256": file_digest(file, "sha256").hexdigest()}
     trace = request.get("trace")
     if trace:
         path = spec.parent / trace
@@ -144,11 +167,24 @@ def run_record(spec, directory):
               "retries": retries, "receipts": receipts,
               "findings": [{"dimension": dimension, "reason": reason, "category": category}
                            for (dimension, reason), category in sorted(findings.items())]}
+    if request.get("base"):
+        result["base"] = request["base"]
+    if provenance:
+        result["provenance"] = provenance
+    if runtime_identity:
+        result["runtime_identity"] = runtime_identity
     path = directory / f"{run_id}.json"
     with lock(directory):
         if path.exists():
-            if json.loads(path.read_text()) != result:
-                raise ValueError("run already exists with different evidence; use a new run ID")
+            existing = json.loads(path.read_text())
+            if existing == result:
+                return existing
+            additions = {"base", "provenance", "runtime_identity"}
+            if not additions.intersection(existing) and existing == {
+                key: value for key, value in result.items() if key not in additions
+            }:
+                return existing
+            raise ValueError("run already exists with different evidence; use a new run ID")
         else:
             record(path, result)
     return result
