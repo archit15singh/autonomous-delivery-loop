@@ -44,5 +44,6 @@ services:
     logging: *logs
 networks:
   default:
+    internal: true
     labels:
       adl.run: ${ADL_PROJECT:?}

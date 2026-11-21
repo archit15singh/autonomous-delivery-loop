@@ -4,15 +4,16 @@ ADL uses the same owned Redis API to verify a disposable Compose project and a K
 
 ## Fit with ADL today
 
-The [issue dispatcher](factory-interfaces.md#owned-issue-pilot) approves a specific issue, contract, and base before Codex starts. The [workflow runner](factory-operations.md#run-a-pinned-workflow) pins commands and artifacts. The existing `delivery stage` starts the pilot as a local process and uses `delivery.verify` to check its behavior and identity. [Outcome reporting](factory-interfaces.md#review-and-release-feedback) already ties release observations to a deployment and revision. Keep these interfaces. Add one trusted command to own the lifetime of a Compose stack and call the existing HTTP verifier against it. Make that command a single workflow step so cleanup belongs to the same process that creates the stack.
+The [issue dispatcher](factory-interfaces.md#owned-issue-pilot) approves a specific issue, contract, and base before Codex starts. The [workflow runner](factory-operations.md#run-a-pinned-workflow) pins commands and artifacts. The main-owned candidate workflow checks the approved contract in an isolated process, then runs the same service source against Redis in Compose. One command owns the Compose lifecycle. The signer receives a manifest only after both checks pass and Compose teardown is confirmed. The staging publisher demands this signed runtime evidence. [Outcome reporting](factory-interfaces.md#review-and-release-feedback) ties later release observations to a deployment and revision.
 
 ```text
 Approved contract + exact candidate
   → trusted runtime step reserves the run and starts its Compose project
   → independent probes check behavior and deployment identity
+  → fixed Redis readback confirms the backing state changed
   → diagnostics and bounded recovery if needed
   → remove the project's resources and confirm removal
-  → index runtime and cleanup receipts
+  → bind the runtime and cleanup receipt into the staging manifest
 ```
 
 ## First runner

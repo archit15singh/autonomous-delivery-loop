@@ -43,6 +43,7 @@ root.mkdir(parents=True, exist_ok=True)
 with patch.object(pilot, "start", side_effect=lose_first_reply):
     ready = run("retry", retry_start=True, index=root / "index")
 assert ready["verdict"] == "verified", ready
+assert ready["redis_counter"] == "2"
 assert starts == [ready["deployment"]] * 2 and len(ready["recovery"]) == 1
 assert [probe["passed"] for probe in ready["observation"]["probes"]] == [True, True, True]
 assert_clean(ready)
@@ -77,6 +78,12 @@ with patch.object(pilot.Compose, "observe", lose_redis):
 assert failed["verdict"] == "failed" and not failed["recovery"], failed
 assert failed["observation"]["probes"][1]["observed"]["status"] == 503
 assert_clean(failed)
+
+# Even an HTTP layer returning convincing results must write to the backing Redis.
+with patch.object(pilot.Compose, "observe", return_value=ready["observation"]):
+    fabricated = run("redis-not-written")
+assert fabricated["verdict"] == "failed" and fabricated["reason"] == "redis_readback_mismatch", fabricated
+assert_clean(fabricated)
 
 with patch.object(pilot.Compose, "cleanup", side_effect=ValueError("simulated teardown interruption")):
     uncertain = run("cleanup-unconfirmed")

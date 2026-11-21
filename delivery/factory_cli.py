@@ -1,11 +1,13 @@
 """Operator-facing commands that compose factory evidence and workflow tools."""
 import json
+from hashlib import sha256
 from pathlib import Path
 
 from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
+from .candidate import FULL_REVISION, git
 from .compose_pilot import run as compose_pilot
 from .cloud_pilot import manage as cloud_pilot
 from .kube_pilot import Kubectl, diagnostics, run as kube_pilot
@@ -141,6 +143,7 @@ def register(commands):
     bundle = actions.add_parser("bundle")
     bundle.add_argument("receipt", type=Path)
     bundle.add_argument("artifacts", nargs="*", type=Path)
+    bundle.add_argument("--compose-receipt", type=Path)
     rollout = actions.add_parser("analysis")
     rollout.add_argument("analysis_run", type=Path, nargs="?")
     rollout.add_argument("--context")
@@ -290,7 +293,18 @@ def dispatch(args):
     if op == "adoption":
         return evidence.adoption(read(args.events)), 0
     if op == "bundle":
-        return evidence.bundle(read(args.receipt), args.artifacts), 0
+        receipt = read(args.receipt)
+        runtime = None
+        if args.compose_receipt:
+            revision = receipt["revision"]
+            if not FULL_REVISION.fullmatch(revision):
+                raise ValueError("bundle requires a full candidate revision")
+            source = git("show", f"{revision}:pilot/service.py")
+            runtime = evidence.compose_evidence(
+                read(args.compose_receipt), revision, receipt["ci"]["policy_revision"],
+                sha256(source).hexdigest(), Contract.read(Path("contracts/compose-pilot.json")).digest,
+            )
+        return evidence.bundle(receipt, args.artifacts, runtime=runtime), 0
     if op == "analysis":
         policy = Contract.read(args.contract).impact
         if policy is None:

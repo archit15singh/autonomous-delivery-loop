@@ -164,7 +164,29 @@ def adoption(events):
             "subjects": [list(item.values()) for item in history.values()]}
 
 
-def bundle(receipt, artifacts):
+def compose_evidence(runtime, revision, policy, source_sha256, contract_sha256):
+    observation = runtime.get("observation", {})
+    cleanup = runtime.get("cleanup", {})
+    image = runtime.get("image_id", "")
+    deployment = runtime.get("deployment", "")
+    if (runtime.get("verdict") != "verified" or runtime.get("revision") != revision
+            or runtime.get("policy_revision") != policy or runtime.get("source_sha256") != source_sha256
+            or runtime.get("contract_sha256") != contract_sha256
+            or not re.fullmatch(r"adl-pilot-[0-9a-f]{16}", deployment)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", image)
+            or runtime.get("redis_counter") != "2"
+            or cleanup != {"status": "confirmed", "remaining":
+                           {"container": [], "network": [], "volume": [], "image": []}}
+            or observation.get("verdict") != "verified" or observation.get("revision") != revision
+            or observation.get("deployment") != deployment
+            or observation.get("contract_sha256") != contract_sha256
+            or observation.get("ci", {}).get("artifact_sha256") != image.removeprefix("sha256:")):
+        raise ValueError("candidate requires exact Compose evidence, Redis readback, and confirmed cleanup")
+    return {"kind": "compose", "deployment": deployment, "image_id": image,
+            "receipt_sha256": sha256(canonical_json(runtime).encode()).hexdigest()}
+
+
+def bundle(receipt, artifacts, *, runtime=None):
     if receipt.get("verdict") != "verified":
         raise ValueError("bundle requires a verified receipt")
     revision = receipt["revision"]
@@ -177,7 +199,8 @@ def bundle(receipt, artifacts):
     return {"version": 1, "revision": revision, "deployment": receipt["deployment"],
             "policy_revision": receipt["ci"]["policy_revision"],
             "contract_sha256": receipt["contract_sha256"], "receipt_sha256":
-                sha256(canonical_json(receipt).encode()).hexdigest(), "artifacts": files}
+                sha256(canonical_json(receipt).encode()).hexdigest(), "artifacts": files,
+            **({"runtime": runtime} if runtime is not None else {})}
 
 
 def analysis_observation(run, policy, revision, deployment, *, uid):

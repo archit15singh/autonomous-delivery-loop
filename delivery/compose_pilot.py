@@ -186,6 +186,11 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
                 start(stack)
             report = stack.observe(contract, image)
             receipt.update(observation=report, verdict=report["verdict"], reason=report["reason"])
+            if report["verdict"] == "verified":
+                receipt["redis_counter"] = stack.compose("exec", "-T", "redis", "redis-cli", "--raw",
+                                                         "GET", "adl:counter")
+                if receipt["redis_counter"] != "2":
+                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
         except DOCKER_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
