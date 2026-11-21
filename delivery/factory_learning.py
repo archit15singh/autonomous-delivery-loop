@@ -210,7 +210,9 @@ def mine(directory, *, minimum=2):
             if item["category"] == "factory":
                 key = (item["dimension"], item["reason"])
                 clusters[key][run["id"]] = {"run": run["id"], "head": run["head"],
-                                            "factory_revision": run["factory_revision"]}
+                                            "factory_revision": run["factory_revision"],
+                                            "receipt_digests": {kind: item["sha256"] for kind, item
+                                                                in run.get("receipts", {}).items()}}
     proposals = [{"id": sha256(f"{dimension}:{reason}".encode()).hexdigest(),
                   "dimension": dimension, "reason": reason, "evidence": list(runs.values()),
                   "status": "needs_replay",

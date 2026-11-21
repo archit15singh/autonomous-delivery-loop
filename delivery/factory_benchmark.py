@@ -15,7 +15,19 @@ def dataset(root):
         cases.append({"id": path.stem, "base": contract["base"], "candidate": contract["candidate"],
                       "tests": contract["command"], "grader": "upstream_replay"})
         files.append(path)
-    return {"version": 1, "cases": cases,
+    replays = []
+    for path in sorted((root / "contracts/factory").glob("*.json")):
+        contract = json.loads(path.read_text())
+        driver = path.parent / contract["driver"]
+        if not driver.resolve().is_relative_to(path.parent.resolve()):
+            raise ValueError("factory replay driver escapes its contract directory")
+        if sha256(driver.read_bytes()).hexdigest() != contract["driver_sha256"]:
+            raise ValueError("factory replay driver differs from the approved digest")
+        replays.append({"id": path.stem, "baseline": contract["baseline"], "fixed": contract["fixed"],
+                        "contract": path.relative_to(root).as_posix(),
+                        "scenarios": {case["id"]: case["type"] for case in contract["cases"]}})
+        files.extend((path, driver))
+    return {"version": 1, "cases": cases, "factory_replays": replays,
             "files": {path.relative_to(root).as_posix(): sha256(path.read_bytes()).hexdigest() for path in files}}
 
 

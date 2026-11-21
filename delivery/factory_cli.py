@@ -36,9 +36,11 @@ def register(commands):
     lifecycle.add_argument("--reverts", nargs=2, metavar=("FIRST", "LAST"))
     replay = actions.add_parser("replay-change")
     replay.add_argument("--repo", type=Path, default=Path("."))
-    replay.add_argument("--baseline", required=True)
+    replay.add_argument("--baseline")
     replay.add_argument("--candidate", required=True)
-    replay.add_argument("--contract", type=Path, required=True)
+    replay.add_argument("--contract", type=Path)
+    replay.add_argument("--frozen", type=Path)
+    replay.add_argument("--case")
     replay.add_argument("--logs", type=Path, required=True)
     cases = actions.add_parser("benchmark")
     cases.add_argument("--repo", type=Path, default=Path("."))
@@ -125,7 +127,22 @@ def dispatch(args):
             result["events"].extend(revert_events(args.repo, *args.reverts))
         return result, 0
     if op == "replay-change":
-        result = replay_change(args.repo, args.baseline, args.candidate, args.contract, args.logs)
+        baseline, contract = args.baseline, args.contract
+        if args.frozen:
+            if baseline or contract or not args.case:
+                raise ValueError("choose a frozen case or explicit baseline and contract")
+            manifest = benchmark.dataset(args.repo)
+            if read(args.frozen) != manifest:
+                raise ValueError("benchmark files differ from the pinned manifest")
+            selected = next((item for item in manifest["factory_replays"] if item["id"] == args.case), None)
+            if selected is None:
+                raise ValueError("factory replay case is not frozen")
+            baseline, contract = selected["baseline"], args.repo / selected["contract"]
+        elif not baseline or not contract or args.case:
+            raise ValueError("explicit replay needs a baseline and contract")
+        result = replay_change(args.repo, baseline, args.candidate, contract, args.logs)
+        if args.frozen:
+            result["frozen_case"] = args.case
         return result, int(not result["passed"])
     if op == "benchmark":
         manifest = benchmark.dataset(args.repo)
