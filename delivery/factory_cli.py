@@ -47,7 +47,7 @@ def register(commands):
     inspect_runtime.add_argument("--namespace", required=True)
     inspect_runtime.add_argument("--deployment", required=True)
     cloud = actions.add_parser("cloud-pilot", help="plan and approve a disposable OpenTofu resource")
-    cloud.add_argument("action", choices=("create", "destroy", "approve", "apply"))
+    cloud.add_argument("action", choices=("create", "destroy", "approve", "apply", "reconcile"))
     cloud.add_argument("--state", type=Path, required=True)
     cloud.add_argument("--backend", choices=("local", "aws"))
     cloud.add_argument("--region")

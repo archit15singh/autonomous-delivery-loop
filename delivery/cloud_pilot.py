@@ -35,7 +35,7 @@ def verify_identity(folder, target):
             raise ValueError("AWS caller is outside the configured sandbox account")
 
 
-def verify_inputs(folder, pending, policy):
+def verify_inputs(folder, pending, policy, *, after_apply=False):
     stack = folder / "main.tf"
     template = ROOT / f"verification/tofu/{pending['target']['backend']}.tf"
     lockfile = folder / ".terraform.lock.hcl"
@@ -43,7 +43,10 @@ def verify_inputs(folder, pending, policy):
     current = {"policy": policy["sha256"], "plan": file_digest(folder / "reviewed.tfplan"),
                "config": file_digest(stack), "provider_lock": file_digest(lockfile) if lockfile.exists() else None,
                "state": file_digest(state) if state.exists() else None}
-    if current != pending["inputs"] or stack.read_bytes() != template.read_bytes():
+    expected = dict(pending["inputs"])
+    if after_apply:
+        expected["state"] = current["state"]
+    if current != expected or stack.read_bytes() != template.read_bytes():
         raise ValueError("plan, configuration, policy, provider lock, or state changed")
     if {p.name for p in folder.glob("*.tf")} != {"main.tf"} or list(folder.glob("*.tf.json")):
         raise ValueError("unexpected OpenTofu configuration")
@@ -96,6 +99,33 @@ def plan(folder, target, action, policy):
     return request
 
 
+def readback(folder, pending):
+    observed = call(folder, "tofu", "state", "list")
+    wanted = TARGETS[pending["target"]["backend"]]
+    if observed.splitlines() != ([wanted] if pending["action"] == "create" else []):
+        raise ValueError("resource state did not match the applied plan")
+    if pending["target"]["backend"] == "local" and pending["action"] == "create":
+        values = json.loads(call(folder, "tofu", "show", "-json"))["values"]
+        resources = values["root_module"]["resources"]
+        if resources[0]["values"]["output"] != pending["target"]["run"]:
+            raise ValueError("local resource did not return the planned value")
+    if pending["target"]["backend"] == "aws":
+        target = pending["target"]
+        command = ("aws", "ssm", "get-parameter", "--region", target["region"], "--name",
+                   f"/adl-sandbox/{target['run']}", "--output", "json", "--no-cli-pager")
+        if pending["action"] == "create":
+            if json.loads(call(folder, *command))["Parameter"]["Value"] != target["run"]:
+                raise ValueError("AWS did not return the planned parameter")
+        else:
+            try:
+                call(folder, *command)
+            except ValueError as exc:
+                if "ParameterNotFound" not in str(exc):
+                    raise
+            else:
+                raise ValueError("AWS still returns the destroyed parameter")
+
+
 def manage(folder, operation, *, backend=None, account=None, region=None, approval=None):
     folder = folder.resolve()
     policy = running_definition(ROOT)
@@ -107,8 +137,18 @@ def manage(folder, operation, *, backend=None, account=None, region=None, approv
                 raise ValueError("choose local, or supply an explicit AWS sandbox account and region")
             return plan(folder, {"backend": backend, "account": account, "region": region}, operation, policy)
         pending = json.loads((folder / "plan.json").read_text())
-        verify_inputs(folder, pending, policy)
         digest = file_digest(folder / "plan.json")
+        path = folder / "apply.json"
+        if operation == "reconcile":
+            prior = json.loads(path.read_text())
+            if prior["request_sha256"] != digest or prior["status"] not in {"applying", "verified"}:
+                raise ValueError("no matching apply reservation")
+            verify_inputs(folder, pending, policy, after_apply=True)
+            readback(folder, pending)
+            prior["status"] = "verified"
+            record(path, prior)
+            return prior
+        verify_inputs(folder, pending, policy)
         if operation == "approve":
             if approval is None:
                 raise ValueError("write approval to an operator-controlled file")
@@ -123,7 +163,6 @@ def manage(folder, operation, *, backend=None, account=None, region=None, approv
         if (item["request_sha256"] != digest or item["state_directory"] != str(folder)
                 or not timedelta(0) <= age <= timedelta(minutes=30)):
             raise ValueError("approval does not match the exact current plan")
-        path = folder / "apply.json"
         if path.exists():
             prior = json.loads(path.read_text())
             if prior["status"] == "applying" or prior["request_sha256"] == digest:
@@ -132,30 +171,7 @@ def manage(folder, operation, *, backend=None, account=None, region=None, approv
                   "target": pending["target"], "action": pending["action"]}
         record(path, status)
         call(folder, "tofu", "apply", "-input=false", "-no-color", "-lock-timeout=10s", "reviewed.tfplan")
-        observed = call(folder, "tofu", "state", "list")
-        wanted = TARGETS[pending["target"]["backend"]]
-        if observed.splitlines() != ([wanted] if pending["action"] == "create" else []):
-            raise ValueError("resource state did not match the applied plan")
-        if pending["target"]["backend"] == "local" and pending["action"] == "create":
-            values = json.loads(call(folder, "tofu", "show", "-json"))["values"]
-            resources = values["root_module"]["resources"]
-            if resources[0]["values"]["output"] != pending["target"]["run"]:
-                raise ValueError("local resource did not return the planned value")
-        if pending["target"]["backend"] == "aws":
-            target = pending["target"]
-            command = ("aws", "ssm", "get-parameter", "--region", target["region"], "--name",
-                       f"/adl-sandbox/{target['run']}", "--output", "json", "--no-cli-pager")
-            if pending["action"] == "create":
-                if json.loads(call(folder, *command))["Parameter"]["Value"] != target["run"]:
-                    raise ValueError("AWS did not return the planned parameter")
-            else:
-                try:
-                    call(folder, *command)
-                except ValueError as exc:
-                    if "ParameterNotFound" not in str(exc):
-                        raise
-                else:
-                    raise ValueError("AWS still returns the destroyed parameter")
+        readback(folder, pending)
         status["status"] = "verified"
         record(path, status)
         return status

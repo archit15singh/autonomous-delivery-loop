@@ -125,7 +125,8 @@ def cleanup(kube, receipt):
 
 def probe(kube, receipt, contract):
     namespace = receipt["deployment"]
-    pods = kube.get("pods", "-l", "app=api", namespace=namespace)["items"]
+    pods = [pod for pod in kube.get("pods", "-l", "app=api", namespace=namespace)["items"]
+            if not pod["metadata"].get("deletionTimestamp")]
     if len(pods) != 1:
         raise ValueError("expected one API pod")
     pod = pods[0]

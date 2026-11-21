@@ -61,6 +61,13 @@ jobs:
             kind load docker-image "adl-kube:$sha" --name adl-ci
           done
           kubectl --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" create namespace neighbor
+          kubectl --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" config set-context production-shaped \
+            --cluster kind-adl-ci --user kind-adl-ci
+          if python3 -m delivery factory kube-pilot --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" \
+            --context production-shaped --state .adl/kube-refused --revision "$REVISION" --image "adl-kube:$REVISION"; then
+            exit 1
+          fi
+          test ! -e .adl/kube-refused
           python3 -m delivery factory kube-pilot --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" \
             --context kind-adl-ci --state .adl/kube --revision "$REVISION" --image "adl-kube:$REVISION" \
             --rollback-revision "$PREVIOUS"
@@ -68,7 +75,8 @@ jobs:
           jq -e --arg revision "$REVISION" --arg previous "$PREVIOUS" \
             '.revision==$revision and .verdict=="verified" and .cleanup.status=="confirmed" and
               .redis_ping=="PONG" and .rollback.observation.verdict=="verified" and
-              .rollback.observation.revision==$previous and .image_id != .rollback.image_id' .adl/kube/runtime.json
+              .rollback.observation.revision==$previous and .image_id != .rollback.image_id and
+              (.diagnostics.logs | contains("/counter"))' .adl/kube/runtime.json
       - name: Upload runtime receipt
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -114,6 +122,9 @@ jobs:
           if "${command[@]}" apply --state "$state" --approval "$approval"; then exit 1; fi
           cp "$RUNNER_TEMP/adl-original-plan" "$state/reviewed.tfplan"
           "${command[@]}" apply --state "$state" --approval "$approval" > "$state/create-receipt.json"
+          jq '.status="applying"' "$state/apply.json" > "$state/interrupted.json"
+          mv "$state/interrupted.json" "$state/apply.json"
+          "${command[@]}" reconcile --state "$state" | jq -e '.status=="verified" and .action=="create"'
           "${command[@]}" destroy --backend local --state "$state"
           if "${command[@]}" apply --state "$state" --approval "$approval"; then exit 1; fi
           "${command[@]}" approve --state "$state" --approval "$approval"

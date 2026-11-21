@@ -107,8 +107,9 @@ planning commands for the AWS SSM sandbox fixture. Use a sandbox identity with
 permissions scoped to `/adl-sandbox/*`, and keep the private state directory and
 approval file under operator control. The tool binds the saved plan, state,
 provider lock and factory policy. It checks the AWS caller's account and rejects
-reusing a plan. An interrupted apply leaves a reservation for operator
-reconciliation. Keep the state and plan private.
+reusing a plan. After an interrupted apply, run `cloud-pilot reconcile` with the
+same state directory to check the existing reservation and observed outcome
+without reapplying. Keep the state and plan private.
 
 ```sh
 python3 -m delivery factory cloud-pilot create --backend local --state "$STATE"
