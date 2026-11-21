@@ -1,4 +1,4 @@
-name: Herdr Core Windows 2025 v143 evidence
+name: Herdr Core Windows 2025 default toolset control
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   core-windows:
-    name: Windows 2025 v143 replay (${{ matrix.lane }})
+    name: Windows 2025 default toolset control (${{ matrix.lane }})
     runs-on: windows-2025
     timeout-minutes: 30
     strategy:
@@ -68,44 +68,21 @@ jobs:
             (rustc --version --verbose)
             "Zig: $(zig version)"
           ) | Tee-Object '../.adl/herdr-core-windows/versions.txt'
-      - name: Select the installed v143 MSVC headers and libraries for Zig
+      - name: Reproduce the default Windows toolchain failure
         run: |
           $ErrorActionPreference = "Stop"
           $receipt = '../.adl/herdr-core-windows'
-          $native = @(zig libc)
-          if ($LASTEXITCODE -ne 0) { throw "Zig could not discover the runner SDK" }
-          $native | Set-Content "$receipt/native-libc.txt"
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-          $vs = & $vswhere -latest -requires Microsoft.VisualStudio.Component.VC.14.44.17.14.x86.x64 -property installationPath
-          if ($LASTEXITCODE -ne 0 -or -not $vs) { throw "Missing installed MSVC v143 component" }
-          $toolsets = @(Get-ChildItem "$vs\VC\Tools\MSVC" -Directory -Filter '14.44.*' | Sort-Object Name -Descending)
-          if ($toolsets.Count -eq 0) { throw "Missing MSVC 14.44 toolset directory" }
-          $msvc = $toolsets[0].FullName
-          if (-not (Test-Path "$msvc\include\cstring") -or -not (Test-Path "$msvc\lib\x64\vcruntime.lib")) {
-            throw "Incomplete v143 headers or libraries"
-          }
-          $paths = Join-Path $env:RUNNER_TEMP 'zig-v143-libc.txt'
-          $selected = $native | ForEach-Object {
-            if ($_ -match '^sys_include_dir=') { "sys_include_dir=$msvc\include" }
-            elseif ($_ -match '^msvc_lib_dir=') { "msvc_lib_dir=$msvc\lib\x64" }
-            else { $_ }
-          }
-          # Zig 0.16 splits on LF without stripping a trailing CR from values.
-          [IO.File]::WriteAllText($paths, [string]::Join("`n", $selected) + "`n")
-          Get-Content $paths | Tee-Object "$receipt/v143-libc.txt"
-          "ZIG_LIBC=$paths" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Clippy with Ghostty on the native toolchain
-        run: |
+          zig libc | Tee-Object "$receipt/native-libc.txt"
+          if ($LASTEXITCODE -ne 0) { throw "Zig SDK discovery failed" }
           cargo clippy --locked --target x86_64-pc-windows-msvc --all-targets -- -D warnings 2>&1 |
-            Tee-Object '../.adl/herdr-core-windows/clippy.log'
-          exit $LASTEXITCODE
-      - name: Install the project's pinned ConPTY
-        run: ./scripts/fetch-conpty.ps1 -Dest target/x86_64-pc-windows-msvc/debug
-      - name: Run the upstream Windows tests
-        run: |
-          cargo test --locked --no-fail-fast --target x86_64-pc-windows-msvc -- --test-threads 2 2>&1 |
-            Tee-Object '../.adl/herdr-core-windows/tests.log'
-          exit $LASTEXITCODE
+            Tee-Object "$receipt/clippy.log"
+          $result = $LASTEXITCODE
+          if ($result -eq 0) { throw "Default Windows Clippy passed; no baseline failure to reproduce" }
+          if (-not (Select-String -Path "$receipt/clippy.log" -SimpleMatch 'error STL1000: Unexpected compiler version, expected Clang 22 or newer.')) {
+            throw "Clippy failed for a different reason (exit $result)"
+          }
+          Write-Output "Default Windows Clippy failed with the reported STL1000 diagnostic (exit $result)"
+          exit 0
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
