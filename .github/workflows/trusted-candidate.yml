@@ -31,7 +31,7 @@ jobs:
   judge:
     name: Main-owned runtime verifier
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     environment: ${{ inputs.candidate == github.sha && 'hosted-staging' || 'independent-preview' }}
     env:
       CANDIDATE: ${{ inputs.candidate }}
@@ -64,10 +64,24 @@ jobs:
             python -B -m delivery stage --contract "contracts/$CONTRACT_NAME.json" \
               --bundle /bundle --revision "$CANDIDATE" --deployment "$DEPLOYMENT" \
               --output - --repairs-used "$REPAIRS_USED" --isolate-candidate > .adl/evidence.json
-      - name: Manifest for the exact verified artifact
+      - name: Verify the exact candidate against Redis and confirm teardown
+        run: |
+          python -B -m delivery factory compose-pilot --socket /var/run/docker.sock \
+            --revision "$CANDIDATE" --state .adl/candidate-runtime --retry-start
+      - name: Manifest for the exact verified artifact and Compose observation
         run: >-
           python -B -m delivery factory --output .adl/verified-manifest.json
           bundle .adl/evidence.json .adl/bundle/pilot.tar
+          --compose-receipt .adl/candidate-runtime/runtime.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: trusted-compose-${{ env.DEPLOYMENT }}
+          path: |
+            .adl/candidate-runtime/runtime.json
+            .adl/candidate-runtime/*.log
+          include-hidden-files: true
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:

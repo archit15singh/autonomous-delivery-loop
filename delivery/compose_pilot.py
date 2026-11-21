@@ -101,7 +101,8 @@ class Compose:
         deployed = self.docker("container", "inspect", "--format", "{{.Image}}", container)
         if deployed != image_id:
             raise ValueError("running container does not use the candidate image")
-        location = self.compose("port", "api", "8080")
+        relay = self.compose("ps", "-q", "probe")
+        location = self.compose("port", "probe", "8080")
         if not re.fullmatch(r"127\.0\.0\.1:[1-9][0-9]{0,4}", location):
             raise ValueError("pilot must publish a single loopback port")
         revision = self.identity["revision"]
@@ -110,8 +111,8 @@ class Compose:
             "deployment": self.project, "artifact_sha256": image_id.removeprefix("sha256:"),
         })
         self.resources()
-        if self.compose("ps", "-q", "api") != container:
-            raise ValueError("pilot container changed during probes")
+        if self.compose("ps", "-q", "api") != container or self.compose("ps", "-q", "probe") != relay:
+            raise ValueError("pilot container or probe relay changed during probes")
         return report
 
 
@@ -186,6 +187,11 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
                 start(stack)
             report = stack.observe(contract, image)
             receipt.update(observation=report, verdict=report["verdict"], reason=report["reason"])
+            if report["verdict"] == "verified":
+                receipt["redis_counter"] = stack.compose("exec", "-T", "redis", "redis-cli", "--raw",
+                                                         "GET", "adl:counter")
+                if receipt["redis_counter"] != "2":
+                    receipt.update(verdict="failed", reason="redis_readback_mismatch")
         except DOCKER_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:

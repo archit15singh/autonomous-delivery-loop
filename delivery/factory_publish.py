@@ -69,6 +69,8 @@ def publish(repo, manifest, candidate, contract_name, *, apply=False, ledger=Non
                 or payload["policy_revision"] != policy):
             raise ValueError("manifest candidate or current main policy does not match")
         verify_signature(copy, policy)
+        if payload.get("runtime", {}).get("kind") != "compose":
+            raise ValueError("staging publication requires signed Compose evidence")
         contract_path = Path(scratch) / "contract.json"
         contract_path.write_bytes(git("show", f"{policy}:contracts/{contract_name}.json", cwd=repo))
         contract = Contract.read(contract_path)

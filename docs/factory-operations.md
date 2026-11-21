@@ -55,7 +55,7 @@ python3 -m delivery factory compose-pilot --socket /var/run/docker.sock \
 
 Use a fresh state directory for each run. The command builds the exact service
 source into an image, verifies two counter increments against Redis, and records
-the observation and cleanup in `runtime.json`. Add `--retry-start` to approve one
+the observation, Redis readback, and cleanup in `runtime.json`. Add `--retry-start` to approve one
 retry if the Compose start command times out. Inspect `final.log` for project
 status and diagnostics. An unconfirmed cleanup exits unsuccessfully even when
 the HTTP probes passed.
@@ -64,7 +64,16 @@ After an interruption, rerun with `--socket` and `--state` set to the original
 values and pass `--cleanup-only`. This reconciles the existing project without
 deploying it again. The receipt still records whether verification completed.
 The runner requires 512 MiB of free host disk as a minimum. The Docker engine
-also needs enough space for the two images and build cache.
+also needs enough space for the images and build cache. Use Docker Engine 28
+or later for the isolated bridge. The API and Redis share that bridge. A
+separate probe relay publishes only the three verification routes on loopback.
+
+The main-owned **Trusted candidate** workflow runs this check after the reviewed
+HTTP contract passes. Its `trusted-compose-<run>-<attempt>` artifact carries the
+receipt and diagnostics. The manifest binds the Compose image and receipt to the
+exact candidate and factory revision. Missing runtime evidence or unresolved
+cleanup prevents staging publication. The staging deployment has its own identity
+and observation.
 
 See [Runtime operations in the factory](runtime-operations-design.md) for the
 design and later phases.
