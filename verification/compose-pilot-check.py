@@ -97,7 +97,7 @@ state = root / "interrupted"
 receipt = json.loads((state / "runtime.json").read_text())
 assert receipt["reason"] == "interrupted" and receipt["cleanup"]["status"] == "pending"
 stack = pilot.Compose(socket.resolve(), state, receipt)
-assert len(stack.resources()["container"]) == 2
+assert len(stack.resources()["container"]) == 3
 redis_image = stack.compose("config", "--images").splitlines()
 redis_image = next(image for image in redis_image if image.startswith("redis@"))
 neighbor = stack.docker("run", "-d", "--rm", "--tmpfs", "/data", redis_image)

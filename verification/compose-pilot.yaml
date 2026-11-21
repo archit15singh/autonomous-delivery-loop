@@ -8,8 +8,6 @@ services:
       ADL_REVISION: ${ADL_REVISION:?}
       ADL_DEPLOYMENT: ${ADL_PROJECT:?}
       ADL_REDIS_HOST: redis
-    ports:
-      - "127.0.0.1::8080"
     depends_on:
       redis:
         condition: service_healthy
@@ -27,6 +25,57 @@ services:
     logging: &logs
       driver: json-file
       options: {max-size: "1m", max-file: "1"}
+  probe:
+    image: python:3.12-alpine@sha256:c5ba3deef00c7758561a0f03c26f44f10589263d40e732b8748e0d1f38f6dd89
+    labels:
+      adl.run: ${ADL_PROJECT:?}
+    user: "65534:65534"
+    ports: ["127.0.0.1::8080"]
+    networks: [default, probe]
+    depends_on:
+      api:
+        condition: service_healthy
+    command:
+      - python
+      - -I
+      - -B
+      - -c
+      - |
+        from http.client import HTTPConnection, HTTPException
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        class ProbeRelay(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path not in ("/_revision", "/health", "/counter"):
+                    self.send_error(404)
+                    return
+                upstream = HTTPConnection("api", 8080, timeout=4)
+                try:
+                    upstream.request("GET", self.path)
+                    response = upstream.getresponse()
+                    status, body = response.status, response.read(65537)
+                except (OSError, HTTPException):
+                    self.send_error(502)
+                    return
+                finally:
+                    upstream.close()
+                self.send_response(status)
+                self.end_headers()
+                self.wfile.write(body)
+
+        ThreadingHTTPServer(("0.0.0.0", 8080), ProbeRelay).serve_forever()
+    healthcheck:
+      test: [CMD, python, -c, "import socket; socket.create_connection(('127.0.0.1', 8080), 1).close()"]
+      interval: 1s
+      timeout: 2s
+      retries: 5
+    mem_limit: 32m
+    pids_limit: 24
+    cpus: 0.25
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: *logs
   redis:
     image: redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5
     labels:
@@ -45,5 +94,10 @@ services:
 networks:
   default:
     internal: true
+    driver_opts:
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+    labels:
+      adl.run: ${ADL_PROJECT:?}
+  probe:
     labels:
       adl.run: ${ADL_PROJECT:?}
