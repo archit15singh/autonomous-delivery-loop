@@ -41,6 +41,24 @@ For merge collisions, run `factory merge-preview --base SHA --candidate SHA` in 
 
 ## Browser proof and live rollout evidence
 
+### Run the hosted sandbox from a workstation
+
+Push the exact candidate commit to a branch in this owned repository first.
+Use an authenticated GitHub CLI with permission to dispatch workflows.
+
+```sh
+python3 -m delivery factory hosted-runtime start --revision "$REVISION" \
+  --contract pilot --state .adl/hosted-runtime/run-1
+python3 -m delivery factory hosted-runtime collect --state .adl/hosted-runtime/run-1
+```
+
+The state directory reserves one dispatch. If the network loses the dispatch
+response, check Actions for the run before attempting another. Collection
+returns exit 3 while the run is pending, 0 for verified signed evidence, and 1
+for a failed or inconclusive run. Read the numbered HTTP and Compose receipts
+and diagnostic logs in the state directory. The command exercises the owned
+pilot on a disposable GitHub runner. It does not publish staging.
+
 ### Run the disposable Redis pilot
 
 On a disposable Linux runner, pass the local Docker socket. For a dedicated

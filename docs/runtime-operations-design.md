@@ -52,3 +52,16 @@ An owned cloud test target needs an explicit account and region, a run-specific 
 | 4. Production onboarding | Use the read-only Kubernetes diagnostic command and the existing Argo and outcome-report adapters. A future target must identify its deployment pipeline, scoped identities and immutable image source, approval policy, rollback procedure, and telemetry. | Rehearse in owned non-production first. Verify every rollout and rollback on the exact deployment and target. Operator approval must cover the selected target and image. Keep externally visible actions, migrations, and persistent data recovery under their own policy. |
 
 The existing Delivery evidence workflow continues to exercise Compose. Runtime operator evidence adds kind and local OpenTofu checks on disposable Linux runners. Operators can call these same commands from reviewed workflow steps. GitHub Actions receipts for these runs describe CI fixtures. A real cloud sandbox and a production environment each need their own authorization and verified observations.
+
+## Sandbox handoff
+
+The developer machine needs Git and an authenticated GitHub CLI for the hosted
+path. Dispatch the exact candidate to the existing main-owned runtime verifier.
+Collect the result by run ID and attempt, check the signed manifest and the
+runtime and cleanup receipts, then return failures to the existing repair loop.
+Keep each attempt's state for diagnosis. Publication remains a separate action.
+
+The local path starts with one dedicated Linux VM on the Mac using containerd.
+It will prove the same Redis-backed pilot with the existing HTTP contract and
+backing-store readback. The hosted path remains available for independent
+attestation when the local VM is unavailable.

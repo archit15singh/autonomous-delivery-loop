@@ -7,6 +7,7 @@ from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
+from . import hosted_runtime
 from .candidate import FULL_REVISION, git
 from .compose_pilot import preflight as compose_preflight, run as compose_pilot
 from .cloud_pilot import manage as cloud_pilot
@@ -27,6 +28,15 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     actions.add_parser("self-check")
+    hosted = actions.add_parser("hosted-runtime", help="dispatch or collect a disposable hosted runtime")
+    hosted_actions = hosted.add_subparsers(dest="runtime_action", required=True)
+    start_hosted = hosted_actions.add_parser("start")
+    start_hosted.add_argument("--revision", required=True)
+    start_hosted.add_argument("--contract", choices=hosted_runtime.CONTRACTS, required=True)
+    collect_hosted = hosted_actions.add_parser("collect")
+    for action in (start_hosted, collect_hosted):
+        action.add_argument("--state", type=Path, required=True)
+        action.add_argument("--repo", type=Path, default=Path("."))
     preflight = actions.add_parser("compose-preflight", help="inspect the selected Compose runner")
     preflight.add_argument("--socket", type=Path, required=True)
     preflight.add_argument("--state", type=Path, required=True)
@@ -180,6 +190,14 @@ def read(path):
 
 
 def dispatch(args):
+    if args.operation == "hosted-runtime":
+        state = args.state.resolve()
+        if args.runtime_action == "start":
+            return hosted_runtime.start(args.repo, state, args.revision, args.contract), 0
+        receipt = hosted_runtime.collect(args.repo, state)
+        if receipt["status"] != "completed":
+            return receipt, 3
+        return receipt, int(receipt["verdict"] != "verified")
     if args.operation == "compose-preflight":
         report = compose_preflight(args.socket, args.state)
         return report, int(report["status"] != "ready")
