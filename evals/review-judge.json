@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "examples": [
+    {
+      "id": "retry-match",
+      "rationale": "When recovery marks a started job complete while it still has an invalid sample, retry skips the sample and the missing result is never recomputed.",
+      "finding_paths": [
+        "retry.py"
+      ],
+      "findings": [
+        {
+          "key": "review-finding",
+          "path": "retry.py",
+          "finding": "After crash recovery closes a job with an invalidated sample, retry treats the job as finished and never runs that sample again."
+        }
+      ],
+      "expected_match": true
+    },
+    {
+      "id": "retry-mismatch",
+      "rationale": "When recovery marks a started job complete while it still has an invalid sample, retry skips the sample and the missing result is never recomputed.",
+      "finding_paths": [
+        "retry.py"
+      ],
+      "findings": [
+        {
+          "key": "review-finding",
+          "path": "retry.py",
+          "finding": "When retry does run an invalidated sample, its replacement result keeps the previous invalidation flag and the UI still marks the new result as invalid."
+        }
+      ],
+      "expected_match": false
+    },
+    {
+      "id": "catalog-match",
+      "rationale": "The empty catalog crashes the list view because the renderer reads item zero. Separately, removing the final item leaves the cached count at one, so the header shows one remaining item.",
+      "finding_paths": [
+        "catalog.py"
+      ],
+      "findings": [
+        {
+          "key": "review-finding",
+          "path": "catalog.py",
+          "finding": "Rendering zero items raises an index error at items[0]. When deleting the last item the count cache keeps the old value, so the displayed total is also wrong."
+        }
+      ],
+      "expected_match": true
+    },
+    {
+      "id": "catalog-mismatch",
+      "rationale": "The empty catalog crashes the list view because the renderer reads item zero. Separately, removing the final item leaves the cached count at one, so the header shows one remaining item.",
+      "finding_paths": [
+        "catalog.py"
+      ],
+      "findings": [
+        {
+          "key": "review-finding",
+          "path": "catalog.py",
+          "finding": "Rendering the empty list indexes the first element and crashes. Add an empty-state branch before accessing items[0]."
+        }
+      ],
+      "expected_match": false
+    }
+  ]
+}

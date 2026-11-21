@@ -63,3 +63,15 @@ git apply --check .adl/reviewer/guidance.patch
 ```
 
 In a prompt-change branch, an operator reviews the raw paired results, applies the patch, and submits it for approval. The exporter recomputes the result from trial reports, checks the dataset and both prompt hashes, and writes a patch against the skill used by `cold-review`. Keep the evidence and cache in trusted storage. Digests detect drift and do not authenticate an operator-controlled file. After examining holdout failures, reserve new cases before using another experiment to claim generalization.
+
+## Calibrate the judge
+
+Run the production judge against reference answers before interpreting a reviewer experiment, especially after changing the rubric or model.
+
+```sh
+python3 -m delivery factory --output .adl/reviewer/calibration.json review-loop calibrate --rounds 2
+```
+
+The four frozen examples in [evals/review-judge.json](../evals/review-judge.json) cover paraphrases, another bug in the same file, and a review that catches only one of two defects. These are synthetic controls. Each round makes one fresh judge call per example. The judge sees the maintainer rationale and review findings. The scorer compares its response with the stored answer and records false matches, missed matches, and the judge’s explanation. The command returns status 1 for any disagreement. An incomplete or invalid run raises an error. Use the model name and the rubric and dataset digests in the receipt to identify the evaluated configuration. Passing these controls establishes performance on these examples only.
+
+To evaluate a rubric change, first save a calibration receipt on `main`. Save a second receipt on the candidate branch with the same `--dataset`, `--model` and `--rounds` arguments. Check that the dataset digest, model name and round count agree. Pair the `results` records by `id` and `round` and inspect both reasons wherever `judgment.matched` changed. A lower error total can conceal a newly missed control. Include the paired comparison in the rubric PR for operator review.
