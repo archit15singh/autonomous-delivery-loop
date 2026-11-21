@@ -50,3 +50,47 @@ For Argo, export the real AnalysisRun with a read-only Kubernetes identity and r
 `factory benchmark --frozen evals/frozen.json` validates a six-issue manifest. Three cases use the Codex issue grader and three use exact upstream acceptance replays. Use the existing independent runners for the appropriate case class. For paired comparisons pass `--trials results.json` with `round`, `case`, `variant`, `verified`, `seconds`, `tokens` and `interventions`. Use `baseline` and `candidate` as variants. You can select an exact cohort using repeated `--case`. Promotion needs two complete paired rounds, preserved quality, and replicated efficiency gains.
 
 The main-owned trusted judge emits a verified manifest with the contract, artifact, exact candidate, and policy revision. A separate GitHub Actions job attests that manifest. Run `factory publish MANIFEST --candidate SHA --contract pilot` to validate it. Add `--apply` for an explicitly authorized push to the owned `factory/verified-<sha>` staging namespace. The publisher verifies signer workflow identity and the current main policy, checks allowed changes, creates an immutable staging reference, and reads it back. An exact repeat returns the same result. The action ledger still governs the upstream PR workflow and maintainer approval remains authoritative. [Attestation verification](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations#verifying-artifact-attestations-with-the-github-cli)
+
+## Record runs and find repeated failures
+
+`factory record-run SPEC --runs .adl/factory-runs` indexes one immutable run.
+Provide a stable `id`, full `head` and `factory_revision`, and timezone-aware
+`finished_at`. Add `pr` for an upstream PR and `base` when recording a Codex
+recipe's starting point. In `receipts`, map the available kinds to approved local
+paths, relative to the spec. Kinds include `workflow`, `recipe`, `readiness`,
+`runtime`, `pr`, `browser`, and `assessment`. `trace` optionally names a raw
+Codex log that stays local. The index stores its digest. `metrics` may contain
+wall seconds, tokens, USD cost, and human interventions under
+`wall_seconds`, `tokens`, `cost_usd`, and `human_interventions`. Omit unmeasured
+values.
+
+An assessment binds `head` and `dimensions`. Each dimension records `state`
+(`passed`, `failed`, or `unknown`), a stable `reason` key and an `evidence`
+reference. Use `skill_adherence`, `test_redundancy`, and `retry_efficiency` for
+reviewed assessments. Use observed evidence to distinguish a missing required skill
+from an unavailable transcript. An assessment supplies diagnostic evidence. It
+cannot turn failed acceptance checks into a verified run.
+
+```sh
+python3 -m delivery factory --output .adl/upstream-ci/portfolio.json portfolio \
+  .adl/upstream-ci/current.json .adl/upstream-ci/actions.json --runs .adl/factory-runs
+python3 -m delivery factory --output .adl/factory-improvements.json mine-runs --runs .adl/factory-runs
+```
+
+The portfolio includes the indexed receipts for the exact PR head. The miner needs
+two distinct runs with the same factory cause before emitting a stable proposal.
+Runner outages do not count as factory defects. Start from the linked evidence and
+reproduce against the old factory revision. Test the same behavior against the
+proposed revision and preserve a held-out normal case. Keep the resulting factory
+PR and later observation separate from the original application PR.
+
+For UI changes, set `readiness.browser_required` in the reviewed upstream
+contract and pass `--browser-proof PATH/browser.json` to `upstream-prepare`.
+It checks both revisions, all four scenario outcomes, and the screenshot digests.
+The preparation gate packages the artifacts alongside the generated PR body.
+Upload the bundle to the PR's approved evidence destination.
+
+Set `--runs .adl/factory-runs --pr PR_URL` on `upstream-prepare` to index the
+readiness and browser receipts as part of verification. For other producers,
+drop reviewed specifications in a private spool and pass `--spool DIR` to
+`mine-runs`. A repeated scan retains each immutable run once.

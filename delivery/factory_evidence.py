@@ -99,8 +99,36 @@ def compare_failures(head, base):
     return {"verdict": "classified", "head": head["revision"], "base": base["revision"], "routes": routes}
 
 
+def browser_evidence(path, head, base=None):
+    data = json.loads(path.read_text())
+    if data["after"] != head or (base is not None and data["before"] != base):
+        raise ValueError("browser receipt belongs to another baseline or candidate")
+    outcomes = data["outcomes"]
+    if set(outcomes) != {"before", "after"} or any(
+        set(side) != {"primary", "control"} for side in outcomes.values()
+    ):
+        raise ValueError("browser receipt needs before and after primary and control checks")
+    files = [path]
+    checks = []
+    for phase, side in outcomes.items():
+        for scenario, check in side.items():
+            name = check["screenshot"]
+            if name != f"{phase}-{scenario}.png":
+                raise ValueError("unexpected browser screenshot name")
+            screenshot = path.parent / name
+            if sha256(screenshot.read_bytes()).hexdigest() != check["sha256"]:
+                raise ValueError("browser screenshot digest mismatch")
+            files.append(screenshot)
+            checks.append(check["passed"] is True and not check["errors"]
+                          and check["observed"] == check["expected"])
+    return data["passed"] is True and all(checks), files
+
+
 def portfolio(records, ledger, related=()):
-    comparisons = {(item.get("pr"), item.get("head")): item for item in related}
+    comparisons = {}
+    for item in related:
+        key = (item.get("pr"), item.get("head"))
+        comparisons[key] = {**comparisons.get(key, {}), **item}
     queued = {}
     for action in ledger.get("pending", []):
         queued.setdefault((action["pr"].lower(), action["head"]), []).append(
