@@ -87,7 +87,7 @@ def load_plan(path, workspace, tier):
     if not stages:
         raise ValueError("no workflow steps selected")
     pinned = {name: file_digest(inside(workspace, name)) for name in plan.get("pin", [])}
-    return stages, {"revision": plan["revision"], "plan_sha256": file_digest(path),
+    return stages, {"runner_schema": 2, "revision": plan["revision"], "plan_sha256": file_digest(path),
                     "tier": tier, "pinned_files": pinned, "recipes": plan.get("recipes", {}),
                     "environment": {"platform": platform.platform(), "python": platform.python_version(),
                                     "git": git("--version", cwd=workspace).decode().strip()}}
@@ -165,7 +165,10 @@ def workflow(plan, workspace, folder, tier, approval=None):
                 verdict = execute(step, workspace, log)
             except FileNotFoundError:
                 verdict = {"verdict": "inconclusive", "reason": "runner_unavailable"}
-            if git("status", "--porcelain", "--untracked-files=no", cwd=workspace):
+            head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=workspace, capture_output=True, text=True)
+            if head.returncode or head.stdout.strip() != identity["revision"]:
+                verdict = {**verdict, "verdict": "failed", "reason": "revision_changed"}
+            elif git("status", "--porcelain", "--untracked-files=no", cwd=workspace):
                 verdict = {**verdict, "verdict": "failed", "reason": "tracked_source_changed"}
             attachments = []
             if verdict["verdict"] == "verified":

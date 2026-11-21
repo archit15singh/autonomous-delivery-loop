@@ -58,6 +58,25 @@ class FactoryTests(unittest.TestCase):
             self.assertEqual(verified["status"], "verified")
             self.assertEqual(verified["steps"]["check"]["attempt"], 1)
 
+    def test_workflow_rejects_clean_revision_drift_before_running_the_next_step(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            subprocess.run(["git", "init", "--quiet", str(repo)], check=True)
+            commit = ["git", "-c", "user.email=fixture@example.invalid",
+                      "-c", "user.name=Fixture", "commit", "--allow-empty", "--quiet", "-m"]
+            subprocess.run([*commit, "original"], cwd=repo, check=True)
+            original = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+            plan = root / "plan.json"
+            plan.write_text(json.dumps({"version": 1, "revision": original, "steps": [
+                {"id": "change-head", "kind": "command", "argv": [*commit, "clean drift"]},
+                {"id": "verify", "kind": "command", "argv": [sys.executable, "-c", "print('later check')"]},
+            ]}))
+            result = workflow(plan, repo, root / "state", "full")
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["steps"]["change-head"]["reason"], "revision_changed")
+            self.assertNotIn("verify", result["steps"])
+
     def test_rollout_uses_exact_identity_and_declared_observation_window(self):
         policy = ImpactPolicy("Argo", "http", "canary", 2, 10, 1.0)
         metadata = {"uid": "run", "annotations": {"adl/revision": "sha", "adl/deployment": "deploy"}}
