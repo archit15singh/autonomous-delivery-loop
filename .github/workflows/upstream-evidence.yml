@@ -3,6 +3,10 @@ name: Upstream contribution evidence
 on:
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+
 permissions:
   contents: read
 
