@@ -59,7 +59,8 @@ def plan(folder, target, action, policy):
             raise ValueError("reuse the original target or choose a new state directory")
         target = existing
     else:
-        if action == "destroy" or any(p.name != "workflow.lock" for p in folder.iterdir()):
+        lock_files = {"workflow.lock", "workflow.lock-journal"}
+        if action == "destroy" or any(p.name not in lock_files for p in folder.iterdir()):
             raise ValueError("start in an empty state directory before provisioning")
         target = {**target, "run": f"adl-{uuid4().hex[:16]}"}
         record(target_path, target)
@@ -135,6 +136,11 @@ def manage(folder, operation, *, backend=None, account=None, region=None, approv
         wanted = TARGETS[pending["target"]["backend"]]
         if observed.splitlines() != ([wanted] if pending["action"] == "create" else []):
             raise ValueError("resource state did not match the applied plan")
+        if pending["target"]["backend"] == "local" and pending["action"] == "create":
+            values = json.loads(call(folder, "tofu", "show", "-json"))["values"]
+            resources = values["root_module"]["resources"]
+            if resources[0]["values"]["output"] != pending["target"]["run"]:
+                raise ValueError("local resource did not return the planned value")
         if pending["target"]["backend"] == "aws":
             target = pending["target"]
             command = ("aws", "ssm", "get-parameter", "--region", target["region"], "--name",

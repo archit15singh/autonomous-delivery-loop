@@ -109,6 +109,10 @@ jobs:
           "${command[@]}" create --backend local --state "$state"
           if "${command[@]}" apply --state "$state"; then exit 1; fi
           "${command[@]}" approve --state "$state" --approval "$approval"
+          cp "$state/reviewed.tfplan" "$RUNNER_TEMP/adl-original-plan"
+          printf tampered >> "$state/reviewed.tfplan"
+          if "${command[@]}" apply --state "$state" --approval "$approval"; then exit 1; fi
+          cp "$RUNNER_TEMP/adl-original-plan" "$state/reviewed.tfplan"
           "${command[@]}" apply --state "$state" --approval "$approval" > "$state/create-receipt.json"
           "${command[@]}" destroy --backend local --state "$state"
           if "${command[@]}" apply --state "$state" --approval "$approval"; then exit 1; fi
@@ -116,6 +120,12 @@ jobs:
           "${command[@]}" apply --state "$state" --approval "$approval" > "$state/destroy-receipt.json"
           jq -e '.status=="verified" and .action=="create"' "$state/create-receipt.json"
           jq -e '.status=="verified" and .action=="destroy"' "$state/destroy-receipt.json"
+      - name: Validate the AWS sandbox fixture without applying it
+        run: |
+          mkdir -p "$RUNNER_TEMP/adl-aws-template"
+          cp verification/tofu/aws.tf "$RUNNER_TEMP/adl-aws-template/main.tf"
+          tofu -chdir="$RUNNER_TEMP/adl-aws-template" init -backend=false -input=false -no-color
+          tofu -chdir="$RUNNER_TEMP/adl-aws-template" validate
       - name: Upload verified local receipts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
