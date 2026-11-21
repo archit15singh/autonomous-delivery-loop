@@ -20,7 +20,8 @@ jobs:
       matrix:
         include:
           - {mode: base, repository: dagger/dagger, sha: c1f8e9ae88f6c238ee02bef12ff131847052abc2}
-          - {mode: candidate, repository: archit15singh/dagger, sha: cca0d6fcf66848bacc5865bbcecd155a4979bbae}
+          - {mode: global, repository: archit15singh/dagger, sha: cca0d6fcf66848bacc5865bbcecd155a4979bbae}
+          - {mode: candidate, repository: archit15singh/dagger, sha: 4aa3ab09054f71a30edb82e7450501aae53fd9eb}
     env:
       DAGGER_REVISION: ${{ matrix.sha }}
       DAGGER_REPOSITORY: ${{ matrix.repository }}
@@ -39,7 +40,7 @@ jobs:
           git -C "$RUNNER_TEMP/dagger" checkout --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/dagger" rev-parse HEAD)" = "$DAGGER_REVISION"
       - name: Verify archived GraphQL source provenance
-        if: matrix.mode == 'candidate'
+        if: matrix.mode != 'base'
         run: |
           while IFS=$'\t' read -r version tag commit expected; do
             local_schema="docs/versioned_docs/version-$version/schema.graphqls"
