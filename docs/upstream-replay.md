@@ -2,7 +2,7 @@
 
 The Codex [upstream PR skill](../.agents/skills/upstream-pr/SKILL.md) covers issue intake, reproduction, patch review, and the evidence to include in a PR. It supports the [official Pstack skills](https://github.com/cursor/plugins/blob/main/pstack/README.md) through the local Codex adapters.
 
-The replay command makes the same check in two detached worktrees. It applies only the regression fixture to the base. The base must fail with the expected output and the exact candidate must pass with its expected output. The command records both exits, the revisions, the contract digest, and the log digests. A timeout or unexpected output leaves the case unverified.
+The replay command checks the base and candidate in detached worktrees, one at a time. It applies only the regression fixture to the base. The base must fail with the expected output and the exact candidate must pass with its expected output. The command records both exits, the revisions, the contract digest, and the log digests. A timeout or unexpected output leaves the case unverified.
 
 ## Run a case
 

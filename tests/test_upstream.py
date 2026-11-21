@@ -27,7 +27,9 @@ class UpstreamReplayTests(unittest.TestCase):
             base = git("rev-parse", "HEAD")
             (repo / "app.py").write_text("VERSION = 'new'\n")
             (repo / "regression.py").write_text(
-                "from app import VERSION\nprint(f'version={VERSION}')\n"
+                "from pathlib import Path\nfrom app import VERSION\n"
+                "assert list(Path.cwd().parent.iterdir()) == [Path.cwd()]\n"
+                "print(f'version={VERSION}')\n"
                 "raise SystemExit(VERSION != 'new')\n"
             )
             git("add", "app.py", "regression.py")

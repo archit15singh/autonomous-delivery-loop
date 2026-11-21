@@ -1,5 +1,5 @@
 """Run the same regression against pinned upstream and candidate checkouts."""
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -75,14 +75,14 @@ def replay(repo, contract_file, output):
     patch = git("--literal-pathspecs", "diff", "--binary", "--no-ext-diff", base, candidate, "--", *regression, cwd=repo)
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    with TemporaryDirectory(prefix="adl-replay-") as temporary, ExitStack() as stack:
+    with TemporaryDirectory(prefix="adl-replay-") as temporary:
         root = Path(temporary)
         base_folder, candidate_folder = root / "base", root / "candidate"
-        stack.enter_context(checkout(repo, base_folder, base))
-        stack.enter_context(checkout(repo, candidate_folder, candidate))
-        subprocess.run(["git", "apply"], input=patch, cwd=base_folder, check=True)
-        before_result = run_check(base_folder, command, timeout, before, output / "before.log")
-        after_result = run_check(candidate_folder, command, timeout, after, output / "after.log")
+        with checkout(repo, base_folder, base):
+            subprocess.run(["git", "apply"], input=patch, cwd=base_folder, check=True)
+            before_result = run_check(base_folder, command, timeout, before, output / "before.log")
+        with checkout(repo, candidate_folder, candidate):
+            after_result = run_check(candidate_folder, command, timeout, after, output / "after.log")
 
     return {
         "base": base,
