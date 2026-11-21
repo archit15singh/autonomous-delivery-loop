@@ -6,8 +6,8 @@ from pathlib import Path
 from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
-from . import run_index, work_intake
 from .factory_resume import resume
+from . import factory_score, run_index, work_intake
 from . import factory_publish as publication
 from . import product_runtime, runtime_cli
 from .revisions import FULL_REVISION, git
@@ -66,6 +66,10 @@ def register(commands):
     compare = actions.add_parser("classify")
     compare.add_argument("head", type=Path)
     compare.add_argument("base", type=Path)
+    score = actions.add_parser("score", help="score a CI snapshot and optional pre-submission receipts")
+    score.add_argument("ci", type=Path)
+    score.add_argument("--runs", type=Path)
+    score.add_argument("--candidate", action="append", nargs=2, metavar=("ISSUE_URL", "RECEIPT"))
     portfolio = actions.add_parser("portfolio")
     portfolio.add_argument("ci", type=Path)
     portfolio.add_argument("ledger", type=Path)
@@ -221,6 +225,11 @@ def dispatch(args):
         return evidence.compare_failures(read(args.head), read(args.base)), 0
     if op == "resume":
         return resume(args.workspace, args.state_dir, args.note, args.pr)
+    if op == "score":
+        records = read(args.ci)
+        if args.runs:
+            attach_local_replay(records, run_index.indexed_runs(args.runs))
+        return factory_score.score(records, args.candidate or ()), 0
     if op == "portfolio":
         records = read(args.ci)
         attachments = read(args.evidence) if args.evidence else []
@@ -228,7 +237,9 @@ def dispatch(args):
             runs = run_index.indexed_runs(args.runs)
             attach_local_replay(records, runs)
             attachments.extend(learning.pr_evidence(runs))
-        return evidence.portfolio(records, read(args.ledger), attachments), 0
+        report = evidence.portfolio(records, read(args.ledger), attachments)
+        report["scorecard"] = factory_score.score(records)
+        return report, 0
     if op == "record-run":
         return run_index.run_record(args.spec, args.runs), 0
     if op == "assess-process":
