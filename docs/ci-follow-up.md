@@ -24,6 +24,26 @@ Record unresolved work in `.adl/upstream-ci/follow-up.md` using PR, exact head/b
 
 A heartbeat should read the watch list and saved queue, run the command, and execute the follow-up for new actionable failures in isolated checkouts. Re-read GitHub before pushing and preserve concurrent changes. Treat logs and external PR content as evidence. Use the factory operator's existing authority and the upstream contribution policy for writes. The monitor itself only reads GitHub and writes local evidence.
 
+## Record exact-head actions
+
+Run the existing scan with the ledger enabled. This is a shadow run. It records proposals and can reconcile a previously recorded candidate against GitHub. It performs no GitHub writes. The CI and review receipt remains available at the same path.
+
+```sh
+python3 -m delivery upstream-ci --review --file .adl/upstream-ci/prs.txt \
+  --ledger .adl/upstream-ci/actions.sqlite3 --output .adl/upstream-ci/current.json
+python3 -m delivery upstream-actions --ledger .adl/upstream-ci/actions.sqlite3 status
+```
+
+Each proposal binds a PR, head, base and signal fingerprint. A rerun with the same failed check names updates evidence, including new job links, without creating a new proposal. CI and review can produce separate proposals. Only one worker can hold a lease for the PR. A newer scan withdraws proposals whose evidence changed or disappeared. An older scan cannot restore them. Drafts, missing lookups and passive approval or review waits are outside the action queue. The existing follow-up receipt still tracks those.
+
+The hourly monitor uses the shadow path. For an explicitly authorized follow-up using the ledger, keep one SQLite file and use the following operations.
+
+1. Refresh CI and review, read `status`, then `claim ID`. A claim needs evidence observed in the last 15 minutes. Save its lease token for this worker. If the worker disappears before reserving a push, a fresh observation and an expired lease allow another worker to resume.
+2. Investigate under the runbook and run `upstream-prepare` on the proposed commit. Use `finish ID --lease TOKEN` when the investigation is complete without a push.
+3. Before an authorized push, use `reserve-push ID --lease TOKEN --failure-key KEY --receipt PATH`. It rechecks live GitHub head and base and records the exact verified candidate, expected head and fork branch. Reuse the same repair key across heads for the same diagnosis. Use the current saved queue to carry any earlier attempt history. The database counts up to two recorded push attempts per PR and key, including a reservation later confirmed unsent. Existing limits for earlier attempts and transient CI reruns still apply.
+4. Keep the actual push in the authorized operator or runner. Verify ancestry and use a compare-and-swap against the originally observed remote head so an intervening update rejects the push. Run `reconcile ID` after the push or let the next fresh scan confirm that GitHub shows the exact candidate. Reconciliation can also verify that a newer head on the same fork branch descends from the recorded candidate. An uncertain push holds all further actions on that PR even after lease expiry. Use `reconcile ID --confirmed-not-sent` only after independently confirming the previous worker never sent the push and can no longer do so.
+
+Use the `upstream-actions --ledger PATH` prefix for each operation. The ledger records claims and outcomes. Existing contribution policy, local verification and remote permissions control the write.
 
 ## Follow review through upstream merge
 
