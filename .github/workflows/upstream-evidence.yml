@@ -11,27 +11,36 @@ permissions:
   contents: read
 
 jobs:
-  dagger-sdk-node20-base:
-    name: Reproduce the Dagger SDK engine mismatch on Node 20
+  dagger-sdk-engine-range:
+    name: Verify Dagger SDK engine support on Node ${{ matrix.version }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { version: '20.20.2', supported: false }
+          - { version: '22.23.5', supported: true }
+          - { version: '23.11.1', supported: false }
+          - { version: '24.22.3', supported: true }
     timeout-minutes: 10
     env:
-      DAGGER_BASE: c1f8e9ae88f6c238ee02bef12ff131847052abc2
+      DAGGER_CANDIDATE: 6173169373d078cbb366e5c39cf80ed9b76332ff
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '20.20.2'
-      - name: Fetch and verify the exact upstream revision
+          node-version: ${{ matrix.version }}
+      - name: Fetch and verify the exact candidate revision
         run: |
           git init "$RUNNER_TEMP/dagger"
-          git -C "$RUNNER_TEMP/dagger" fetch --depth 1 https://github.com/dagger/dagger.git "$DAGGER_BASE"
+          git -C "$RUNNER_TEMP/dagger" fetch --depth 1 https://github.com/archit15singh/dagger.git "$DAGGER_CANDIDATE"
           git -C "$RUNNER_TEMP/dagger" sparse-checkout set sdk/typescript
           git -C "$RUNNER_TEMP/dagger" checkout --detach FETCH_HEAD
-          test "$(git -C "$RUNNER_TEMP/dagger" rev-parse HEAD)" = "$DAGGER_BASE"
-      - name: Measure the actual frozen Yarn installation
+          test "$(git -C "$RUNNER_TEMP/dagger" rev-parse HEAD)" = "$DAGGER_CANDIDATE"
+      - name: Reject unsupported versions at the SDK manifest
+        if: ${{ !matrix.supported }}
         run: |
           output="$GITHUB_WORKSPACE/.adl/dagger-13610"
           mkdir -p "$output"
@@ -43,10 +52,23 @@ jobs:
           result=${PIPESTATUS[0]}
           set -e
           test "$result" -eq 1
-          grep -F 'graphql@17.0.1: The engine "node" is incompatible' "$output/yarn.log"
+          grep -F 'The engine "node" is incompatible with this module.' "$output/yarn.log"
+          grep -F '@dagger.io/dagger@0.0.0' "$output/yarn.log"
+      - name: Build and exercise the SDK on supported versions
+        if: ${{ matrix.supported }}
+        run: |
+          output="$GITHUB_WORKSPACE/.adl/dagger-13610"
+          mkdir -p "$output"
+          cd "$RUNNER_TEMP/dagger/sdk/typescript"
+          node --version | tee "$output/node.txt"
+          npm exec --yes --package yarn@1.22.22 -- yarn install --frozen-lockfile 2>&1 | tee "$output/yarn.log"
+          npm exec --yes --package yarn@1.22.22 -- yarn build | tee "$output/build.log"
+          node "$GITHUB_WORKSPACE/verification/dagger-13610.mjs" "$PWD/dist/src/common/graphql/client.js" |
+            tee "$output/runtime.log"
+          npm pack --ignore-scripts --pack-destination "$output" --json > "$output/pack.json"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
-          name: dagger-13610-base
+          name: dagger-13610-node-${{ matrix.version }}
           path: .adl/dagger-13610
           if-no-files-found: warn
