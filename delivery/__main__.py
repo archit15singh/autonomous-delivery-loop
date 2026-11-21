@@ -65,6 +65,7 @@ def main():
     ready.add_argument("--template", type=Path, required=True)
     ready.add_argument("--evidence-url", required=True)
     ready.add_argument("--output", type=Path, required=True)
+    ready.add_argument("--browser-proof", type=Path, help="exact-base and exact-head browser receipt")
     ci = commands.add_parser("upstream-ci", help="inspect each PR's current head and Actions runs")
     ci.add_argument("urls", metavar="PR_URL", nargs="*")
     ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
@@ -138,7 +139,8 @@ def main():
         ))
     if args.command == "upstream-prepare":
         try:
-            receipt = prepare(args.repo, args.contract, args.template, args.evidence_url, args.output)
+            receipt = prepare(args.repo, args.contract, args.template, args.evidence_url,
+                              args.output, browser=args.browser_proof)
         except (OSError, ValueError, TypeError, KeyError, subprocess.CalledProcessError) as exc:
             parser.error(str(exc))
         print(receipt["verdict"], file=sys.stderr)
