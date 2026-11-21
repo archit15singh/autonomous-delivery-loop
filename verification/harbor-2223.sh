@@ -55,8 +55,8 @@ EOF
 
   if [[ "$phase" == base && "$source" == my__benchmark__local ]]; then
     test "$rc" -ne 0
-    grep -F "KeyError: 'local'" "$output/$source.log"
-    jq -e '.finished_at == null' "$output/$source-job.json"
+    grep -F 'too many values to unpack (expected 2)' "$output/$source.log"
+    jq -e --arg key "nop__$source" '.finished_at != null and .stats.evals[$key].metrics == []' "$output/$source-job.json"
   else
     test "$rc" -eq 0
     jq -e --arg key "nop__$source" '.finished_at != null and .stats.evals[$key].metrics == [{"mean":1.0}]' "$output/$source-job.json"

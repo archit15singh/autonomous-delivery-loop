@@ -14,6 +14,16 @@ jobs:
   harbor-2223:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {phase: base, sha: cee2a5eb0a13dd374bbc9b56008c92227981f704, repository: harbor-framework/harbor}
+          - {phase: candidate, sha: 5274acdd682eb102a03a73e7e88ee551cc635bbd, repository: archit15singh/harbor}
+    env:
+      PHASE: ${{ matrix.phase }}
+      SHA: ${{ matrix.sha }}
+      SOURCE_REPOSITORY: ${{ matrix.repository }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -21,10 +31,10 @@ jobs:
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
         with:
           enable-cache: false
-      - run: bash verification/harbor-2223.sh base cee2a5eb0a13dd374bbc9b56008c92227981f704 harbor-framework/harbor
+      - run: bash verification/harbor-2223.sh "$PHASE" "$SHA" "$SOURCE_REPOSITORY"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
-          name: harbor-2223-base
+          name: harbor-2223-${{ matrix.phase }}
           path: .adl/harbor-2223
           include-hidden-files: true
