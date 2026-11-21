@@ -1,0 +1,4 @@
+pending control: cancel HTTP 204, inbox empty, no model call
+staged the original prompt for rewind
+revision=00dde43a8362ffe4fc2df38cdcf8c936fc83dcfa delivered_cancel_status=204 message_still_exists=True
+after resend: user_messages=1 replies=1 second_request_copies=1

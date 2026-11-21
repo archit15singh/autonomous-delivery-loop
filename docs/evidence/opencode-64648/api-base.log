@@ -1,0 +1,3 @@
+pending control: cancel HTTP 204, inbox empty, no model call
+revision=b83ea513658eed65291d218d2363fc91c09a2141 delivered_cancel_status=204 message_still_exists=True
+after resend: user_messages=2 replies=2 second_request_copies=2

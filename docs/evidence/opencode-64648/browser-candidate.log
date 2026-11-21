@@ -1,0 +1,52 @@
+Running 50 tests using 1 worker
+[1/50] [brave] › e2e/regression/session-queue.spec.ts:224:1 › follow-up preference controls Enter while Mod+Enter uses the alternate delivery
+[2/50] [brave] › e2e/regression/session-queue.spec.ts:239:1 › Alt+Enter queues a follow-up first without steering, regardless of the follow-up preference
+[3/50] [brave] › e2e/regression/session-queue.spec.ts:268:3 › an empty Mod+Enter steers only the first queued prompt (queue preference)
+[4/50] [brave] › e2e/regression/session-queue.spec.ts:268:3 › an empty Mod+Enter steers only the first queued prompt (steer preference)
+[5/50] [brave] › e2e/regression/session-queue.spec.ts:299:3 › empty Mod+Enter leaves the queue alone when parked
+[6/50] [brave] › e2e/regression/session-queue.spec.ts:299:3 › empty Mod+Enter leaves the queue alone when shell
+[7/50] [brave] › e2e/regression/session-queue.spec.ts:315:1 › a blank Enter leaves the running session alone while Stop still interrupts it, as in the TUI
+[8/50] [brave] › e2e/regression/session-queue.spec.ts:347:3 › touch keyboard › the touch bar stops, queues and steers a running session while Return only adds a line
+[9/50] [brave] › e2e/regression/session-queue.spec.ts:388:1 › a steer shows as pending in the timeline as the composer clears, before the server admits it
+[10/50] [brave] › e2e/regression/session-queue.spec.ts:421:1 › a prompt sent while the session's agents and models load shows as pending at once and sends once they load
+[11/50] [brave] › e2e/regression/session-queue.spec.ts:456:3 › a steer stops projecting its selection after a missed admission echo
+[12/50] [brave] › e2e/regression/session-queue.spec.ts:456:3 › a steer stops projecting its selection after an event stream reconnect
+[13/50] [brave] › e2e/regression/session-queue.spec.ts:513:1 › a steer into an idle session leaves the finished turn finished until delivery
+[14/50] [brave] › e2e/regression/session-queue.spec.ts:548:3 › dragging reorders 2 queued prompts without bouncing
+[15/50] [brave] › e2e/regression/session-queue.spec.ts:548:3 › dragging reorders 6 queued prompts without bouncing
+[16/50] [brave] › e2e/regression/session-queue.spec.ts:628:1 › a partially cancelled reorder reconciles the server's queue instead of restoring stale rows
+[17/50] [brave] › e2e/regression/session-queue.spec.ts:669:3 › a reorder that cannot re-admit a prompt leaves the queue unchanged
+[18/50] [brave] › e2e/regression/session-queue.spec.ts:669:3 › a edit that cannot re-admit a prompt leaves the queue unchanged
+[19/50] [brave] › e2e/regression/session-queue.spec.ts:721:1 › editing restores the existing draft and replaces only the original queue position
+[20/50] [brave] › e2e/regression/session-queue.spec.ts:764:1 › a queued prompt the server delivers mid-edit returns the draft typed before the edit
+[21/50] [brave] › e2e/regression/session-queue.spec.ts:784:3 › editing a prompt the server delivered meanwhile keeps the edit draft (queue)
+[22/50] [brave] › e2e/regression/session-queue.spec.ts:784:3 › editing a prompt the server delivered meanwhile keeps the edit draft (steer)
+[23/50] [brave] › e2e/regression/session-queue.spec.ts:804:3 › a staged revert refuses a queue reorder, whose admission would commit it
+[24/50] [brave] › e2e/regression/session-queue.spec.ts:804:3 › a staged revert refuses a queue edit, whose admission would commit it
+[25/50] [brave] › e2e/regression/session-queue.spec.ts:835:3 › an edit sent as a steer stays interactive while the server is slow to confirm it
+[26/50] [brave] › e2e/regression/session-queue.spec.ts:835:3 › an edit sent as a queue stays interactive while the server is slow to confirm it
+[27/50] [brave] › e2e/regression/session-queue.spec.ts:907:1 › editing drops a file whose mention was deleted and keeps unmentioned context
+[28/50] [brave] › e2e/regression/session-queue.spec.ts:932:1 › editing a comment-only prompt keeps its notes once
+[29/50] [brave] › e2e/regression/session-queue.spec.ts:968:1 › Undo cancels only the selected queued prompt and focuses the restored input
+[30/50] [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session
+[31/50] [brave] › e2e/regression/session-queue.spec.ts:1008:1 › Undo appends to an existing draft and restores inline attachments
+[32/50] [brave] › e2e/regression/session-queue.spec.ts:1028:1 › Undo of a comment-only prompt keeps the draft text and restores the comment once
+[33/50] [brave] › e2e/regression/session-queue.spec.ts:1069:1 › Undo preserves mentioned file and agent references on resubmission
+[34/50] [brave] › e2e/regression/session-queue.spec.ts:1094:3 › Undo keeps unmentioned file context
+[35/50] [brave] › e2e/regression/session-queue.spec.ts:1094:3 › /undo of a pending steer keeps unmentioned file context
+[36/50] [brave] › e2e/regression/session-queue.spec.ts:1146:1 › reverting to another prompt replaces the file chips of an earlier restore
+[37/50] [brave] › e2e/regression/session-queue.spec.ts:1177:1 › /undo withdraws a pending steer without interrupting the running session
+[38/50] [brave] › e2e/regression/session-queue.spec.ts:1204:1 › /undo rewinds a prompt that was delivered after it appeared pending
+[39/50] [brave] › e2e/regression/session-queue.spec.ts:1230:1 › reverting a delivered prompt leaves queued prompts alone, as in the TUI
+[40/50] [brave] › e2e/regression/session-queue.spec.ts:1251:1 › a shell command cannot wait in the queue, as in the TUI
+[41/50] [brave] › e2e/regression/session-queue.spec.ts:1269:1 › /compact runs with the composer model and shows a queued compaction, as in the TUI
+[42/50] [brave] › e2e/regression/session-queue.spec.ts:1298:3 › Move to queue on a steering pending steer replaces Revert, as in the TUI
+[43/50] [brave] › e2e/regression/session-queue.spec.ts:1298:3 › Delete on a steering pending steer replaces Revert, as in the TUI
+[44/50] [brave] › e2e/regression/session-queue.spec.ts:1298:3 › Move to queue on a starting pending steer replaces Revert, as in the TUI
+[45/50] [brave] › e2e/regression/session-queue.spec.ts:1298:3 › Delete on a starting pending steer replaces Revert, as in the TUI
+[46/50] [brave] › e2e/regression/session-queue.spec.ts:1330:1 › waiting steers group under one Pending line, each keeping its own actions in its chevron menu
+[47/50] [brave] › e2e/regression/session-queue.spec.ts:1355:1 › /undo returns a pending steer's review comment to the composer
+[48/50] [brave] › e2e/regression/session-queue.spec.ts:1402:3 › keeps finished tools above a pending steer follow-up
+[49/50] [brave] › e2e/regression/session-queue.spec.ts:1402:3 › keeps finished tools above a pending queue-to-steer follow-up
+[50/50] [brave] › e2e/regression/session-queue.spec.ts:1614:1 › a steer moves a blocking shell to the background after its admission, so the next step reads it
+  50 passed (1.1m)

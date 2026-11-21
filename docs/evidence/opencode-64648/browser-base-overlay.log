@@ -1,0 +1,108 @@
+$ playwright test --config .adl-playwright.config.ts --workers "2" --reporter line "e2e/regression/session-queue.spec.ts" -g "Undo keeps the draft|rewinds a prompt"
+(node:36447) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] $ vite --host "127.0.0.1" --port "4378" --strictPort
+
+[WebServer] (node:36449) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+[WebServer]   - import "./vite.icons" without a file extension (vite.config.ts:5:23). Add the file extension
+[WebServer]   - import "./vite.pwa" without a file extension (vite.config.ts:6:31). Add the file extension
+[WebServer] Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+
+Running 2 tests using 1 worker
+
+(node:36450) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:36450) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+(node:36450) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/2] [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session
+[WebServer] 7:48:58 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+[WebServer] 7:48:58 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+  1) [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Request failed')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByText('Request failed')
+
+
+      1000 |   await undo.click()
+      1001 |
+    > 1002 |   await expect(page.getByText("Request failed")).toBeVisible()
+           |                                                  ^
+      1003 |   await expect(view.input).toHaveText("My next draft")
+      1004 |   expect(mock.changes).toEqual([{ inboxID: delivered.id, action: "cancel" }])
+      1005 |   expect(mock.prompts).toEqual([])
+        at <workspace>/.adl/campaign/opencode/packages/app/e2e/regression/session-queue.spec.ts:1002:50
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e/test-results/regression-session-queue-U-55366-already-reached-the-session-brave/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: e2e/test-results/regression-session-queue-U-55366-already-reached-the-session-brave/error-context.md
+
+
+(node:36473) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+(node:36473) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+(node:36473) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[2/2] [brave] › e2e/regression/session-queue.spec.ts:1204:1 › /undo rewinds a prompt that was delivered after it appeared pending
+[WebServer] 7:49:12 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+[WebServer] 7:49:12 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+[WebServer] 7:49:13 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+[WebServer] 7:49:13 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+[WebServer] 7:49:13 AM [vite] (client) [console.warn] computations created outside a `createRoot` or `render` will never be disposed
+
+  2) [brave] › e2e/regression/session-queue.spec.ts:1204:1 › /undo rewinds a prompt that was delivered after it appeared pending 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: page.waitForResponse: Test timeout of 60000ms exceeded.
+
+      1217 |   mock.rows.splice(0, 1)
+      1218 |   mock.messages.push({ id: delivered.id, type: "user", text, time: delivered.time })
+    > 1219 |   const staged = page.waitForResponse(
+           |                       ^
+      1220 |     (response) => new URL(response.url()).pathname === `/api/session/${sessionID}/revert/stage`,
+      1221 |   )
+      1222 |   await runSlash(page, view.input, "undo")
+        at <workspace>/.adl/campaign/opencode/packages/app/e2e/regression/session-queue.spec.ts:1219:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    e2e/test-results/regression-session-queue---b8514-d-after-it-appeared-pending-brave/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: e2e/test-results/regression-session-queue---b8514-d-after-it-appeared-pending-brave/error-context.md
+
+
+  2 failed
+    [brave] › e2e/regression/session-queue.spec.ts:989:1 › Undo keeps the draft when the queued prompt has already reached the session 
+    [brave] › e2e/regression/session-queue.spec.ts:1204:1 › /undo rewinds a prompt that was delivered after it appeared pending 
+error: script "test:e2e" exited with code 1

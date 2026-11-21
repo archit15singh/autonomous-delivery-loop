@@ -1,0 +1,651 @@
+$ bun run lint && bun run typecheck
+$ oxlint && ast-grep scan -c script/ast-grep/gui-plugins/sgconfig.yml && ast-grep scan --rule script/ast-grep/dialog-size.yml packages && bun script/sdk-docs.ts && bun script/check-greys.ts
+packages/app/src/providers/models/configured.ts:26:9: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/theme-preload.test.ts:9:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/components-lab/motion.ts:52:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.test.ts:27:1: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.test.ts:28:1: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/test-browser/toast-owner.test.ts:48:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/test-browser/toast-owner.test.ts:48:18: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/app/test-browser/toast-owner.test.ts:48:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/usage/limits.ts:169:7: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/src/usage/limits.ts:187:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/src/usage/limits.ts:83:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:84:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:87:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:91:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:137:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:140:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:141:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:143:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:144:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:157:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:158:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:163:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:164:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:171:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:172:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:173:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:179:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/limits.ts:183:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/forms/field/field.tsx:91:21: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/forms/field/field.tsx:95:19: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/test-browser/pwa-route.test.ts:33:30: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/usage/model.tsx:31:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/model.tsx:34:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/usage/model.tsx:35:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/composer/editor/interaction.test.ts:12:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/composer/editor/interaction.test.ts:12:10: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/app/src/composer/editor/interaction.test.ts:12:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/data-display/project-avatar/procedural.ts:1498:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/test-browser/solid-virtual.test.ts:230:13: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/test-browser/solid-virtual.test.ts:233:16: warning anti-slop(no-reflect-get): Replace `Reflect.get` with typed property access. Parse dynamic input into a named domain type before reading it.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:438:9: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:834:15: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:871:9: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:299:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:303:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:449:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:454:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:458:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:535:11: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:817:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-craft.ts:823:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:278:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:330:13: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:549:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:575:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:587:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:650:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:671:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:689:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:765:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:788:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:861:8: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:869:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:870:8: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:999:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1004:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1112:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1113:8: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1365:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1438:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1439:10: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-world.ts:1473:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/storybook/scaffold.tsx:4:61: warning anti-slop(no-unknown-returns): This function exposes `unknown` to its caller. Parse the value at its boundary and return a named domain type.
+packages/ui/src/storybook/scaffold.tsx:5:10: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/ui/src/storybook/scaffold.tsx:8:20: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/ui/src/storybook/scaffold.tsx:35:8: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/ui/src/storybook/scaffold.tsx:37:10: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/ui/src/storybook/scaffold.tsx:39:21: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/storybook/scaffold.tsx:39:21: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/ui/src/storybook/scaffold.tsx:39:21: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/storybook/scaffold.tsx:48:22: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/ui/src/data-display/project-avatar/procedural-machine.ts:315:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-machine.ts:537:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/project-avatar/procedural-machine.ts:543:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/runtime/server/types.ts:41:12: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/runtime/server/types.ts:101:12: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/runtime/server/types.ts:104:29: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/runtime/server/types.ts:116:12: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/runtime/server/types.ts:126:36: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/runtime/server/types.ts:128:22: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/shell/layout/helpers.test.ts:9:3: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/layout/helpers.ts:68:35: warning anti-slop(no-unknown-parameters): Parameter `err` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/shell/layout/helpers.ts:69:14: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/shell/layout/helpers.ts:70:19: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/reproduction/timeline-suspense/timeline-suspense.repro.ts:180:28: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/e2e/reproduction/timeline-suspense/main.tsx:227:13: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/reproduction/timeline-suspense/main.tsx:238:13: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/titlebar/session-events.test.ts:17:25: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.test.ts:22:45: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.test.ts:22:63: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.test.ts:30:40: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.test.ts:33:33: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.test.ts:34:28: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/components/spinner-radar.test.ts:22:9: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.test.ts:25:20: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.test.ts:26:19: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.test.ts:26:26: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.test.ts:22:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:25:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:28:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:31:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:33:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:35:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:41:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:52:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.test.ts:60:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/runtime/server/scope.ts:24:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.ts:26:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.ts:35:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.ts:44:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.ts:51:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.ts:58:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/scope.ts:64:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/server/errors.test.ts:19:40: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `dict` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/runtime/server/errors.test.ts:85:9: warning anti-slop-effect(no-manual-tagged-construction): Use the existing Schema tagged `.make`, tagged class/error constructor, or Data.taggedEnum variant constructor instead of writing a literal `_tag` object.
+packages/app/src/runtime/server/errors.test.ts:130:5: warning anti-slop-effect(no-manual-tagged-construction): Use the existing Schema tagged `.make`, tagged class/error constructor, or Data.taggedEnum variant constructor instead of writing a literal `_tag` object.
+packages/app/src/runtime/server/errors.test.ts:145:28: warning anti-slop-effect(no-manual-tagged-construction): Use the existing Schema tagged `.make`, tagged class/error constructor, or Data.taggedEnum variant constructor instead of writing a literal `_tag` object.
+packages/app/src/shell/titlebar/session-events.ts:20:18: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/shell/titlebar/session-events.ts:26:32: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/shell/titlebar/session-events.ts:28:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/shell/titlebar/session-events.ts:32:69: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/updater/log.ts:5:77: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/gui-plugins/src/updater/log.ts:11:45: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/updater/log.ts:13:7: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/gui-plugins/src/updater/log.ts:14:7: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/gui-plugins/src/updater/log.ts:30:78: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `LEVELS` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/gui-plugins/src/updater/log.ts:39:45: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/gui-plugins/src/updater/log.ts:40:10: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/file/drag.ts:14:22: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/file/drag.ts:14:55: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/file/drag.ts:20:32: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/regions.ts:15:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/regions.ts:16:64: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/analyzer.ts:10:62: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/analyzer.ts:75:38: warning anti-slop(no-array-filter-map): Avoid consecutive array `map` and `filter` passes. Prefer `.values().map(...).filter(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/e2e/utils/visual-stability/analyzer.ts:113:28: warning anti-slop(no-array-filter-map): Avoid consecutive array `filter` and `map` passes. Prefer `.values().filter(...).map(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/e2e/utils/visual-stability/analyzer.ts:113:28: warning anti-slop(no-array-filter-map): Avoid consecutive array `map` and `filter` passes. Prefer `.values().map(...).filter(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/e2e/utils/visual-stability/analyzer.ts:131:22: warning anti-slop(no-array-filter-map): Avoid consecutive array `map` and `filter` passes. Prefer `.values().map(...).filter(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/e2e/utils/visual-stability/analyzer.ts:252:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/probe.ts:23:7: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/probe.ts:200:7: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/probe.ts:230:22: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/probe.ts:238:24: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/probe.ts:238:24: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/app/e2e/utils/visual-stability/probe.ts:238:24: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/probe.ts:239:21: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/e2e/utils/visual-stability/probe.ts:248:20: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability/invariant.ts:58:37: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/test-browser/solid-runtime.test.ts:29:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/test-browser/solid-runtime.test.ts:29:18: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/app/test-browser/solid-runtime.test.ts:29:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/.adl-playwright.config.ts:2:1: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/happydom.ts:8:84: warning anti-slop(no-unknown-parameters): Parameter `_options` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/happydom.ts:10:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/happydom.ts:10:12: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/app/happydom.ts:10:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/happydom.ts:76:40: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:55:89: warning anti-slop(no-unknown-returns): This function exposes `unknown` to its caller. Parse the value at its boundary and return a named domain type.
+packages/app/e2e/utils/sse-transport.ts:99:24: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:105:31: warning anti-slop(no-unknown-parameters): Parameter `payload` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/e2e/utils/sse-transport.ts:125:11: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/sse-transport.ts:197:20: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:208:24: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:269:5: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:271:28: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:275:34: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:285:30: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:286:31: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/sse-transport.ts:331:27: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/utils/session-fixture.ts:54:16: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/session-fixture.ts:56:19: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/session-fixture.ts:88:39: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/session-fixture.ts:121:39: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/session-fixture.ts:132:14: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/session-fixture.ts:134:17: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/session-fixture.ts:167:10: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/session-fixture.ts:169:22: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/session-fixture.ts:220:5: warning anti-slop-effect(prefer-effect-match): Use Match from Effect instead of a chained literal ternary.
+packages/app/e2e/utils/session-fixture.ts:229:16: warning anti-slop-effect(prefer-effect-match): Use Match from Effect instead of a chained literal ternary.
+packages/app/e2e/utils/session-fixture.ts:230:16: warning anti-slop-effect(prefer-effect-match): Use Match from Effect instead of a chained literal ternary.
+packages/app/e2e/utils/session-fixture.ts:330:56: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `messages` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/gui-plugins/src/ssh/command.test.ts:8:7: warning anti-slop-effect(no-manual-tagged-construction): Use the existing Schema tagged `.make`, tagged class/error constructor, or Data.taggedEnum variant constructor instead of writing a literal `_tag` object.
+packages/app/src/workspaces/create.test.ts:73:11: warning anti-slop(no-array-filter-map): Avoid consecutive array `filter` and `map` passes. Prefer `.values().filter(...).map(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/ui/script/build-oc2-v2-overrides.ts:8:15: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/script/build-oc2-v2-overrides.ts:33:5: warning anti-slop(no-array-filter-map): Avoid consecutive array `filter` and `map` passes. Prefer `.values().filter(...).map(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/src/shell/state/helpers.ts:11:15: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/workspaces/inventory.test.ts:92:20: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/persistence/storage.test.ts:48:45: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/persistence/storage.test.ts:49:44: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/persistence/storage.test.ts:61:33: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/persistence/storage.test.ts:68:33: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/runtime/persistence/storage.test.ts:68:94: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/session-ui/src/import-boundaries.test.ts:15:26: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/session-ui/src/import-boundaries.test.ts:28:21: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/visual-stability.ts:48:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/app.ts:50:26: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:51:14: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:55:13: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:70:48: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:71:20: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/utils/app.ts:77:21: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:95:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:96:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:97:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:100:13: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/utils/app.ts:106:43: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `values` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/e2e/utils/app.ts:106:17: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:107:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:108:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:109:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:116:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:117:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:118:5: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/e2e/utils/app.ts:124:5: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/utils/app.ts:125:16: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/utils/app.ts:130:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/utils/app.ts:137:83: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:146:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/utils/app.ts:152:100: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/e2e/utils/app.ts:168:56: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/shell/tabs/memory.ts:22:14: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/tabs/memory.ts:30:28: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/happydom.ts:8:84: warning anti-slop(no-unknown-parameters): Parameter `_options` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/happydom.ts:10:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/happydom.ts:10:12: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/gui-plugins/happydom.ts:10:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/happydom.ts:76:40: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/replies.ts:20:12: warning anti-slop(no-array-filter-map): Avoid consecutive array `filter` and `map` passes. Prefer `.values().filter(...).map(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/src/voice/replies.ts:33:64: warning anti-slop(no-known-value-widening): The explicit anonymous object type on binding `state` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/voice/tools.test.ts:32:3: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:48:33: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:57:11: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:58:17: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:59:14: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:60:15: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:65:15: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:65:15: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/app/src/voice/tools.test.ts:65:15: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/tools.test.ts:89:40: warning anti-slop(no-unknown-parameters): Parameter `request` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/voice/tools.test.ts:115:42: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/desktop/src/main/storage/legacy.ts:13:75: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/desktop/src/main/storage/legacy.ts:71:16: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/ui/src/motion/reduced.ts:58:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/session-ui/playwright.local.config.ts:2:1: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/desktop/src/renderer/window/route-storage.ts:2:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/desktop/src/renderer/window/route-storage.ts:12:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/voice/messages.ts:8:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/voice/search.ts:80:10: warning anti-slop(no-array-filter-map): Avoid consecutive array `map` and `filter` passes. Prefer `.values().map(...).filter(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/app/src/session/list.test.ts:53:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/voice/messages.test.ts:43:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/workspaces/path-key.ts:5:42: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/navigation/tabs/tabs.tsx:165:13: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/ui/src/navigation/tabs/tabs.tsx:171:13: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/ui/src/theme/v2/foreground.ts:12:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/ui/src/theme/v2/foreground.ts:12:62: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/v2/foreground.ts:57:10: warning anti-slop(no-known-value-widening): The explicit open dictionary type on return value of `mapV2Foreground` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/theme/v2/avatar.ts:6:62: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `V2_AVATAR_LIGHT` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/theme/v2/avatar.ts:28:61: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `V2_AVATAR_DARK` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/workspaces/paths.test.ts:126:42: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/workspaces/paths.test.ts:156:9: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/workspaces/paths.test.ts:165:5: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/workspaces/paths.test.ts:182:5: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/color.ts:26:10: warning anti-slop(no-known-value-widening): The explicit anonymous object type on return value of `hexToRgb` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/theme/color.ts:99:10: warning anti-slop(no-known-value-widening): The explicit anonymous object type on return value of `oklchToRgb` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/gui-plugins/src/terminal/focus.ts:17:5: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:51:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:126:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:135:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:137:11: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:151:98: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:152:11: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/preload.js:155:13: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:6:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:14:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:16:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:21:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:24:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:27:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:28:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:31:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:35:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:36:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:38:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/gui-plugins/src/browser/profile/extension-api/frame-styles.js:43:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/session-ui/src/components/tool-count-label.tsx:37:51: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/public/oc-theme-preload.js:1:2: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/public/oc-theme-preload.js:15:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/public/oc-theme-preload.js:20:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/data-display/avatar/avatar.tsx:53:9: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/ui/src/data-display/avatar/avatar.tsx:53:13: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/ui/src/data-display/avatar/avatar.tsx:54:9: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/ui/src/data-display/avatar/avatar.tsx:55:9: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/app/src/session/composer/queue.ts:246:11: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/session/composer/queue.ts:249:11: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/home/projects/file-manager.ts:12:12: warning anti-slop(no-known-value-widening): The explicit anonymous object type on return value of `fileManagerApp` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/home/projects/file-manager.ts:15:12: warning anti-slop(no-known-value-widening): The explicit anonymous object type on return value of `fileManagerApp` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/home/projects/file-manager.ts:21:10: warning anti-slop(no-known-value-widening): The explicit anonymous object type on return value of `fileManagerApp` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/desktop/src/main/windows/headers.test.ts:21:47: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `headers` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:1:20: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:4:10: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:8:29: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:11:44: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:16:82: warning anti-slop(no-unknown-parameters): Parameter `next` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:17:29: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:20:45: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:20:73: warning anti-slop(no-unknown-parameters): Parameter `next` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:25:43: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/terminal/runtime-adapters.ts:31:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/todos.ts:24:31: warning anti-slop(no-unknown-parameters): Parameter `item` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/session/composer/todos.ts:25:9: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/todos.ts:25:78: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/todos.ts:27:69: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/session/composer/todos.ts:16:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/session/composer/todos.ts:20:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/session/composer/todos.ts:26:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/e2e/regression/background-read-failure.spec.ts:15:5: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/e2e/regression/background-read-failure.spec.ts:33:5: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/cdp.ts:8:50: warning anti-slop(no-unknown-parameters): Parameter `params` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/cdp.ts:11:66: warning anti-slop(no-unknown-parameters): Parameter `params` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/cdp.ts:15:21: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/cdp.ts:21:24: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/cdp.ts:30:15: warning anti-slop(no-object-parameters): Parameter `params` uses the broad `object` type. Accept a named owner type; parse external input at its boundary before calling this function.
+packages/gui-plugins/src/browser/cdp.ts:51:32: warning anti-slop(no-unknown-parameters): Parameter `params` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/cdp.ts:52:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/session/composer/selection.ts:3:13: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/session/composer/selection.ts:9:5: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/selection.ts:13:5: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/selection.ts:14:5: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/selection.ts:18:42: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/session/composer/selection.ts:23:28: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/regression/session-queue.spec.ts:1219:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/e2e/regression/session-queue.spec.ts:1222:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/session-ui/src/pierre/media.ts:9:6: warning anti-slop(no-unknown-type-aliases): Type alias `MediaValue` hides `unknown`. Keep `unknown` explicit at the parsing boundary or on an allowed `cause` field; otherwise use the parsed owner type.
+packages/session-ui/src/pierre/media.ts:11:29: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/session-ui/src/pierre/media.ts:12:17: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:14:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/session-ui/src/pierre/media.ts:73:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:81:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:83:34: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:105:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:111:9: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:122:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:124:34: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:134:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/media.ts:139:10: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/settings/workspaces/project-lsp.ts:12:11: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/session-ui/src/pierre/commented-lines.ts:46:58: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/session-ui/src/pierre/commented-lines.ts:55:51: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/notifications/sound.ts:7:11: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/notifications/sound.ts:69:11: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/notifications/sound.ts:88:15: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/desktop/src/main/constants.ts:11:42: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `appNames` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/desktop/src/main/constants.ts:17:40: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `appIDs` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/shell/notifications/notification.test.ts:7:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/providers/models/tooltip.tsx:97:23: warning anti-slop(no-array-filter-map): Avoid consecutive array `filter` and `map` passes. Prefer `.values().filter(...).map(...).toArray()` where iterator helpers are supported, or a single `flatMap`/mutating reducer. Preserve callback ordering, indexes, and filtering semantics.
+packages/desktop/script/windows-installer.test.ts:282:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/desktop/script/windows-installer.test.ts:286:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/shell/routes/session.test.ts:19:73: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `sessions` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/shell/routes/session.test.ts:37:73: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `sessions` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/forms/inline-input/inline-input.tsx:14:9: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/e2e/regression/session-notice-truncation.spec.ts:62:29: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/v2/default-primitives.ts:4:68: warning anti-slop(no-known-value-widening): The explicit open dictionary type on binding `V2_PRIMITIVES_DEFAULT` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/theme/v2/resolve.ts:74:10: warning anti-slop(no-known-value-widening): The explicit open dictionary type on return value of `assignHueRamp` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/theme/v2/resolve.ts:130:10: warning anti-slop(no-known-value-widening): The explicit open dictionary type on return value of `generateV2Primitives` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/ui/src/theme/v2/resolve.ts:153:10: warning anti-slop(no-known-value-widening): The explicit anonymous object type on return value of `resolveThemeV2` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/shell/errors/description.ts:1:44: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/shell/errors/description.ts:3:5: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/shell/errors/description.ts:14:36: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/shell/errors/description.ts:17:25: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/shell/errors/description.ts:18:9: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/shell/errors/description.ts:20:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/errors/description.ts:20:27: warning anti-slop(no-unsafe-dictionary-type): This dictionary's unknown value type gives callers no concrete value contract. Use an owner/schema-derived value type; parse external payloads before insertion.
+packages/app/src/shell/errors/description.ts:25:11: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/vite.js:18:25: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/vite.js:47:69: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/vite.js:65:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/session-ui/src/storybook/current-session-scenarios.ts:13:5: warning anti-slop-effect(prefer-effect-match): Use Match from Effect instead of a chained literal ternary.
+packages/session-ui/src/storybook/current-session-scenarios.ts:16:61: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/session-ui/src/storybook/current-session-scenarios.ts:27:24: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/session-ui/src/storybook/current-session-scenarios.ts:40:7: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/session-ui/src/storybook/current-session-scenarios.ts:41:7: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/session-ui/src/storybook/current-session-scenarios.ts:57:38: warning anti-slop(no-conditional-empty-object-spread): This conditional spread hides property omission behind an empty object. Build the object in separate statements and add the property only when present.
+packages/gui-plugins/src/browser/files.ts:43:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/files.ts:68:71: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/files.ts:110:47: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/files.ts:119:60: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/files.ts:129:33: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/ui/src/theme/resolve.ts:84:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:132:19: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:133:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:149:47: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:155:8: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:156:8: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:218:43: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:219:48: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:221:13: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:225:26: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:226:15: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:265:31: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:272:38: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:277:36: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:461:37: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:500:17: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/ui/src/theme/resolve.ts:554:10: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/shell/errors/description.test.ts:28:56: warning anti-slop(no-known-value-widening): The explicit anonymous object type on binding `error` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/gui-plugins/src/browser/lighthouse.ts:8:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/lighthouse.ts:16:39: warning anti-slop(no-object-parameters): Parameter `params` uses the broad `object` type. Accept a named owner type; parse external input at its boundary before calling this function.
+packages/gui-plugins/src/browser/lighthouse.ts:16:59: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/lighthouse.ts:28:66: warning anti-slop(no-unknown-parameters): Parameter `params` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/lighthouse.ts:34:21: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/lighthouse.ts:45:22: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/lighthouse.ts:55:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/lighthouse.ts:55:18: warning anti-slop(no-chained-type-assertions): This assertion chain discards type evidence. Keep the original precise type, or parse untrusted input at its boundary before narrowing it.
+packages/gui-plugins/src/browser/lighthouse.ts:55:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:53:64: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:57:7: warning anti-slop(no-known-value-widening): The explicit anonymous object type on binding `surface` discards known type evidence. Keep inference, validate with `satisfies`, or use a named owner contract.
+packages/app/src/new-session/pin-quads.ts:192:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:193:12: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:194:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:195:13: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:196:13: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:197:14: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:198:19: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/new-session/pin-quads.ts:7:1: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:55:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:58:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:66:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:101:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:106:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:122:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:123:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:128:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:132:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:140:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:144:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:147:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:151:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:152:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:166:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:170:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:174:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:178:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:184:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:188:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:201:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:210:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:232:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:236:9: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:245:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-quads.ts:250:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/app-icon.tsx:48:7: warning anti-slop(no-runtime-typeof): A `typeof` check narrows a representation without establishing its contract. Parse input at its I/O boundary, then branch on the domain value.
+packages/app/src/new-session/project/selector.test.tsx:41:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/project/selector.test.tsx:66:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:13:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:14:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:15:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:16:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:17:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:40:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:46:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:48:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:50:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:56:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:57:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:59:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:83:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:98:1: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:104:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:133:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:148:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:155:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:164:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:171:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/new-session/pin-sound.ts:184:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.ts:35:3: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:79:9: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:85:11: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:87:55: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:87:62: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:96:7: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:96:7: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shape" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:100:18: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:100:18: warning anti-slop(no-shape-in-symbol-names): Rename symbol "shapes" for its domain role; "shape" describes structure rather than ownership.
+packages/ui/src/components/spinner-radar.ts:76:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.ts:78:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.ts:79:3: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/spinner-radar.ts:81:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/ui/src/components/scroll-view.test.ts:28:5: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/session/revert.ts:241:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/session/revert.ts:244:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/session/revert.ts:245:7: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/session/withdraw-prompt.ts:15:5: warning anti-slop(require-readable-spacing): Expected blank line before this statement.
+packages/app/src/home/sessions/records.test.ts:7:3: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/home/sessions/records.test.ts:16:18: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/home/sessions/records.test.ts:52:20: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/app/src/home/sessions/archive.ts:10:35: warning anti-slop(no-unknown-returns): This function exposes `unknown` to its caller. Parse the value at its boundary and return a named domain type.
+packages/app/src/home/sessions/archive.ts:12:21: warning anti-slop(no-unknown-parameters): Parameter `error` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/app/src/home/sessions/archive.test.ts:6:16: warning anti-slop(require-safety-comment-for-type-assertion): This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.
+packages/gui-plugins/src/browser/analysis.ts:45:37: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/analysis.ts:48:7: warning anti-slop-effect(no-manual-tag-comparison): Use Match.tag/Match.tags for tagged-value branching, or Predicate.isTagged for a simple reusable predicate.
+packages/gui-plugins/src/browser/analysis.ts:87:35: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/analysis.ts:90:7: warning anti-slop-effect(no-manual-tag-comparison): Use Match.tag/Match.tags for tagged-value branching, or Predicate.isTagged for a simple reusable predicate.
+packages/gui-plugins/src/browser/analysis.ts:120:34: warning anti-slop(no-unknown-parameters): Parameter `value` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function.
+packages/gui-plugins/src/browser/analysis.ts:123:7: warning anti-slop-effect(no-manual-tag-comparison): Use Match.tag/Match.tags for tagged-value branching, or Predicate.isTagged for a simple reusable predicate.
+[warn] postinstall script did not run; falling back to runtime binary resolution.
+Enable postinstall to avoid the per-invocation overhead.
+packages/util/src/cross-spawn-spawner.ts
+help[unused-suppression]: Unused 'ast-grep-ignore' directive.
+@@ -23,7 +23,7 @@
+24 24│   ProcessId,
+25 25│   type ChildProcessHandle,
+26 26│ } from "effect/process/ChildProcessSpawner"
+27   │-// ast-grep-ignore: no-star-import
+   27│+
+28 28│ import * as NodeChildProcess from "node:child_process"
+29 29│ import { PassThrough } from "node:stream"
+30 30│ import launch from "cross-spawn"
+[warn] postinstall script did not run; falling back to runtime binary resolution.
+Enable postinstall to avoid the per-invocation overhead.
+sdk-docs: 281 declarations, 1026 members and 305 parameters documented in 21 files; 13 guide blocks match their source; 0 problem(s)
+$ bun turbo typecheck --concurrency=3
+• turbo 2.10.2
+
+   • Packages in scope: @opencode/ai, @opencode/app, @opencode/cli, @opencode/client, @opencode/codemode, @opencode/core, @opencode/data, @opencode/data-app, @opencode/data-core, @opencode/data-server, @opencode/desktop, @opencode/files, @opencode/gui-plugins, @opencode/http-recorder, @opencode/httpapi-codegen, @opencode/latex, @opencode/legacy, @opencode/merman, @opencode/nav-menus, @opencode/patchmark, @opencode/plugin, @opencode/plugin-browser, @opencode/plugin-figma, @opencode/protocol, @opencode/schema, @opencode/script, @opencode/sdk, @opencode/server, @opencode/session-ui, @opencode/simulation, @opencode/site, @opencode/stories, @opencode/theme, @opencode/tui, @opencode/ui, @opencode/update, @opencode/util
+   • Running typecheck in 37 packages
+   • Remote caching disabled
+
+@opencode/schema:typecheck: cache miss, executing 3a40fe81ea2763bf
+@opencode/data-core:typecheck: cache miss, executing 832c8b8210ffcffa
+@opencode/theme:typecheck: cache miss, executing 095e3c7db0a5f37c
+@opencode/schema:typecheck: $ bun check --no-script
+@opencode/theme:typecheck: $ bun check --no-script
+@opencode/data-core:typecheck: $ bun check --no-script
+@opencode/theme:typecheck: ✓ No type errors in 15 files [45.62ms]
+@opencode/patchmark:typecheck: cache miss, executing 0ff144639cb676db
+@opencode/patchmark:typecheck: $ tsc --noEmit
+@opencode/schema:typecheck: ✓ No type errors in 131 files [76.82ms]
+@opencode/data-core:typecheck: ✓ No type errors in 29 files [83.37ms]
+@opencode/nav-menus:typecheck: cache miss, executing 2a5d3cc7e4695c06
+@opencode/nav-menus:typecheck: $ bun check --no-script
+@opencode/plugin-figma:typecheck: cache miss, executing e65c089ff3409776
+@opencode/plugin-figma:typecheck: $ bun check --no-script
+@opencode/nav-menus:typecheck: ✓ No type errors in 5 files [56.72ms]
+@opencode/plugin-figma:typecheck: ✓ No type errors in 175 files [60.39ms]
+@opencode/files:typecheck: cache miss, executing 88eaeae4ed37d5f6
+@opencode/files:typecheck: $ bun check --no-script
+@opencode/update:typecheck: cache miss, executing 9b117e0a43e71f68
+@opencode/update:typecheck: $ bun check --no-script
+@opencode/files:typecheck: ✓ No type errors in 1 file [5.98ms]
+@opencode/http-recorder:typecheck: cache miss, executing fe977bf25918ce80
+@opencode/http-recorder:typecheck: $ bun check --no-script && bun check --no-script -p test/tsconfig.json
+@opencode/update:typecheck: ✓ No type errors in 1 file [21.65ms]
+@opencode/util:typecheck: cache miss, executing fde2e79db7372f00
+@opencode/util:typecheck: $ bun check --no-script
+@opencode/http-recorder:typecheck: ✓ No type errors in 14 files [30.65ms]
+@opencode/http-recorder:typecheck: ✓ No type errors in 19 files [39.55ms]
+@opencode/httpapi-codegen:typecheck: cache miss, executing 3b5ac950c356151e
+@opencode/legacy:typecheck: cache miss, executing 5257fe9c2a6a887d
+@opencode/util:typecheck: ✓ No type errors in 72 files [71.21ms]
+@opencode/httpapi-codegen:typecheck: $ bun check --no-script
+@opencode/legacy:typecheck: $ bun check --no-script
+@opencode/codemode:typecheck: cache miss, executing 7d6f2f5cb4914de9
+@opencode/codemode:typecheck: $ bun check --no-script
+@opencode/legacy:typecheck: ✓ No type errors in 5 files [44.82ms]
+@opencode/protocol:typecheck: cache miss, executing 434c3a08e8b16b53
+@opencode/codemode:typecheck: ✓ No type errors in 28 files [37.48ms]
+@opencode/protocol:typecheck: $ bun check --no-script
+@opencode/data-server:typecheck: cache miss, executing bd194e50d02597de
+@opencode/data-server:typecheck: $ bun check --no-script
+@opencode/httpapi-codegen:typecheck: ✓ No type errors in 12 files [97.97ms]
+@opencode/ai:typecheck: cache miss, executing f1eccc5dcd82abaa
+@opencode/ai:typecheck: $ bun check --no-script && bun check --no-script -p tsconfig.types.json
+@opencode/data-server:typecheck: ✓ No type errors in 21 files [51.88ms]
+@opencode/ui:typecheck: cache miss, executing f4a49db49eabee1d
+@opencode/ui:typecheck: $ bun check --no-script
+@opencode/ui:typecheck: ✓ No type errors in 268 files [124.07ms]
+@opencode/client:typecheck: cache miss, executing c01f523965724db0
+@opencode/ai:typecheck: ✓ No type errors in 355 files [161.12ms]
+@opencode/client:typecheck: $ bun check --no-script
+@opencode/ai:typecheck: ✓ No type errors in 320 files [170.51ms]
+@opencode/site:typecheck: cache miss, executing 88b520f1ec320ab8
+@opencode/site:typecheck: $ bun check --no-script && bun --cwd textjs check --no-script
+@opencode/protocol:typecheck: ✓ No type errors in 154 files [544.80ms]
+@opencode/data-app:typecheck: cache miss, executing bd7a0ebdafb15b60
+@opencode/data-app:typecheck: $ bun check --no-script
+@opencode/site:typecheck: ✓ No type errors in 557 files [179.72ms]
+@opencode/data-app:typecheck: ✓ No type errors in 99 files [58.83ms]
+@opencode/plugin:typecheck: cache miss, executing 2b109e9b2f572cb4
+@opencode/plugin:typecheck: $ bun check --no-script
+@opencode/site:typecheck: ✓ No type errors in 2 files [24.53ms]
+@opencode/session-ui:typecheck: cache miss, executing b1daf6cb20f22334
+@opencode/session-ui:typecheck: $ bun check --no-script -b
+@opencode/client:typecheck: ✓ No type errors in 181 files [504.74ms]
+@opencode/data:typecheck: cache miss, executing 5089e961c6fe1e61
+@opencode/data:typecheck: $ bun check --no-script
+@opencode/data:typecheck: ✓ No type errors in 8 files [32.76ms]
+@opencode/latex:typecheck: cache miss, executing 497de36dc9013bbc
+@opencode/latex:typecheck: $ bun check --no-script
+@opencode/session-ui:typecheck: ✓ No type errors in 400 files across 1 project [176.93ms]
+@opencode/latex:typecheck: ✓ No type errors in 77 files [52.44ms]
+@opencode/plugin-browser:typecheck: cache miss, executing 31b3a8dd98fca986
+@opencode/plugin-browser:typecheck: $ bun check --no-script -p tsconfig.test.json
+@opencode/merman:typecheck: cache miss, executing ca69cfc506ba23f2
+@opencode/merman:typecheck: $ bun check --no-script
+@opencode/merman:typecheck: ✓ No type errors in 152 files [79.51ms]
+@opencode/core:typecheck: cache miss, executing effcf22bc147987a
+@opencode/core:typecheck: $ bun check --no-script -b -p tsconfig.tests.json
+@opencode/plugin-browser:typecheck: ✓ No type errors in 238 files [152.96ms]
+@opencode/gui-plugins:typecheck: cache miss, executing 18aec9d0ae74adf6
+@opencode/gui-plugins:typecheck: $ bun check --no-script -b
+@opencode/plugin:typecheck: ✓ No type errors in 329 files [815.87ms]
+@opencode/simulation:typecheck: cache miss, executing 8ee432fc3930b531
+@opencode/simulation:typecheck: $ bun check --no-script -b
+@opencode/gui-plugins:typecheck: ✓ No type errors in 1,679 files across 1 project [889.70ms]
+@opencode/app:typecheck: cache miss, executing 9fd76d6b4f77a8bb
+@opencode/app:typecheck: $ bun check --no-script -b
+@opencode/simulation:typecheck: ✓ No type errors in 1,335 files across 2 projects [1225.01ms]
+@opencode/server:typecheck: cache miss, executing d3a25686e590d427
+@opencode/server:typecheck: $ bun check --no-script -b
+@opencode/app:typecheck: ✓ No type errors in 2,511 files across 1 project [794.49ms]
+@opencode/tui:typecheck: cache miss, executing 51c75c0bb8975416
+@opencode/tui:typecheck: $ bun check --no-script -b
+@opencode/core:typecheck: ✓ No type errors in 1,964 files across 2 projects [1.88s]
+@opencode/desktop:typecheck: cache miss, executing 9ba35a8e413958ae
+@opencode/desktop:typecheck: $ bun check --no-script -b
+@opencode/tui:typecheck: ✓ No type errors in 1,918 files across 2 projects [1.54s]
+@opencode/sdk:typecheck: cache miss, executing 2650753bfdb65eec
+@opencode/sdk:typecheck: $ bun check --no-script -b
+@opencode/server:typecheck: ✓ No type errors in 1,525 files across 2 projects [1.86s]
+@opencode/cli:typecheck: cache miss, executing 60ce733c637f92ca
+@opencode/cli:typecheck: $ bun check --no-script -b
+@opencode/desktop:typecheck: ✓ No type errors in 3,746 files across 2 projects [1.81s]
+@opencode/sdk:typecheck: ✓ No type errors in 1,524 files across 2 projects [1353.52ms]
+@opencode/cli:typecheck: ✓ No type errors in 2,101 files across 2 projects [1207.53ms]
+
+ Tasks:    35 successful, 35 total
+Cached:    0 cached, 35 total
+  Time:    6.399s 
+
