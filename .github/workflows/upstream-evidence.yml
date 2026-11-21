@@ -1,92 +1,43 @@
-name: Upstream contribution evidence
+name: Herdr App terminal size replay
 
-on:
-  pull_request:
-    paths:
-      - '.github/workflows/upstream-evidence.yml'
-      - 'verification/pvlib-1606.sh'
-      - 'verification/act-upstream.sh'
-      - 'verification/herdr-core-302.sh'
-      - 'contracts/upstream/**'
-      - 'delivery/**'
-  workflow_dispatch:
+on: workflow_dispatch
 
 permissions:
   contents: read
 
 jobs:
-  pvlib-1606:
-    name: Reproduce pvlib collection failure and verify fix
+  replay:
     runs-on: ubuntu-24.04
-    timeout-minutes: 7
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.9.25'
-      - run: bash verification/pvlib-1606.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: pvlib-reproduction
-          path: .adl/pvlib-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  act:
-    name: Replay act #${{ matrix.issue }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { issue: 6236, artifact: act-docker-hub-reproduction }
-          - { issue: 2517, artifact: act-composite-step-reproduction }
-          - { issue: 2708, artifact: act-empty-environment-reproduction }
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version: '1.26.11'
-          cache: false
-      - run: bash verification/act-upstream.sh "contracts/upstream/act-$ISSUE.json" ".adl/act-$ISSUE-evidence"
-        env:
-          ISSUE: ${{ matrix.issue }}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: ${{ matrix.artifact }}
-          path: .adl/act-${{ matrix.issue }}-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  herdr-core-302:
-    name: Replay the sweep test with divergent Linux clocks
-    runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 27
     env:
-      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '4'
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.95.0
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
         with:
           version: 0.16.0
-      - name: Run the exact upstream test with a shifted boot clock
-        run: bash verification/herdr-core-302.sh
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - name: Install Linux display and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config clang libclang-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libvulkan-dev mesa-vulkan-drivers libfontconfig-dev libfreetype-dev xvfb xauth
+      - name: Exercise the app and measure real PTY sizes
+        run: |
+          if ! bash verification/herdr-app-1263.sh; then
+            tail -n 50 .adl/herdr-app-1263-evidence/*.log || true
+            exit 1
+          fi
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
-          name: herdr-core-clock-reproduction
-          path: .adl/herdr-core-302-evidence
+          name: herdr-stack-terminal-sizes
+          path: .adl/herdr-app-1263-evidence
           include-hidden-files: true
-          if-no-files-found: warn
