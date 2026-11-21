@@ -7,6 +7,8 @@ from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
 from .compose_pilot import run as compose_pilot
+from .cloud_pilot import manage as cloud_pilot
+from .kube_pilot import Kubectl, diagnostics, run as kube_pilot
 from .factory_definition import definition
 from .factory_outcomes import outcome_report
 from . import factory_issue as issue_delivery
@@ -30,6 +32,27 @@ def register(commands):
     compose.add_argument("--retry-start", action="store_true")
     compose.add_argument("--cleanup-only", action="store_true")
     compose.add_argument("--runs", type=Path)
+    kube = actions.add_parser("kube-pilot", help="run the Redis pilot on a disposable kind cluster")
+    kube.add_argument("--kubeconfig", type=Path, required=True)
+    kube.add_argument("--context", required=True)
+    kube.add_argument("--state", type=Path, required=True)
+    kube.add_argument("--revision")
+    kube.add_argument("--image")
+    kube.add_argument("--retry", action="store_true")
+    kube.add_argument("--cleanup-only", action="store_true")
+    kube.add_argument("--rollback-revision")
+    inspect_runtime = actions.add_parser("kube-diagnostics", help="read workload status, events and bounded logs")
+    inspect_runtime.add_argument("--kubeconfig", type=Path, required=True)
+    inspect_runtime.add_argument("--context", required=True)
+    inspect_runtime.add_argument("--namespace", required=True)
+    inspect_runtime.add_argument("--deployment", required=True)
+    cloud = actions.add_parser("cloud-pilot", help="plan and approve a disposable OpenTofu resource")
+    cloud.add_argument("action", choices=("create", "destroy", "approve", "apply", "reconcile"))
+    cloud.add_argument("--state", type=Path, required=True)
+    cloud.add_argument("--backend", choices=("local", "aws"))
+    cloud.add_argument("--region")
+    cloud.add_argument("--account")
+    cloud.add_argument("--approval", type=Path)
     snapshot = actions.add_parser("definition")
     snapshot.add_argument("--repo", type=Path, default=Path("."))
     snapshot.add_argument("--revision", required=True)
@@ -157,6 +180,18 @@ def dispatch(args):
         success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
                    else receipt["verdict"] == "verified")
         return receipt, int(not success)
+    if args.operation == "kube-pilot":
+        receipt = kube_pilot(args.kubeconfig, args.context, args.state, args.revision, args.image,
+                             retry=args.retry, cleanup_only=args.cleanup_only,
+                             rollback_revision=args.rollback_revision)
+        success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
+                   else receipt["verdict"] == "verified")
+        return receipt, int(not success)
+    if args.operation == "kube-diagnostics":
+        return diagnostics(Kubectl(args.kubeconfig, args.context), args.namespace, args.deployment), 0
+    if args.operation == "cloud-pilot":
+        return cloud_pilot(args.state, args.action, backend=args.backend, account=args.account,
+                           region=args.region, approval=args.approval), 0
     op = args.operation
     if op == "self-check":
         result = evidence.self_check()

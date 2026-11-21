@@ -69,6 +69,59 @@ also needs enough space for the two images and build cache.
 See [Runtime operations in the factory](runtime-operations-design.md) for the
 design and later phases.
 
+### Verify a Kubernetes rollout and rollback
+
+Use a loopback kind context whose name begins with `kind-adl-`. Build the
+reviewed Dockerfile with the exact `pilot/service.py` from Git and load the image
+as `adl-kube:<full SHA>`. The [CI workflow](../.github/workflows/runtime-operator.yml)
+shows the image build and cluster setup. Add `--rollback-revision <full SHA>`
+after loading the previous image to rehearse restoring it. The pilot verifies
+that Redis retains its state across the API rollout. Use `--retry` to enable one
+Redis restart after a readiness timeout.
+
+```sh
+python3 -m delivery factory kube-pilot --kubeconfig "$CONFIG" --context kind-adl-dev \
+  --state .adl/kube/run-1 --revision "$REVISION" --image "adl-kube:$REVISION"
+```
+
+If interrupted, repeat with the same kubeconfig, context and state and add
+`--cleanup-only`. Reconciliation checks cluster identity and namespace
+ownership, and deletion includes a namespace UID precondition.
+
+For an approved production context, use a trusted kubeconfig and a read-only
+identity that can get the deployment, list its pods and events, and read logs.
+Save the result to an operator-controlled path. Treat the returned logs as
+potentially sensitive. Production mutations belong to the separately
+authorized deployment pipeline.
+
+```sh
+python3 -m delivery factory --output .adl/diagnostics.json kube-diagnostics \
+  --kubeconfig "$CONFIG" --context "$CONTEXT" --namespace "$NAMESPACE" --deployment "$DEPLOYMENT"
+```
+
+### Approve cloud provisioning and teardown
+
+OpenTofu rehearses the lifecycle without cloud credentials using `--backend local`.
+Use `--backend aws --account "$SANDBOX_ACCOUNT" --region "$REGION"` on the
+planning commands for the AWS SSM sandbox fixture. Use a sandbox identity with
+permissions scoped to `/adl-sandbox/*`, and keep the private state directory and
+approval file under operator control. The tool binds the saved plan, state,
+provider lock and factory policy. It checks the AWS caller's account and rejects
+reusing a plan. After an interrupted apply, run `cloud-pilot reconcile` with the
+same state directory to check the existing reservation and observed outcome
+without reapplying. Keep the state and plan private.
+
+```sh
+python3 -m delivery factory cloud-pilot create --backend local --state "$STATE"
+# Read plan.json and review the saved plan with tofu -chdir="$STATE" show reviewed.tfplan.
+python3 -m delivery factory cloud-pilot approve --state "$STATE" --approval "$APPROVAL"
+python3 -m delivery factory cloud-pilot apply --state "$STATE" --approval "$APPROVAL"
+python3 -m delivery factory cloud-pilot destroy --backend local --state "$STATE"
+# Review the destroy plan and record a fresh approval before applying it.
+python3 -m delivery factory cloud-pilot approve --state "$STATE" --approval "$APPROVAL"
+python3 -m delivery factory cloud-pilot apply --state "$STATE" --approval "$APPROVAL"
+```
+
 Use `node verification/browser-proof.mjs SPEC OUTPUT PLAYWRIGHT_MODULE BROWSER` with a pinned Playwright Core module and a local Chromium binary. The spec has two loopback deployments in `before` and `after` with `origin`, `revision`, and `deployment`. Supply `primary` and `control` scenarios with a URL `path`, a list of click or fill steps, and an `assert` containing selector and expected before/after text. Serve `/_revision` from each deployment. The command writes four screenshots, console results, and image digests. Include them as declared workflow artifacts. [Playwright browser API](https://playwright.dev/docs/api/class-browsertype)
 
 For Argo, export the real AnalysisRun with a read-only Kubernetes identity and run `factory analysis RUN.json --contract CONTRACT --revision SHA --deployment ID --uid UID`. The run must be annotated with `adl/revision` and `adl/deployment`. The reviewed impact contract supplies the metric and observation floor. A completed run with matching identity and sufficient observations can verify the threshold. An unavailable or incomplete observation remains inconclusive. Use this adapter when a deployment has an Argo AnalysisRun.

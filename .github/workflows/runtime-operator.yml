@@ -1,0 +1,145 @@
+name: Runtime operator evidence
+
+on:
+  pull_request:
+    paths:
+      - 'delivery/**'
+      - 'pilot/**'
+      - 'contracts/**'
+      - 'verification/**'
+      - '.github/workflows/runtime-operator.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'delivery/**'
+      - 'pilot/**'
+      - 'contracts/**'
+      - 'verification/**'
+      - '.github/workflows/runtime-operator.yml'
+
+permissions:
+  contents: read
+
+env:
+  REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+  PYTHONDONTWRITEBYTECODE: 1
+
+jobs:
+  kubernetes:
+    name: Kubernetes lifecycle and rollback
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.REVISION }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Create a disposable cluster
+        run: |
+          mkdir -p "$RUNNER_TEMP/adl-bin"
+          cd "$RUNNER_TEMP/adl-bin"
+          curl -fsSLo kind https://github.com/kubernetes-sigs/kind/releases/download/v0.31.0/kind-linux-amd64
+          echo 'eb244cbafcc157dff60cf68693c14c9a75c4e6e6fedaf9cd71c58117cb93e3fa  kind' | sha256sum -c
+          curl -fsSLO https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl
+          curl -fsSLO https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl.sha256
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c
+          chmod +x kind kubectl
+          echo "$PWD" >> "$GITHUB_PATH"
+          ./kind create cluster --name adl-ci --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" --wait 90s \
+            --image kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+      - name: Verify forward revision, rollback and scoped cleanup
+        env:
+          PREVIOUS: 8d15c91990a7e0c1a1d4a30b19d96fda265597e8
+        run: |
+          mkdir -p .adl/kube "$RUNNER_TEMP/pilot-image"
+          for sha in "$REVISION" "$PREVIOUS"; do
+            git show "$sha:pilot/service.py" > "$RUNNER_TEMP/pilot-image/service.py"
+            docker build -f verification/compose-pilot.Dockerfile --label "org.opencontainers.image.revision=$sha" \
+              -t "adl-kube:$sha" "$RUNNER_TEMP/pilot-image"
+            kind load docker-image "adl-kube:$sha" --name adl-ci
+          done
+          kubectl --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" create namespace neighbor
+          kubectl --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" config set-context production-shaped \
+            --cluster kind-adl-ci --user kind-adl-ci
+          if python3 -m delivery factory kube-pilot --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" \
+            --context production-shaped --state .adl/kube-refused --revision "$REVISION" --image "adl-kube:$REVISION"; then
+            exit 1
+          fi
+          test ! -e .adl/kube-refused
+          python3 -m delivery factory kube-pilot --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" \
+            --context kind-adl-ci --state .adl/kube --revision "$REVISION" --image "adl-kube:$REVISION" \
+            --rollback-revision "$PREVIOUS"
+          kubectl --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" get namespace neighbor
+          jq -e --arg revision "$REVISION" --arg previous "$PREVIOUS" \
+            '.revision==$revision and .verdict=="verified" and .cleanup.status=="confirmed" and
+              .redis_ping=="PONG" and .rollback.observation.verdict=="verified" and
+              .rollback.observation.revision==$previous and .image_id != .rollback.image_id and
+              (.diagnostics.logs | contains("/counter"))' .adl/kube/runtime.json
+      - name: Upload runtime receipt
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: kubernetes-pilot
+          path: .adl/kube/runtime.json
+          include-hidden-files: true
+      - name: Remove CI cluster
+        if: always()
+        run: |
+          tool="$RUNNER_TEMP/adl-bin/kind"
+          if test -x "$tool"; then "$tool" delete cluster --name adl-ci --kubeconfig "$RUNNER_TEMP/adl-kubeconfig"; fi
+
+  infrastructure:
+    name: OpenTofu plan, approval and destroy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.REVISION }}
+          persist-credentials: false
+      - name: Install pinned OpenTofu
+        run: |
+          mkdir -p "$RUNNER_TEMP/adl-tofu"
+          cd "$RUNNER_TEMP/adl-tofu"
+          curl -fsSLo tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.11.2/tofu_1.11.2_linux_amd64.zip
+          echo '1bfb425c940098952df7a74e2f67dd318614bbea2767a25de94e46ca5d5b85ec  tofu.zip' | sha256sum -c
+          unzip -q tofu.zip tofu
+          echo "$PWD" >> "$GITHUB_PATH"
+      - name: Rehearse approved provisioning and teardown without credentials
+        run: |
+          set -e
+          mkdir -p .adl/tofu-test
+          command=(python3 -m delivery factory cloud-pilot)
+          state=.adl/tofu-test
+          approval=.adl/tofu-test/approval.json
+          "${command[@]}" create --backend local --state "$state"
+          if "${command[@]}" apply --state "$state"; then exit 1; fi
+          "${command[@]}" approve --state "$state" --approval "$approval"
+          cp "$state/reviewed.tfplan" "$RUNNER_TEMP/adl-original-plan"
+          printf tampered >> "$state/reviewed.tfplan"
+          if "${command[@]}" apply --state "$state" --approval "$approval"; then exit 1; fi
+          cp "$RUNNER_TEMP/adl-original-plan" "$state/reviewed.tfplan"
+          "${command[@]}" apply --state "$state" --approval "$approval" > "$state/create-receipt.json"
+          jq '.status="applying"' "$state/apply.json" > "$state/interrupted.json"
+          mv "$state/interrupted.json" "$state/apply.json"
+          "${command[@]}" reconcile --state "$state" | jq -e '.status=="verified" and .action=="create"'
+          "${command[@]}" destroy --backend local --state "$state"
+          if "${command[@]}" apply --state "$state" --approval "$approval"; then exit 1; fi
+          "${command[@]}" approve --state "$state" --approval "$approval"
+          "${command[@]}" apply --state "$state" --approval "$approval" > "$state/destroy-receipt.json"
+          jq -e '.status=="verified" and .action=="create"' "$state/create-receipt.json"
+          jq -e '.status=="verified" and .action=="destroy"' "$state/destroy-receipt.json"
+      - name: Validate the AWS sandbox fixture without applying it
+        run: |
+          mkdir -p "$RUNNER_TEMP/adl-aws-template"
+          cp verification/tofu/aws.tf "$RUNNER_TEMP/adl-aws-template/main.tf"
+          tofu -chdir="$RUNNER_TEMP/adl-aws-template" init -backend=false -input=false -no-color
+          tofu -chdir="$RUNNER_TEMP/adl-aws-template" validate
+      - name: Upload verified local receipts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: opentofu-local-pilot
+          path: .adl/tofu-test/*-receipt.json
+          include-hidden-files: true
