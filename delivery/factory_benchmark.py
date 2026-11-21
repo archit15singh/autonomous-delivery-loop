@@ -4,6 +4,8 @@ import json
 from math import isfinite
 from statistics import median
 
+from .factory_replay import verified_driver
+
 
 def dataset(root):
     primary = root / "evals/cases.json"
@@ -19,11 +21,7 @@ def dataset(root):
     replays = []
     for path in sorted((root / "contracts/factory").glob("*.json")):
         contract = json.loads(path.read_text())
-        driver = path.parent / contract["driver"]
-        if not driver.resolve().is_relative_to(path.parent.resolve()):
-            raise ValueError("factory replay driver escapes its contract directory")
-        if sha256(driver.read_bytes()).hexdigest() != contract["driver_sha256"]:
-            raise ValueError("factory replay driver differs from the approved digest")
+        driver = verified_driver(path, contract)
         replays.append({"id": path.stem, "baseline": contract["baseline"], "fixed": contract["fixed"],
                         "contract": path.relative_to(root).as_posix(),
                         "scenarios": {case["id"]: case["type"] for case in contract["cases"]}})

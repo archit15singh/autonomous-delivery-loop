@@ -9,16 +9,21 @@ from .revisions import FULL_REVISION, checkout, git
 from .upstream import run_check, validate_command
 
 
-def replay_change(repo, baseline, candidate, contract_path, output):
-    if not all(FULL_REVISION.fullmatch(revision) for revision in (baseline, candidate)) or baseline == candidate:
-        raise ValueError("replay needs two different full factory revisions")
-    raw = contract_path.read_bytes()
-    contract = json.loads(raw)
+def verified_driver(contract_path, contract):
     driver = contract_path.parent / contract["driver"]
     if not driver.resolve().is_relative_to(contract_path.parent.resolve()):
         raise ValueError("replay driver must be beside the contract")
     if sha256(driver.read_bytes()).hexdigest() != contract["driver_sha256"]:
         raise ValueError("factory replay driver differs from the approved digest")
+    return driver
+
+
+def replay_change(repo, baseline, candidate, contract_path, output):
+    if not all(FULL_REVISION.fullmatch(revision) for revision in (baseline, candidate)) or baseline == candidate:
+        raise ValueError("replay needs two different full factory revisions")
+    raw = contract_path.read_bytes()
+    contract = json.loads(raw)
+    driver = verified_driver(contract_path, contract)
     cases = contract["cases"]
     if {case["type"] for case in cases} != {"observed", "held_out"}:
         raise ValueError("include both an observed failure and a held-out control")
