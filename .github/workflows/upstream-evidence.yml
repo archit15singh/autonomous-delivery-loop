@@ -85,11 +85,13 @@ jobs:
             throw "Incomplete v143 headers or libraries"
           }
           $paths = Join-Path $env:RUNNER_TEMP 'zig-v143-libc.txt'
-          $native | ForEach-Object {
+          $selected = $native | ForEach-Object {
             if ($_ -match '^sys_include_dir=') { "sys_include_dir=$msvc\include" }
             elseif ($_ -match '^msvc_lib_dir=') { "msvc_lib_dir=$msvc\lib\x64" }
             else { $_ }
-          } | Set-Content $paths
+          }
+          # Zig 0.16 splits on LF without stripping a trailing CR from values.
+          [IO.File]::WriteAllText($paths, [string]::Join("`n", $selected) + "`n")
           Get-Content $paths | Tee-Object "$receipt/v143-libc.txt"
           "ZIG_LIBC=$paths" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Clippy with Ghostty on the native toolchain
