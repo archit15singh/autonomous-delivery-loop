@@ -11,7 +11,7 @@ The command uses the authenticated GitHub CLI. It checks the PR rollup and the l
 
 | Action | Codex follow-up |
 | --- | --- |
-| `investigate_failure` | Read the failed job's logs and reproduce the failure on the current head and a comparable upstream baseline. Inspect required-check and branch policy separately. If the candidate caused it, fix it in the existing PR, rerun the regression and relevant suite, push the verified repair, and poll the new head. |
+| `investigate_failure` | Read the failed job's logs and reproduce the failure on the current head and a comparable upstream baseline. Inspect required-check and branch policy separately. If the candidate caused it, fix it in the existing PR, rerun the regression and relevant suite, run the [local pre-submission gate](upstream-replay.md#prepare-a-pr) for the repair, push it, and poll the new head. |
 | `await_approval` | Identify the approver and the affected workflows. Review any other runnable signals and produce independent evidence as appropriate. Record the approval link once and recheck asynchronously. |
 | `wait_for_ci` | Recheck on the next pass. |
 | `inspect_missing_evidence` or `lookup_failed` | Check workflow triggers, GitHub access, runner state, and required check names. Retry a transient lookup on the next pass. |

@@ -2,6 +2,8 @@
 
 The target is three verified, non-draft upstream PRs in each of 11 repositories. Verification uses the exact upstream base and candidate with a real CLI, UI, API, or CI replay. The PR or linked evidence records the commands, observed change, and test limits.
 
+For the application, CLI, and SDK test coverage of each submitted PR, see the [local verification audit](upstream-local-audit.md).
+
 ## Snapshot
 
 GitHub state checked on November 21, 2026 at 07:12 UTC. The original repository targets account for **21 non-draft PRs**, **3 drafts**, and **9 staged fixes**. After the request to keep creating PRs, two additional Herdr Core PRs were opened and one additional OpenCode fix was verified on its public fork. The original per-repository shortfall is still 12. The campaign window ends at 08:19 UTC.

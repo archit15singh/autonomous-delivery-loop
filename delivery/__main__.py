@@ -10,6 +10,7 @@ from .candidate import check_candidate, propose
 from .stage import stage
 from .upstream import replay
 from .upstream_ci import inspect_prs
+from .upstream_pr import prepare
 from .verify import Contract
 
 
@@ -52,11 +53,24 @@ def main():
     upstream.add_argument("--repo", type=Path, required=True)
     upstream.add_argument("--contract", type=Path, required=True)
     upstream.add_argument("--output", type=Path, required=True)
+    ready = commands.add_parser("upstream-prepare", help="verify a local upstream candidate and prepare its PR body")
+    ready.add_argument("--repo", type=Path, required=True)
+    ready.add_argument("--contract", type=Path, required=True)
+    ready.add_argument("--template", type=Path, required=True)
+    ready.add_argument("--evidence-url", required=True)
+    ready.add_argument("--output", type=Path, required=True)
     ci = commands.add_parser("upstream-ci", help="inspect each PR's current head and Actions runs")
     ci.add_argument("urls", metavar="PR_URL", nargs="*")
     ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
     ci.add_argument("--output", type=Path, default=Path("-"))
     args = parser.parse_args()
+    if args.command == "upstream-prepare":
+        try:
+            receipt = prepare(args.repo, args.contract, args.template, args.evidence_url, args.output)
+        except (OSError, ValueError, TypeError, KeyError, subprocess.CalledProcessError) as exc:
+            parser.error(str(exc))
+        print(receipt["verdict"], file=sys.stderr)
+        return int(receipt["verdict"] != "verified")
     if args.command == "upstream-ci":
         urls = args.urls
         try:
