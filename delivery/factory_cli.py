@@ -6,6 +6,7 @@ from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
 from . import factory_publish as publication
+from .compose_pilot import run as compose_pilot
 from .factory_definition import definition
 from .factory_outcomes import outcome_report
 from . import factory_issue as issue_delivery
@@ -22,6 +23,13 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     actions.add_parser("self-check")
+    compose = actions.add_parser("compose-pilot", help="verify and tear down the owned Redis pilot")
+    compose.add_argument("--socket", type=Path, required=True)
+    compose.add_argument("--state", type=Path, required=True)
+    compose.add_argument("--revision")
+    compose.add_argument("--retry-start", action="store_true")
+    compose.add_argument("--cleanup-only", action="store_true")
+    compose.add_argument("--runs", type=Path)
     snapshot = actions.add_parser("definition")
     snapshot.add_argument("--repo", type=Path, default=Path("."))
     snapshot.add_argument("--revision", required=True)
@@ -143,6 +151,12 @@ def read(path):
 
 
 def dispatch(args):
+    if args.operation == "compose-pilot":
+        receipt = compose_pilot(args.socket, args.state, args.revision, retry_start=args.retry_start,
+                                cleanup_only=args.cleanup_only, index=args.runs)
+        success = (receipt["cleanup"]["status"] == "confirmed" if args.cleanup_only
+                   else receipt["verdict"] == "verified")
+        return receipt, int(not success)
     op = args.operation
     if op == "self-check":
         result = evidence.self_check()

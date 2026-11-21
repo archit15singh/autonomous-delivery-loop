@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "outcome": "The pilot stores and advances a counter in Redis",
+  "allowed_changes": ["pilot/service.py"],
+  "max_repairs": 0,
+  "probes": [
+    {"path": "/health", "expect": {"ready": true}},
+    {"path": "/counter", "expect": {"count": 1}},
+    {"path": "/counter", "expect": {"count": 2}}
+  ]
+}

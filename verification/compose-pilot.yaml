@@ -1,0 +1,48 @@
+services:
+  api:
+    image: ${ADL_IMAGE:?}
+    pull_policy: never
+    labels:
+      adl.run: ${ADL_PROJECT:?}
+    environment:
+      ADL_REVISION: ${ADL_REVISION:?}
+      ADL_DEPLOYMENT: ${ADL_PROJECT:?}
+      ADL_REDIS_HOST: redis
+    ports:
+      - "127.0.0.1::8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=1)"]
+      interval: 1s
+      timeout: 2s
+      retries: 10
+    mem_limit: 96m
+    pids_limit: 64
+    cpus: 0.5
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: &logs
+      driver: json-file
+      options: {max-size: "1m", max-file: "1"}
+  redis:
+    image: redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5
+    labels:
+      adl.run: ${ADL_PROJECT:?}
+    command: [redis-server, --save, "", --appendonly, "no"]
+    tmpfs: ["/data:size=16m"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+    mem_limit: 64m
+    pids_limit: 32
+    cpus: 0.5
+    logging: *logs
+networks:
+  default:
+    labels:
+      adl.run: ${ADL_PROJECT:?}
