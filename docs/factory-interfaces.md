@@ -23,10 +23,10 @@ Include `reproduction` and `reproduction_path` and add `technical_brief` when an
 review. Keep the brief and approval on the operator-controlled runner.
 
 ```sh
-python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \\
+python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \
   --ledger .adl/factory.sqlite3 --receipts .adl/issue-runs
 python3 -m delivery factory --output .adl/approval.json approve-issue "$ISSUE" "$SPEC"
-python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \\
+python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \
   --approval .adl/approval.json --ledger .adl/factory.sqlite3 --receipts .adl/issue-runs
 ```
 
@@ -69,3 +69,15 @@ from the live staging service. Read its receipt with staging-signal RUN_ID
 --drill. Apply --file-issue only when rehearsing ticket publication. The
 rehearsal has its own signal identity. Ordinary release observation accepts
 only push runs.
+
+## Verified live runs
+
+- Issue #34 paused without approval and rejected approval after the brief changed.
+  The approved dispatch went from five to six passing HTTP probes and reused
+  the same draft on repeat. [Pilot PR #37](https://github.com/archit15singh/autonomous-delivery-loop/pull/37)
+- The deliberately failed hosted probe filed a single investigation and
+  returned the original issue on repeat.
+  [Hosted rehearsal](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44906372040)
+  · [Investigation #39](https://github.com/archit15singh/autonomous-delivery-loop/issues/39)
+- The normal staging run verified the same main commit and emitted no
+  investigation. [Normal staging](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44906367389)
