@@ -163,7 +163,9 @@ def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout):
         raise ValueError("the approved operator must dispatch the issue")
     if running_definition(repo)["revision"] != plan["base"]:
         raise ValueError("dispatch from the exact reviewed main checkout")
-    if (sys.platform != "darwin" or Path(sys.executable).resolve().is_relative_to(Path.home().resolve())):\n        raise ValueError("use a macOS runner with Python installed outside the home directory")\n    ledger = ActionLedger(ledger_path)
+    if (sys.platform != "darwin" or Path(sys.executable).resolve().is_relative_to(Path.home().resolve())):
+        raise ValueError("use a macOS runner with Python installed outside the home directory")
+    ledger = ActionLedger(ledger_path)
     key = digest(plan)
     output = output.resolve() / key
     with lock(output):
