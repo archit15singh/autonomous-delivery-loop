@@ -62,3 +62,10 @@ Release observations from this entry point are hosted-staging observations.
 A production rollout needs a separately configured and authorized environment
 and a trusted collector. Keep billed cost and hands-on human time unknown
 until you have their measurements.
+
+To rehearse the investigation path, manually dispatch the Delivery evidence
+workflow on main. The rehearsal expects one deliberately wrong health result
+from the live staging service. Read its receipt with staging-signal RUN_ID
+--drill. Apply --file-issue only when rehearsing ticket publication. The
+rehearsal has its own signal identity. Ordinary release observation accepts
+only push runs.

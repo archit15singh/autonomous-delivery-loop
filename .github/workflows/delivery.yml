@@ -2,6 +2,7 @@ name: Delivery evidence
 
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -58,7 +59,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: ${{ github.event_name == 'push' && 'hosted-staging' || 'hosted-preview' }}
+    environment: ${{ github.event_name == 'pull_request' && 'hosted-preview' || 'hosted-staging' }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -71,9 +72,26 @@ jobs:
         with:
           name: bundle-${{ env.DEPLOYMENT }}
           path: .adl/bundle
-      - run: >-
-          python -m delivery stage --contract contracts/pilot.json --bundle .adl/bundle
-          --revision "$REVISION" --deployment "$DEPLOYMENT" --output .adl/evidence.json
+      - name: Probe the deployed service
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_REF: ${{ github.ref }}
+        run: |
+          contract=contracts/pilot.json
+          expected=0
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            test "$RUN_REF" = refs/heads/main
+            contract=contracts/staging-drill.json
+            expected=1
+          fi
+          exit_code=0
+          python -m delivery stage --contract "$contract" --bundle .adl/bundle \
+            --revision "$REVISION" --deployment "$DEPLOYMENT" --output .adl/evidence.json || exit_code=$?
+          test "$exit_code" = "$expected"
+          if [[ "$expected" = 1 ]]; then
+            jq -e '.verdict == "failed" and .reason == "probe_failed"' .adl/evidence.json
+          fi
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
