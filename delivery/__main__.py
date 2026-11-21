@@ -3,13 +3,15 @@ import argparse
 from hashlib import sha256
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 import sqlite3
 import subprocess
 import sys
 import time
 
 from . import factory_cli
-from .candidate import check_candidate, propose
+from .candidate import check_candidate, git, propose
+from .factory_learning import run_record
 from .stage import stage
 from .upstream import replay
 from .upstream_actions import ActionLedger
@@ -65,6 +67,9 @@ def main():
     ready.add_argument("--template", type=Path, required=True)
     ready.add_argument("--evidence-url", required=True)
     ready.add_argument("--output", type=Path, required=True)
+    ready.add_argument("--browser-proof", type=Path, help="exact-base and exact-head browser receipt")
+    ready.add_argument("--runs", type=Path, help="index the verification in the factory run directory")
+    ready.add_argument("--pr", help="GitHub PR URL for an indexed verification run")
     ci = commands.add_parser("upstream-ci", help="inspect each PR's current head and Actions runs")
     ci.add_argument("urls", metavar="PR_URL", nargs="*")
     ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
@@ -138,7 +143,8 @@ def main():
         ))
     if args.command == "upstream-prepare":
         try:
-            receipt = prepare(args.repo, args.contract, args.template, args.evidence_url, args.output)
+            receipt = prepare(args.repo, args.contract, args.template, args.evidence_url,
+                              args.output, browser=args.browser_proof)
         except (OSError, ValueError, TypeError, KeyError, subprocess.CalledProcessError) as exc:
             parser.error(str(exc))
         print(receipt["verdict"], file=sys.stderr)

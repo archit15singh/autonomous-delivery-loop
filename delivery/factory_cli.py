@@ -4,6 +4,7 @@ from pathlib import Path
 
 from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
+from . import factory_learning as learning
 from . import factory_publish as publication
 from . import factory_workflow as engine
 from .verify import Contract
@@ -26,6 +27,14 @@ def register(commands):
     portfolio.add_argument("ci", type=Path)
     portfolio.add_argument("ledger", type=Path)
     portfolio.add_argument("--evidence", type=Path)
+    portfolio.add_argument("--runs", type=Path)
+    run = actions.add_parser("record-run")
+    run.add_argument("spec", type=Path)
+    run.add_argument("--runs", type=Path, required=True)
+    mine = actions.add_parser("mine-runs")
+    mine.add_argument("--runs", type=Path, required=True)
+    mine.add_argument("--minimum", type=int, default=2)
+    mine.add_argument("--spool", type=Path, help="approved run specs to index before mining")
     intake = actions.add_parser("intake")
     intake.add_argument("issue", type=Path)
     intake.add_argument("--github-issue")
@@ -89,8 +98,16 @@ def dispatch(args):
     if op == "classify":
         return evidence.compare_failures(read(args.head), read(args.base)), 0
     if op == "portfolio":
-        return evidence.portfolio(read(args.ci), read(args.ledger),
-                                  read(args.evidence) if args.evidence else []), 0
+        attachments = read(args.evidence) if args.evidence else []
+        if args.runs:
+            attachments.extend(learning.pr_evidence(args.runs))
+        return evidence.portfolio(read(args.ci), read(args.ledger), attachments), 0
+    if op == "record-run":
+        return learning.run_record(args.spec, args.runs), 0
+    if op == "mine-runs":
+        if args.spool:
+            learning.index_spool(args.spool, args.runs)
+        return learning.mine(args.runs, minimum=args.minimum), 0
     if op == "intake":
         facts = read(args.issue)
         return (engine.check_issue(args.github_issue, facts) if args.github_issue else engine.intake(facts)), 0
