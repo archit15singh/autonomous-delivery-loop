@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "pallets__flask-5014",
+      "base": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",
+      "tests": [
+        "tests/test_blueprints.py::test_empty_name_not_allowed"
+      ],
+      "grader": "codex_issue_eval"
+    },
+    {
+      "id": "psf__requests-5414",
+      "base": "39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e",
+      "tests": [
+        "tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]"
+      ],
+      "grader": "codex_issue_eval"
+    },
+    {
+      "id": "pytest-dev__pytest-10051",
+      "base": "aa55975c7d3f6c9f6d7f68accc41bb7cadf0eb9a",
+      "tests": [
+        "testing/logging/test_fixture.py::test_clear_for_call_stage"
+      ],
+      "grader": "codex_issue_eval"
+    },
+    {
+      "id": "act-2517",
+      "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
+      "candidate": "6f9c21d7a50980ac6141b19c1651b747f136068f",
+      "tests": [
+        "go",
+        "test",
+        "-short",
+        "-v",
+        "./pkg/runner",
+        "-run",
+        "^TestInvalidCompositeStepRequiresNoCleanup$",
+        "-count=1"
+      ],
+      "grader": "upstream_replay"
+    },
+    {
+      "id": "act-2708",
+      "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
+      "candidate": "2e5357b2ef92b2128b82f491b3815aa81b2d4bbb",
+      "tests": [
+        "go",
+        "test",
+        "-short",
+        "-v",
+        "./cmd",
+        "-run",
+        "^TestNewSecretsPreservesEmptyEnvironmentValue$",
+        "-count=1"
+      ],
+      "grader": "upstream_replay"
+    },
+    {
+      "id": "act-6236",
+      "base": "ac4c09993f474fc8091608f2f7cf85a69dfd012f",
+      "candidate": "5b250f9f1dd07aa676ae388cf2e9f48632f6bde8",
+      "tests": [
+        "go",
+        "test",
+        "-race",
+        "-v",
+        "./pkg/container",
+        "-run",
+        "^(TestCleanImage|TestGetImagePullOptions|TestDockerPullSendsDockerHubAuthForBothImageNames)$",
+        "-count=1"
+      ],
+      "grader": "upstream_replay"
+    }
+  ],
+  "files": {
+    "evals/cases.json": "7dd6ecd7b36e69562e3c5c7f1ecac1c73de716e88ef3180b48c58f7381a55ff4",
+    "evals/requirements.txt": "9870317ad50bd1fb1898fca12c51c867a9cb7ef91fc89511a5a69be96a6624b4",
+    "evals/run.py": "346a545b946818be3fa809d85db3e71f5605ca25ad90da8c327e8e3c31b2b5af",
+    "evals/replay.py": "5fed6c2fb8ffb1a5d78f04d4400292e3c4f2c5808379c93b3ba2b0f6413035c9",
+    "contracts/upstream/act-2517.json": "da2ed6b21f6525bb4104329b6e67cad19c7e7b1ad5172340b242ca6cdbfa9e67",
+    "contracts/upstream/act-2708.json": "d26d27ce121037bfad23d6f366a84d8b6f7b719683811bef1a915775fbfc7cd2",
+    "contracts/upstream/act-6236.json": "4e83ca594f339099ab6f408ff511b6180e53ecb521fa9e8ed1761fe985ae0d1d"
+  }
+}

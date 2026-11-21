@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 
+from . import factory_cli
 from .candidate import check_candidate, propose
 from .stage import stage
 from .upstream import replay
@@ -50,6 +51,7 @@ def main():
     agent.add_argument("--contract", type=Path, required=True)
     agent.add_argument("--output", type=Path, required=True)
     agent.add_argument("--events", type=Path, required=True)
+    agent.add_argument("--recipe-output", type=Path, help="record the reviewed Codex execution recipe")
     agent.add_argument("--evidence", type=Path)
     agent.add_argument("--model", default="gpt-6.2-sol")
     agent.add_argument("--timeout", type=int, default=180)
@@ -93,7 +95,15 @@ def main():
     precedents.add_argument("--days", type=int, default=60)
     precedents.add_argument("--limit", type=int, default=30, help="maximum examples per target branch")
     precedents.add_argument("--output", type=Path, default=Path("-"))
+    factory_cli.register(commands)
     args = parser.parse_args()
+    if args.command == "factory":
+        try:
+            result, code = factory_cli.dispatch(args)
+        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error, subprocess.SubprocessError) as exc:
+            parser.error(str(exc))
+        write(args.output, result)
+        return code
     if args.command == "upstream-actions":
         try:
             ledger = ActionLedger(args.ledger)
@@ -163,7 +173,7 @@ def main():
         contract = Contract.read(args.contract)
         receipt = json.loads(args.evidence.read_text()) if args.evidence else None
         revision, repairs_used = propose(contract, args.output, args.events, args.model,
-                                         args.timeout, receipt)
+                                         args.timeout, receipt, recipe_output=args.recipe_output)
         print(json.dumps({"revision": revision, "repairs_used": repairs_used,
                           "patch": str(args.output)}))
         return 0
