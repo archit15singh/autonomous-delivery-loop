@@ -48,6 +48,15 @@ CREATE TABLE IF NOT EXISTS pushes (
     state TEXT NOT NULL DEFAULT 'unconfirmed'
 );
 CREATE INDEX IF NOT EXISTS pushes_pr ON pushes(pr, failure_key);
+CREATE TABLE IF NOT EXISTS staging_publications (
+    publication TEXT PRIMARY KEY,
+    candidate TEXT NOT NULL,
+    policy TEXT NOT NULL,
+    manifest TEXT NOT NULL,
+    reservation TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    state TEXT NOT NULL
+);
 """
 
 
@@ -110,6 +119,21 @@ class ActionLedger:
                 yield db
         finally:
             db.close()
+
+    def staging_publication(self, *, candidate, policy, manifest, reservation, branch, state):
+        if state not in {"reserved", "published"}:
+            raise ValueError("invalid staging publication state")
+        key = digest([candidate, policy, manifest, reservation, branch])
+        with self._connection(write=True) as db:
+            if state == "reserved":
+                db.execute("INSERT OR IGNORE INTO staging_publications VALUES (?, ?, ?, ?, ?, ?, ?)",
+                           (key, candidate, policy, manifest, reservation, branch, state))
+            else:
+                updated = db.execute("UPDATE staging_publications SET state=? WHERE publication=?",
+                                     (state, key)).rowcount
+                if not updated:
+                    raise ValueError("staging publication has no reservation")
+        return key
 
     def observe(self, records, scan):
         result = {"observed": 0, "planned": 0, "ignored_older": 0, "reconciled": 0}

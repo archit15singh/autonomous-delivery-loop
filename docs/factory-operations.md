@@ -49,7 +49,20 @@ For Argo, export the real AnalysisRun with a read-only Kubernetes identity and r
 
 `factory benchmark --frozen evals/frozen.json` validates a six-issue manifest. Three cases use the Codex issue grader and three use exact upstream acceptance replays. Use the existing independent runners for the appropriate case class. For paired comparisons pass `--trials results.json` with `round`, `case`, `variant`, `verified`, `seconds`, `tokens` and `interventions`. Use `baseline` and `candidate` as variants. You can select an exact cohort using repeated `--case`. Promotion needs two complete paired rounds, preserved quality, and replicated efficiency gains.
 
-The main-owned trusted judge emits a verified manifest with the contract, artifact, exact candidate, and policy revision. A separate GitHub Actions job attests that manifest. Run `factory publish MANIFEST --candidate SHA --contract pilot` to validate it. Add `--apply` for an explicitly authorized push to the owned `factory/verified-<sha>` staging namespace. The publisher verifies signer workflow identity and the current main policy, checks allowed changes, creates an immutable staging reference, and reads it back. An exact repeat returns the same result. The action ledger still governs the upstream PR workflow and maintainer approval remains authoritative. [Attestation verification](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations#verifying-artifact-attestations-with-the-github-cli)
+The main-owned trusted judge emits a manifest with the contract, artifact,
+exact candidate and policy revision. A separate Actions job attests it. Local
+`factory publish MANIFEST --candidate SHA --contract named-greeting` is a
+read-only preview. To publish, dispatch the trusted workflow from main with the
+exact candidate and approved contract, and set `publish=true`.
+
+The final job runs reviewed main code with a repository-scoped Actions token.
+It records a staging action in the SQLite ledger, reserves a create-only
+`factory/intent-<sha>` ref, then creates and reads back
+`factory/verified-<sha>`. The remote reservation and staging refs survive failed
+runners. A rerun checks signed evidence again and reuses matching refs. The job
+uploads its ledger and receipt. The stage never executes candidate code. The
+upstream PR ledger retains its own follow-up rules.
+[GitHub attestation verification](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations#verifying-artifact-attestations-with-the-github-cli)
 
 ## Record runs and find repeated failures
 
