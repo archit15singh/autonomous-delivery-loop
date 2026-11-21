@@ -22,6 +22,10 @@ cleanup() {
   kind delete cluster --name "$name"
 }
 trap cleanup EXIT
+curl -fsSL https://dl.k8s.io/release/v1.35.0/bin/linux/amd64/kubectl -o "$RUNNER_TEMP/kubectl"
+printf '%s  %s\n' a2e984a18a0c063279d692533031c1eff93a262afcc0afdc517375432d060989 "$RUNNER_TEMP/kubectl" | sha256sum -c -
+chmod +x "$RUNNER_TEMP/kubectl"
+export PATH="$RUNNER_TEMP:$PATH"
 kind version
 kind create cluster --name "$name" --image kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f --wait 120s
 kubectl version
@@ -29,7 +33,8 @@ curl -fsSL https://raw.githubusercontent.com/kubernetes/ingress-nginx/0a5901f3c6
 printf '%s  %s\n' 502fddca66b09c20dd48b6d0a792a9671cd663a3a0d2a8bda5ae990d13b6c5b2 "$output/nginx-deploy.yaml" | sha256sum -c -
 kubectl apply -f "$output/nginx-deploy.yaml"
 kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=180s
-kubectl -n ingress-nginx wait --for=condition=complete --timeout=60s job/ingress-nginx-admission-patch
+kubectl wait --for=jsonpath='{.webhooks[0].failurePolicy}'=Fail --timeout=60s validatingwebhookconfiguration/ingress-nginx-admission
+kubectl get validatingwebhookconfiguration ingress-nginx-admission -o json | jq -e 'all(.webhooks[]; .clientConfig.caBundle | length > 0)'
 kubectl -n ingress-nginx port-forward --address 127.0.0.1 service/ingress-nginx-controller 18979:80 > "$output/port-forward.log" 2>&1 &
 ingress_forward_pid=$!
 kubectl apply --server-side -k "$source_dir/manifests/crds"
