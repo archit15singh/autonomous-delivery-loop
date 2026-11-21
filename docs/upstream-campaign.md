@@ -4,13 +4,13 @@ The target is three verified, non-draft upstream PRs in each of 11 repositories.
 
 ## Snapshot
 
-GitHub state checked on November 21, 2026 at 04:48 UTC. Counts are **21 non-draft**, **3 drafts**, and **9 staged on public forks**. All 24 upstream PRs were open at their verified heads. The campaign window ends at 08:19 UTC.
+GitHub state checked on November 21, 2026 at 05:23 UTC. Counts are **21 non-draft**, **3 drafts**, and **9 staged on public forks**. All 24 upstream PRs were open at their verified heads. The campaign window ends at 08:19 UTC.
 
 | Repository | Non-draft / target | Shortfall | Verified PRs and review state |
 | --- | ---: | ---: | --- |
-| Herdr Core | 3 / 3 | 0 | Linux, macOS, and the independent Windows Server 2022 matrix passed. The required Windows Server 2025 job still fails on the same baseline Zig/Ghostty toolchain mismatch. [Windows replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44866263703). [#352](https://github.com/herdrdev/herdr-core/pull/352), [#353](https://github.com/herdrdev/herdr-core/pull/353), [#356](https://github.com/herdrdev/herdr-core/pull/356) |
+| Herdr Core | 3 / 3 | 0 | Linux and macOS passed. A same-image Windows Server 2025 replay isolated the compiler mismatch and passed with MSVC v143. The required upstream job still reports the default-toolset failure. [Windows comparison](#herdr-core-windows-ci). [#352](https://github.com/herdrdev/herdr-core/pull/352), [#353](https://github.com/herdrdev/herdr-core/pull/353), [#356](https://github.com/herdrdev/herdr-core/pull/356) |
 | Harbor | 0 / 3 | 3 | Three fixes verified on the public fork. The PR descriptions need human-written first and final drafts. [Contribution guide](https://github.com/harbor-framework/harbor/blob/main/CONTRIBUTING.md#communication) |
-| OpenCode | 3 / 3 | 0 | PR checks passed. Each PR includes a CLI, TUI, or browser reproduction for its exact head. [#65284](https://github.com/anomalyco/opencode/pull/65284), [#65291](https://github.com/anomalyco/opencode/pull/65291), [#65314](https://github.com/anomalyco/opencode/pull/65314) |
+| OpenCode | 3 / 3 | 0 | PR checks passed. The reviewed Queue Undo fix passed all 50 production-build browser cases. A hosted composer check matched draft-typing counters and found the baseline cursor counter unstable. [OpenCode follow-up](#opencode-queue-undo-review). [#65284](https://github.com/anomalyco/opencode/pull/65284), [#65291](https://github.com/anomalyco/opencode/pull/65291), [#65314](https://github.com/anomalyco/opencode/pull/65314) |
 | Schemathesis | 3 / 3 | 0 | Independent replays and Read the Docs passed. Maintainer approval is pending for the first-contributor workflows. [#6198](https://github.com/schemathesis/schemathesis/pull/6198), [#6199](https://github.com/schemathesis/schemathesis/pull/6199), [#6200](https://github.com/schemathesis/schemathesis/pull/6200) |
 | act | 3 / 3 | 0 | PR checks and independent replays passed. [#6265](https://github.com/nektos/act/pull/6265), [#6266](https://github.com/nektos/act/pull/6266), [#6267](https://github.com/nektos/act/pull/6267) |
 | Promptfoo | 3 / 3 | 0 | PR checks and exact CLI replays passed. [#12534](https://github.com/promptfoo/promptfoo/pull/12534), [#12535](https://github.com/promptfoo/promptfoo/pull/12535), [#12536](https://github.com/promptfoo/promptfoo/pull/12536) |
@@ -50,3 +50,27 @@ The fixture simulated the stale reference and briefly paused the Argo controller
 
 - Base `8c9c5ad2182ba7757bb6a35e79d2051afc31feee` and candidate `7d64fd23f32237314b498053688c32fc29b1fdbd`.
 - Commands and pinned versions in the [replay script](https://github.com/archit15singh/autonomous-delivery-loop/blob/b42d8f6734f95f6b1401d3dd34c623e4f3b95fba/verification/argo-4837.sh). [Hosted job](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44867542476/job/136734486497). [Raw evidence](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44867542476/artifacts/14692149489).
+
+
+## Herdr Core Windows CI
+
+The required Windows check fails before tests on image `20261116.315.1`. On that same image, the pinned upstream base reproduces the failure with Zig 0.16.0 and the default MSVC 14.52. Selecting the installed MSVC 14.44 headers and libraries through `ZIG_LIBC` passes native Clippy and the full Windows suite on the base and all three exact PR heads.
+
+| Windows Server 2025 run | Native build and tests |
+| --- | --- |
+| Upstream base and default MSVC 14.52 | Clippy exited 101 in Ghostty with `STL1000`. |
+| Same base and MSVC 14.44 for Zig | Clippy and the full suite passed, including all 39 Windows integration tests. |
+| PRs #352, #353, and #356 with MSVC 14.44 for Zig | Clippy and the full suite passed on all three heads, including all 39 Windows integration tests per head. |
+
+[Upstream issue #361](https://github.com/herdrdev/herdr-core/issues/361) · [Default-toolset control](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44869513082) · [Passing base](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44868708546) · [Passing PR matrix](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44869165909)
+
+Two already-open upstream upgrades also passed native Clippy and all 39 Windows integration tests on image `20261116.315.1` with the default MSVC 14.52 and Zig 0.17.1. These runs verify the current upgrade heads independently. The original required check on the three campaign PRs remains red.
+
+- [#289](https://github.com/herdrdev/herdr-core/pull/289) at `6826d5ab3bdd3cee09e501a0c35499f384f01ad4` passed with the minimum Ghostty update for Zig 0.17. [Replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44870385734/job/136743367076)
+- [#290](https://github.com/herdrdev/herdr-core/pull/290) at `48b044651cc565c5017c634d69df4734468bac31` passed with the newer Ghostty API. [Replay](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44870385734/job/136743367363)
+
+## OpenCode Queue Undo review
+
+At exact head `39cf7a3c64128c0bce7bc6378488a3e72ed65b80`, clicking Undo after delivery tells the user the prompt was already sent and preserves the draft. All 50 production-build browser cases and 69 focused tests passed. The hosted Strobe check matched 26 draft encodes per typing run on both sides. Cursor moves produced 5 and 6 encodes across the two baseline launches, so Strobe reported no exact comparison for that case. Timing remains unverified.
+
+[OpenCode #65314](https://github.com/anomalyco/opencode/pull/65314) · [Review replay](https://github.com/archit15singh/autonomous-delivery-loop/tree/a2cd92e2052dc03c18c1ab396955daa7fd217bdd/docs/evidence/opencode-64648) · [Strobe run](https://github.com/archit15singh/autonomous-delivery-loop/actions/runs/44869930492/job/136741952701)
