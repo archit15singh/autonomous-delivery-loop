@@ -13,6 +13,7 @@ class UpstreamCITests(unittest.TestCase):
         self.pr = {
             "state": "OPEN", "isDraft": False, "headRefOid": HEAD,
             "baseRefOid": "b" * 40, "headRefName": "fix",
+            "baseRefName": "main", "closingIssuesReferences": [],
             "headRepository": {"nameWithOwner": "author/project"},
             "statusCheckRollup": [{"context": "Docs", "state": "SUCCESS"}],
         }
@@ -59,9 +60,12 @@ class UpstreamCITests(unittest.TestCase):
 
     @patch("delivery.upstream_ci.gh_json")
     def test_merged_pr_needs_no_further_ci_requests(self, github):
-        github.return_value = {**self.pr, "state": "MERGED"}
-        record, = inspect_prs([URL])
+        github.return_value = {**self.pr, "state": "MERGED", "mergedAt": "2026-11-21T08:00:00Z",
+                               "mergedBy": {"login": "maintainer"}, "mergeCommit": {"oid": "c" * 40}}
+        record, = inspect_prs([URL], review=True)
         self.assertEqual(record["action"], "closed")
+        self.assertEqual(record["merged_by"], "maintainer")
+        self.assertEqual(record["merge_commit"], "c" * 40)
         github.assert_called_once()
 
     def test_failure_pending_and_missing_evidence(self):

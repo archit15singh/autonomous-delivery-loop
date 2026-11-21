@@ -10,6 +10,7 @@ from .candidate import check_candidate, propose
 from .stage import stage
 from .upstream import replay
 from .upstream_ci import inspect_prs
+from .upstream_merge import merge_precedents
 from .upstream_pr import prepare
 from .verify import Contract
 
@@ -64,7 +65,26 @@ def main():
     ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
     ci.add_argument("--output", type=Path, default=Path("-"))
     ci.add_argument("--review", action="store_true", help="include reviews, unresolved threads, and merge state")
+    precedents = commands.add_parser("upstream-merges", help="compare recent merges with tracked PR gates")
+    precedents.add_argument("current", type=Path, help="fresh upstream-ci --review receipt")
+    precedents.add_argument("--days", type=int, default=60)
+    precedents.add_argument("--limit", type=int, default=30, help="maximum examples per target branch")
+    precedents.add_argument("--output", type=Path, default=Path("-"))
     args = parser.parse_args()
+    if args.command == "upstream-merges":
+        if not (1 <= args.days <= 365 and 1 <= args.limit <= 100):
+            parser.error("--days must be 1–365 and --limit must be 1–100")
+        try:
+            report = merge_precedents(json.loads(args.current.read_text()),
+                                       days=args.days, limit=args.limit)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            parser.error(str(exc))
+        write(args.output, report)
+        return int(bool(report["missing_prs"]) or any(
+            "error" in branch or "linked_issue_error" in branch
+            or "error" in branch.get("active_rulesets", {})
+            for branch in report["branches"]
+        ))
     if args.command == "upstream-prepare":
         try:
             receipt = prepare(args.repo, args.contract, args.template, args.evidence_url, args.output)

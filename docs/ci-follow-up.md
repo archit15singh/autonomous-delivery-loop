@@ -41,3 +41,22 @@ Use the review action alongside the CI action. Read the relevant GitHub thread w
 | `inspect_merge_gate` | Inspect GitHub's merge box for remaining rules or permissions. Keep the gate open until the reason is known. |
 
 If the review action repeats a CI action, follow the CI procedure above. Record new or resolved feedback in the same durable queue by URL and head SHA. A GitHub `MERGED` state closes the contribution. Preserve a closed-without-merge result separately from a merge. For third-party repositories, upstream maintainers control approval and merge. Follow each repository's contributor policy. Update PR evidence on an authorized branch within the existing repair budget.
+
+## Use merge precedents when the path is unclear
+
+Collect precedents for a new repository, a changed or unexplained merge gate, or a weekly refresh of the active portfolio. Run each command from the factory checkout.
+
+```sh
+python3 -m delivery upstream-ci --review --file .adl/upstream-ci/prs.txt --output .adl/upstream-ci/current.json
+python3 -m delivery upstream-merges .adl/upstream-ci/current.json --output .adl/upstream-ci/merge-precedents.json
+```
+
+The second command groups tracked PRs by repository and exact base branch. It reads a bounded GitHub search sample of merged PRs and records the merge actor and commit, reviews submitted by merge time, ready-for-review and queue events, and time to merge. A separate lookup reads active public rulesets on each branch. For issues explicitly linked to an open PR, it also checks linked closing PRs outside the sample's date range. Increase `--days` for repositories with little recent activity. See the [first portfolio sweep](upstream-merge-research.md).
+
+| Action | Codex follow-up |
+| --- | --- |
+| `update_branch_and_reverify` | GitHub shows the PR is behind and an active ruleset requires current branches. Recheck the head and base, preserve concurrent and maintainer commits, use the repository's allowed update method, pass the local preparation gate and refresh CI evidence for the new head. |
+| `verify_possible_upstream_resolution` | Read the other merge and its issue link. Replay the original behavior on the current upstream base before continuing changes to the PR. If covered, record the evidence and follow the repository's closing procedure within existing authority. |
+| Existing review and CI actions | Keep the live actions in the queue even when precedent collection fails or a past PR took a different path. Resolve missing or incomplete evidence from the source when it affects a decision. |
+
+Use precedents to find the project-specific route for an existing gate. Treat GitHub review and timeline entries as observations and consult current contributor guidance. Search results favor recently updated PRs and can be truncated. Older approval history can be incomplete, and the branch rules response covers active rulesets. A historical merge supplies neither merge permission nor approval for a tracked PR. [GitHub branch rules API](https://docs.github.com/en/rest/repos/rules#get-rules-for-a-branch)
