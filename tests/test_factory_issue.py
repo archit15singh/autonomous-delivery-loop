@@ -28,7 +28,7 @@ class IssueDispatchTest(unittest.TestCase):
                     {"login": "owner"}, {"permissions": {"push": True}},
                     {"login": "owner"}, {"permissions": {"push": True}},
                 ]),
-                patch.object(factory_issue, "running_definition", return_value={"revision": plan["base"]}),
+                patch.object(factory_issue.sys, "platform", "darwin"),\n                patch.object(factory_issue, "running_definition", return_value={"revision": plan["base"]}),
                 patch.object(factory_issue, "generate", return_value="c" * 40) as generate,
                 patch.object(factory_issue, "publish", return_value="https://example.test/pr") as publish,
             ):

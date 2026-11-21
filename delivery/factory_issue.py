@@ -11,7 +11,7 @@ import time
 
 from .candidate import FULL_REVISION, git
 from .factory_definition import running_definition
-from .factory_workflow import check_issue, record
+from .factory_workflow import check_issue, lock, record
 from .upstream_actions import ActionLedger, digest
 from .upstream_ci import gh_json
 from .verify import Contract
@@ -31,6 +31,9 @@ def issue_plan(url, spec_path):
         raise ValueError("the owned issue pilot supports changes to the HTTP service only")
     if not isinstance(spec.get("reproduction"), str) or not spec["reproduction"].strip():
         raise ValueError("provide the issue reproduction in the spec")
+    reproduction_path = spec.get("reproduction_path")
+    if sum(probe.path == reproduction_path for probe in contract.probes) != 1:
+        raise ValueError("reproduction_path must identify exactly one contract probe")
     number = match[1]
     issue = gh_json("api", f"repos/{REPOSITORY}/issues/{number}")
     if "pull_request" in issue or LABEL not in {label["name"] for label in issue["labels"]}:
@@ -85,7 +88,9 @@ def generate(repo, paths, plan, spec, model, timeout, key):
         with checkout(repo, folder / "work", base) as workspace:
             baseline = stage_candidate(workspace, spec, paths / "baseline-bundle",
                                        paths / "baseline.json", base, base, f"{key[:16]}-base")
-            if baseline["verdict"] != "failed" or baseline["reason"] != "probe_failed":
+            reproduction = json.loads(spec.read_text())["reproduction_path"]
+            if (baseline["reason"] != "probe_failed"
+                    or [probe["path"] for probe in baseline["probes"] if not probe["passed"]] != [reproduction]):
                 raise ValueError("approved probe did not reproduce the issue on main")
             patch = paths / "candidate.patch"
             delivery(workspace, "propose", "--contract", spec, "--output", patch,
@@ -126,13 +131,21 @@ The HTTP service ran in an isolated local staging process. The trusted policy te
 ran on the approved base and GitHub runs the candidate checks after publication.
 """
     )
-    git("push", f"--force-with-lease={ref}:", remote, f"{candidate}:{ref}", cwd=repo)
-    url = subprocess.check_output(
+    refs = git("ls-remote", remote, ref, cwd=repo).decode().split()
+    if not refs:
+        git("push", f"--force-with-lease={ref}:", remote, f"{candidate}:{ref}", cwd=repo)
+    elif refs != [candidate, ref]:
+        raise ValueError("existing draft branch differs from verified candidate")
+    existing = gh_json("pr", "list", "--repo", REPOSITORY, "--head", branch,
+                       "--base", "main", "--state", "all", "--json", "url")
+    if len(existing) > 1:
+        raise ValueError("found multiple drafts for the issue branch")
+    url = existing[0]["url"] if existing else subprocess.check_output(
         ["gh", "pr", "create", "--repo", REPOSITORY, "--base", "main", "--head", branch,
          "--title", f"Resolve owned issue #{plan['number']}", "--draft", "--body-file", str(body)],
         text=True).strip()
-    pr = gh_json("pr", "view", url, "--json", "url,headRefOid,isDraft")
-    if pr != {"url": url, "headRefOid": candidate, "isDraft": True}:
+    pr = gh_json("pr", "view", url, "--json", "url,headRefOid,baseRefOid,isDraft")
+    if pr != {"url": url, "headRefOid": candidate, "baseRefOid": base, "isDraft": True}:
         raise ValueError("draft PR identity does not match the verified candidate")
     return url
 
@@ -150,19 +163,28 @@ def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout):
         raise ValueError("the approved operator must dispatch the issue")
     if running_definition(repo)["revision"] != plan["base"]:
         raise ValueError("dispatch from the exact reviewed main checkout")
-    ledger = ActionLedger(ledger_path)
+    if (sys.platform != "darwin" or Path(sys.executable).resolve().is_relative_to(Path.home().resolve())):\n        raise ValueError("use a macOS runner with Python installed outside the home directory")\n    ledger = ActionLedger(ledger_path)
     key = digest(plan)
-    prior = ledger.reserve_once("owned_issue", url, key)
-    if prior is not None:
-        return {"state": "already_dispatched", "reservation": prior}
     output = output.resolve() / key
-    output.mkdir(parents=True, exist_ok=False)
-    frozen_spec = output / "contract.json"
-    frozen_spec.write_bytes(spec.read_bytes())
-    if Contract.read(frozen_spec).digest != plan["spec_sha256"]:
-        raise ValueError("specification changed during dispatch")
-    record(output / "approval.json", grant)
-    candidate = generate(repo, output, plan, frozen_spec, model, timeout, key)
+    with lock(output):
+        return dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started)
+
+
+def dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started):
+    checkpoint = output / "verified-head.json"
+    prior = ledger.reserve_once("owned_issue", url, key)
+    if prior is not None and (prior["identity"] != key or prior["result"] or not checkpoint.exists()):
+        return {"state": "already_dispatched", "reservation": prior}
+    if prior is None:
+        frozen_spec = output / "contract.json"
+        frozen_spec.write_bytes(spec.read_bytes())
+        if Contract.read(frozen_spec).digest != plan["spec_sha256"]:
+            raise ValueError("specification changed during dispatch")
+        record(output / "approval.json", grant)
+        candidate = generate(repo, output, plan, frozen_spec, model, timeout, key)
+        record(checkpoint, {"candidate": candidate})
+    else:
+        candidate = json.loads(checkpoint.read_text())["candidate"]
     if issue_plan(url, spec) != plan:
         return {"state": "stale_before_publication", "candidate": candidate}
     pr = publish(repo, output, plan, candidate)

@@ -19,7 +19,7 @@ states alongside deployment observations.
 
 Opt in by applying the `adl-candidate` label to one owned issue. Use a local
 contract with the usual outcome, three acceptance examples, and HTTP probes.
-Include `reproduction` and add `technical_brief` when an interface decision needs
+Include `reproduction` and `reproduction_path` and add `technical_brief` when an interface decision needs
 review. Keep the brief and approval on the operator-controlled runner.
 
 ```sh
@@ -31,9 +31,9 @@ python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \\
 ```
 
 Run the dispatcher from reviewed main on macOS with authenticated GitHub and
-Codex CLIs. An edited issue, contract, or main revision invalidates the approval.
+Codex CLIs and a Python installation outside the user home directory. An edited issue, contract, or main revision invalidates the approval.
 Keep one durable SQLite ledger across invocations. The dispatcher holds a
-reservation before starting the agent. A retry reports the existing reservation
+reservation before starting the agent. A retry can finish an interrupted publication from its verified checkpoint or report the existing reservation
 and any published PR. Investigate an unfinished reservation against the local
 receipts and GitHub branch before taking another action. Candidate execution
 denies writes, home directory reads and non-loopback networking.
