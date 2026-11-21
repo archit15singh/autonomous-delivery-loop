@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from delivery.upstream_ci import inspect_prs, next_action, signal
+from delivery.upstream_ci import inspect_prs, next_action, review_action, signal
 
 
 URL = "https://github.com/owner/project/pull/123"
@@ -75,3 +75,60 @@ class UpstreamCITests(unittest.TestCase):
         for states, expected in cases:
             with self.subTest(states=states):
                 self.assertEqual(next_action([signal("check", state, None) for state in states]), expected)
+
+    def test_review_routing_uses_github_merge_state(self):
+        pr = {"reviewDecision": "", "mergeStateStatus": "CLEAN", "mergeable": "MERGEABLE"}
+        record = {"draft": False, "action": "checks_passed"}
+        cases = [
+            ({}, {}, [], "await_maintainer_merge"),
+            ({"reviewDecision": "REVIEW_REQUIRED"}, {}, [], "await_maintainer_review"),
+            ({"mergeStateStatus": "BEHIND"}, {}, [], "check_branch_update"),
+            ({"mergeable": "CONFLICTING"}, {}, [], "resolve_conflicts"),
+            ({"mergeStateStatus": "BLOCKED"}, {}, [], "inspect_merge_gate"),
+            ({}, {"action": "await_approval"}, [], "await_approval"),
+            ({}, {"draft": True}, [], "complete_draft_requirements"),
+            ({"reviewDecision": "CHANGES_REQUESTED"}, {}, [], "inspect_review_feedback"),
+            ({}, {}, [{"participant": "human", "outdated": False}], "inspect_review_feedback"),
+            ({}, {}, [{"participant": "human", "outdated": True}], "await_maintainer_merge"),
+        ]
+        for pr_fields, receipt_fields, threads, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(
+                    review_action({**record, **receipt_fields}, {**pr, **pr_fields}, threads),
+                    expected,
+                )
+
+    @patch("delivery.upstream_ci.gh_json")
+    def test_reads_inline_threads_and_distinguishes_people_and_bots(self, github):
+        self.pr.update(reviewDecision="REVIEW_REQUIRED", mergeStateStatus="BLOCKED", mergeable="MERGEABLE")
+        human = {"author": {"login": "maintainer", "__typename": "User"},
+                 "authorAssociation": "MEMBER", "url": URL + "#human"}
+        bot = {"author": {"login": "reviewbot", "__typename": "Bot"},
+               "authorAssociation": "CONTRIBUTOR", "url": URL + "#bot"}
+        discussion = {**human, "url": URL + "#comment", "isMinimized": False}
+        formal = {**bot, "state": "COMMENTED", "commit": {"oid": HEAD}}
+        thread = {"isResolved": False, "isOutdated": False, "comments": {"nodes": [human]}}
+
+        def page(threads, head=HEAD):
+            return {"data": {"repository": {"pullRequest": {
+                "headRefOid": head,
+                "author": {"login": "author"},
+                "latestReviews": {"nodes": [formal], "pageInfo": {"hasNextPage": False}},
+                "comments": {"nodes": [discussion]},
+                "reviewThreads": {"nodes": threads},
+            }}}}
+
+        github.side_effect = [self.pr, [{"workflow_runs": []}],
+                              [page([{**thread, "isResolved": True}]), page([thread])]]
+        record, = inspect_prs([URL], review=True)
+        self.assertEqual(record["action"], "checks_passed")
+        data = record["review"]
+        self.assertEqual(data["action"], "inspect_review_feedback")
+        self.assertEqual(data["reviews"][0]["participant"], "bot")
+        self.assertEqual([t["url"] for t in data["unresolved_threads"]], [human["url"]])
+        self.assertEqual([t["url"] for t in data["recent_affiliated_comments"]], [discussion["url"]])
+
+        github.side_effect = [self.pr, [{"workflow_runs": []}], [page([], "c" * 40)]]
+        record, = inspect_prs([URL], review=True)
+        self.assertEqual(record["action"], "checks_passed")
+        self.assertEqual(record["review"]["action"], "lookup_failed")
