@@ -11,6 +11,8 @@ def routes(path, query=""):
         return 200, {"ready": True}
     if path == "/greet":
         name = parse_qs(query).get("name", ["world"])[0]
+        if not name.strip():
+            name = "world"
         return 200, {"message": f"Hello, {name}!"}
     return 404, {"error": "not found"}
 
