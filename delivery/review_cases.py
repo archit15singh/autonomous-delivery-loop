@@ -128,13 +128,17 @@ def harvest(repo, pr_url, review_id, split, directory):
                            f"{route}/reviews/{chosen['id']}/comments?per_page=100")
         inline = [c for page in comments for c in page if not c.get("in_reply_to_id") and c.get("path")
                   and ((c.get("user") or {}).get("login") or "").casefold() == chosen["user"]["login"].casefold()]
-    rationale = (chosen.get("body") or "").strip() or "\n".join(
-        f"{c['path']}: {c['body']}" for c in inline if c.get("body"))
+    rationale = "\n".join(filter(None, [(chosen.get("body") or "").strip(),
+                                     *(f"{c['path']}: {c['body']}" for c in inline if c.get("body"))]))
+    if chosen["state"] == "CHANGES_REQUESTED" and not rationale.strip():
+        raise ValueError("a request for changes needs a description of the defect")
+    if len(rationale) > 24000:
+        raise ValueError("review rationale exceeds the supported evidence size")
     current = gh_json("api", route)
     if any(current[k]["sha"] != pr[k]["sha"] for k in ("head", "base")) or current["base"]["ref"] != pr["base"]["ref"]:
         raise ValueError("PR revisions moved during harvest")
     case = {"version": 1, "pr": pr["html_url"], "base": bases[0], "target_base": target, "head": head,
-            "expected": VERDICTS[chosen["state"]], "split": split, "rationale": rationale[:8000],
+            "expected": VERDICTS[chosen["state"]], "split": split, "rationale": rationale,
             "finding_paths": sorted({c["path"] for c in inline}),
             "reviewer": chosen["user"]["login"], "association": chosen["author_association"], "author": author,
             "can_push": True, "submitted_at": chosen["submitted_at"], "review_id": chosen["id"], "evidence": chosen["html_url"]}
@@ -145,7 +149,8 @@ def harvest(repo, pr_url, review_id, split, directory):
     with closing(sqlite3.connect(directory / ".harvest.sqlite3")) as lock:
         lock.execute("BEGIN IMMEDIATE")
         for existing in load_cases(directory):
-            if existing == case:
+            # Advancing the target branch can leave the original diff identical.
+            if existing == {**case, "target_base": existing["target_base"]}:
                 return existing
             if (_subject(existing["pr"])[0].casefold() != repository.casefold() or existing["pr"] == case["pr"]
                     or existing["head"] == head):

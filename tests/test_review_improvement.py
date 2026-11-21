@@ -46,6 +46,8 @@ class ReviewImprovementTests(unittest.TestCase):
 
     def test_patch_requires_complete_passing_reports_and_applies_to_cold_review(self):
         self.candidate.write_text(self.baseline.read_text() + "Check visible behavior.\n")
+        for case in self.cases:
+            case["rationale"] = ""
         hashes = {"baseline": digest(self.baseline.read_text()), "candidate": digest(self.candidate.read_text())}
         receipt = {"rounds": 2, "model": "m", "version": 1, "dataset_sha256": digest(self.cases),
                    "baseline_sha256": hashes["baseline"], "candidate_sha256": hashes["candidate"], "results": []}
@@ -83,7 +85,8 @@ class ReviewImprovementTests(unittest.TestCase):
             findings = [{"key": "bug", "path": "app.py", "finding": "Wrong output"}] if found else []
             return {**subject, "model": model, "skill": digest(skill), "findings": findings}
 
-        with patch.object(loop.review_cases, "check_remote"), patch.object(loop.review_experiment, "check_remote"), \
+        with patch("delivery.review_judge._compare", return_value={"matched": True, "reason": "same defect"}), \
+             patch.object(loop.review_cases, "check_remote"), patch.object(loop.review_experiment, "check_remote"), \
              patch.object(loop, "draft", side_effect=draft) as drafter, \
              patch.object(loop.factory_feedback, "review", side_effect=review) as reviewer:
             def run():

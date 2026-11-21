@@ -6,9 +6,11 @@ import re
 from tempfile import TemporaryDirectory
 
 from . import factory_feedback as feedback
+from . import review_judge
 from .github import PR_URL
 from .review_artifact import publish_new
 from .review_cases import check_remote
+from .review_judge import adjudicate
 from .revisions import FULL_REVISION
 from .upstream_actions import digest
 
@@ -61,11 +63,16 @@ def _checked_findings(report, subject, model, prompt_digest):
     feedback.finding_keys(report)
 
 
-def decision_error(case, findings):
+def decision_error(case, findings, judgment=None):
     """Classify one PR decision using any file anchors in its human review."""
     if case["expected"] == "ship":
         return "false_alarms" if findings else None
     paths = {finding["path"] for finding in findings}
+    if review_judge.needs_judge(case, findings):
+        if not isinstance(judgment, dict) or type(judgment.get("matched")) is not bool:
+            raise ValueError("missing or malformed semantic judgment")
+        if not judgment["matched"]:
+            return "misses"
     if not findings or not paths.issuperset(case.get("finding_paths", [])):
         return "misses"
     return None
@@ -99,7 +106,9 @@ def rescore(cases, receipt):
         seen.add(slot)
         case = cohort[pr]
         _checked_findings(report, case, receipt["model"], hashes[variant])
-        error = decision_error(case, report["findings"])
+        judgment = trial.get("judgment")
+        review_judge.validate(case, report["findings"], receipt["model"], judgment)
+        error = decision_error(case, report["findings"], judgment)
         if error:
             summary[number - 1][case["split"]][variant][error] += 1
     if len(seen) != rounds * len(VARIANTS) * len(cohort):
@@ -129,6 +138,26 @@ def _trial(repo, subject, prompt, model, timeout, prompt_digest, cache):
                 report = json.loads(cache.read_text())
     _checked_findings(report, subject, model, prompt_digest)
     return report
+
+
+def _judge_trial(case, findings, model, timeout, cache):
+    if not review_judge.needs_judge(case, findings):
+        return None
+    path = None
+    if cache is not None:
+        # Keep the completed reviewer output reusable if the separate judge is interrupted.
+        path = cache.parent / ("judge-" + review_judge.RUBRIC_SHA256) / cache.name
+    if path is not None and path.exists():
+        judgment = json.loads(path.read_text())
+    else:
+        judgment = adjudicate(case, findings, model, timeout)
+        if path is not None:
+            try:
+                publish_new(path, json.dumps(judgment))
+            except FileExistsError:
+                judgment = json.loads(path.read_text())
+    review_judge.validate(case, findings, model, judgment)
+    return judgment
 
 
 def evaluate(repo, cases, baseline_path, candidate_path, model, timeout, rounds=3, cache_dir=None):
@@ -161,5 +190,7 @@ def evaluate(repo, cases, baseline_path, candidate_path, model, timeout, rounds=
                         cache = cache_dir / (key + ".json")
                     report = _trial(repo, subject, paths[variant], model, timeout,
                                     receipt[variant + "_sha256"], cache)
-                    receipt["results"].append({"round": number, "variant": variant, "report": report})
+                    judgment = _judge_trial(case, report["findings"], model, timeout, cache)
+                    receipt["results"].append({"round": number, "variant": variant,
+                                               "report": report, "judgment": judgment})
     return {**receipt, **rescore(cases, receipt)}

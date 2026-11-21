@@ -33,13 +33,14 @@ def draft(repo, cases, guidance, output, model, timeout):
         for case in development:
             subject = {key: case[key] for key in ("pr", "base", "head")}
             report = factory_feedback.review(repo, subject, frozen, model, timeout)
-            provenance["reviews"].append(report)
+            judgment = review_experiment.adjudicate(case, report["findings"], model, timeout)
+            provenance["reviews"].append({"report": report, "judgment": judgment})
             predicted = "changes" if report["findings"] else "ship"
             paths = {finding["path"] for finding in report["findings"]}
             missing = sorted(set(case.get("finding_paths", [])) - paths)
-            if review_experiment.decision_error(case, report["findings"]):
+            if review_experiment.decision_error(case, report["findings"], judgment):
                 errors.append({"expected": case["expected"], "rationale": case["rationale"],
-                               "predicted": predicted, "uncovered_paths": missing, "findings": report["findings"]})
+                               "predicted": predicted, "judgment": judgment, "uncovered_paths": missing, "findings": report["findings"]})
         if not errors:
             return {**provenance, "status": "no_development_disagreements"}
         instruction = (
@@ -100,7 +101,7 @@ def cycle(repo, cases, guidance, work_dir, model, timeout, rounds):
         raise ValueError("harvest labeled decisions before running the loop")
     review_cases.check_remote(repo, review_cases.PR_URL.fullmatch(cases[0]["pr"])[1])
     baseline = guidance.read_text()
-    inputs = {"version": 1, "dataset_sha256": digest(cases), "baseline_sha256": digest(baseline),
+    inputs = {"version": 2, "dataset_sha256": digest(cases), "baseline_sha256": digest(baseline),
               "model": model, "rounds": rounds}
     run = work_dir / digest(inputs)
     run.mkdir(parents=True, exist_ok=True)

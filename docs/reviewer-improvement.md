@@ -20,6 +20,13 @@ python3 -m delivery factory review-loop harvest \
 
 Repeat for each decision. The harvester writes one immutable JSON file per PR, with the review URL, author, rationale, reviewed commit, merge base, verdict and any file locations on a request for changes. Archive the case files with the experiment. A later repair on the branch can follow the original reviewed revision. Ambiguous, dismissed, retargeted or unrecoverable reviews can be ineligible. GitHub association and current push access establish provenance. An unmarked account can still use automation, and an approved change can still have a bug. Inspect the evidence when selecting cases.
 
+The first Inspect AI pilot used these four decisions. The holdout cases are reserved for evaluation. The two development PRs concern an invalidated sample during retry and a documented handoff example.
+
+| Split | Approval | Changes requested |
+| --- | --- | --- |
+| Development | [#6701 · 6007787800](https://github.com/UKGovernmentBEIS/inspect_ai/pull/6701#pullrequestreview-6007787800) | [#6652 · 5984485987](https://github.com/UKGovernmentBEIS/inspect_ai/pull/6652#pullrequestreview-5984485987) |
+| Holdout | [#6649 · 5981083262](https://github.com/UKGovernmentBEIS/inspect_ai/pull/6649#pullrequestreview-5981083262) | [#6308 · 5936577281](https://github.com/UKGovernmentBEIS/inspect_ai/pull/6308#pullrequestreview-5936577281) |
+
 ## Run the loop
 
 Once the case directory is ready, use one command for the full cycle.
@@ -42,9 +49,9 @@ python3 -m delivery factory --output .adl/reviewer/experiment.json review-loop e
 
 The proposer runs the baseline on development cases. If it finds a disagreement it asks Codex to draft revised guidance using the development evidence. It leaves the candidate path empty when the decisions agree. An operator can also supply a candidate using the current skill’s front matter.
 
-Evaluation defaults to three rounds. Each case gets a baseline and candidate review in each round using one model. Four cases cost 24 reviews at that setting, in addition to proposal work. The model sees the diff and reviewer guidance. The scorer sees the independent GitHub decision. Completed trials are written atomically and reused on retry with matching inputs.
+Evaluation defaults to three rounds. Each case gets a baseline and candidate review in each round using one model. Four cases cost 24 reviews at that setting, plus proposal work and separate judgments on disputed defects. The model sees the diff and reviewer guidance. The scorer sees the independent GitHub decision. Completed trials are written atomically and reused on retry with matching inputs.
 
-A false alarm is a finding on an approved revision. A miss is a change request the model approved or one where it missed a cited file. Agreement on a file cannot establish that the model identified the same defect. Inspect the raw findings before adopting a prompt. With complete evidence, every round must preserve or improve both counts on each split and strictly reduce total holdout errors. A failed comparison returns status 1 and writes its evidence. A tie retains the current prompt.
+A false alarm is a finding on an approved revision. A request for changes counts as a miss if the model approved it, missed a cited file, or failed to describe the blocking defect. A separate judge compares the report with the maintainer’s rationale without seeing which prompt produced it. Inspect the judge’s explanation alongside the raw findings before adopting a prompt. A mistaken reference decision or judge can still misgrade a review. With complete evidence, every round must preserve or improve both counts on each split and strictly reduce total holdout errors. A failed comparison returns status 1 and writes its evidence. A tie retains the current prompt.
 
 ## Promote
 

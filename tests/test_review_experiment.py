@@ -13,6 +13,10 @@ class ReviewExperimentTest(unittest.TestCase):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
+        judge = patch.object(experiment.review_judge, "_compare",
+                             return_value={"matched": True, "reason": "Same failing behavior."})
+        self.judge = judge.start()
+        self.addCleanup(judge.stop)
         remote = patch.object(experiment, "check_remote")
         self.remote = remote.start()
         self.addCleanup(remote.stop)
@@ -66,11 +70,55 @@ class ReviewExperimentTest(unittest.TestCase):
         self.assertFalse(receipt["passed"])
         self.assertEqual(receipt["summary"][0]["holdout"]["candidate"]["misses"], 1)
 
+    def test_different_bug_in_same_file_does_not_match_reference(self):
+        self.cases[2]["finding_paths"] = ["x"]
+        self.cases[2]["rationale"] = "Retry skips previously invalidated samples."
+        self.judge.return_value = {"matched": False, "reason": "The finding concerns a stale flag only."}
+        receipt = self.run_comparison({("new", "3")})
+        self.assertFalse(receipt["passed"])
+        self.assertEqual(self.judge.call_count, 2)
+        evidence, _, _ = self.judge.call_args.args
+        self.assertEqual(set(evidence), {"maintainer_rationale", "finding_paths", "review_findings"})
+        trial = next(t for t in receipt["results"] if t["judgment"])
+        for key in ("rubric_sha256", "case_sha256", "findings_sha256", "model", "reason"):
+            before = trial["judgment"][key]
+            trial["judgment"][key] = ""
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                experiment.rescore(self.cases, receipt)
+            trial["judgment"][key] = before
+        trial["judgment"] = None
+        with self.assertRaisesRegex(ValueError, "missing semantic"):
+            experiment.rescore(self.cases, receipt)
+
+    def test_judge_timeout_resumes_after_the_saved_review(self):
+        attempts = 0
+        def compare(*_):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise TimeoutError()
+            return {"matched": True, "reason": "Both describe the same failure."}
+        self.judge.side_effect = compare
+        def review(repo, subject, prompt, model, timeout):
+            return {**subject, "skill": digest(prompt.read_text()), "model": model,
+                    "findings": [{"key": "bug", "path": "x", "finding": "A defect"}]}
+        def run():
+            return experiment.evaluate(self.root, self.cases, self.old, self.new, "m", 30, 2,
+                                       cache_dir=self.root / "cache")
+        with patch.object(experiment.feedback, "review", side_effect=review) as reviewer:
+            with self.assertRaises(TimeoutError):
+                run()
+            result = run()
+            self.assertEqual(run(), result)
+            self.assertEqual(reviewer.call_count, 16)
+            self.assertEqual(attempts, 9)
+
     def test_holdout_must_improve_in_each_round(self):
         receipt = self.run_comparison({("new", "3")})
         row = next(r for r in receipt["results"] if r["variant"] == "candidate"
                    and r["round"] == 2 and r["report"]["head"] == "3" * 40)
         row["report"]["findings"] = []
+        row["judgment"] = None
         self.assertFalse(experiment.rescore(self.cases, receipt)["passed"])
 
     def test_holdout_gain_cannot_offset_development_false_alarm(self):
