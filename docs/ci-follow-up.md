@@ -93,3 +93,25 @@ The second command groups tracked PRs by repository and exact base branch. It re
 | Existing review and CI actions | Keep the live actions in the queue even when precedent collection fails or a past PR took a different path. Resolve missing or incomplete evidence from the source when it affects a decision. |
 
 Use precedents to find the project-specific route for an existing gate. Treat GitHub review and timeline entries as observations and consult current contributor guidance. Search results favor recently updated PRs and can be truncated. Older approval history can be incomplete, and the branch rules response covers active rulesets. A historical merge supplies neither merge permission nor approval for a tracked PR. [GitHub branch rules API](https://docs.github.com/en/rest/repos/rules#get-rules-for-a-branch)
+
+## Score the delivery loop
+
+The portfolio command includes a versioned `scorecard`. To inspect it separately, refresh the GitHub snapshot and join it with the factory run index:
+
+```sh
+python3 -m delivery upstream-ci --review --file .adl/upstream-ci/prs.txt --output .adl/upstream-ci/current.json
+python3 -m delivery factory --output .adl/upstream-ci/scorecard.json score .adl/upstream-ci/current.json --runs .adl/factory-runs
+```
+
+For work before a PR, add `--candidate ISSUE_URL PATH/TO/receipt.json` once for each active issue. Use receipts from the independent factory verifier. Retire that option when the PR opens. A matching published revision or linked issue automatically takes precedence. Scores are a snapshot and can fall after a branch update or a failed check.
+
+| Milestone | Points | Evidence |
+| --- | ---: | --- |
+| Reproduce | 10 | The base fails with the expected exit and signal. |
+| Verify the fix | 20 | The candidate, suite and controls pass. Published work uses an indexed verification on the current base and head. |
+| Submit for review | 5 | The verified PR is open and ready for review. |
+| Pass upstream CI | 10 | GitHub reports a successful check with all reported checks settled successfully, neutral or skipped. |
+| Gain approval | 15 | GitHub reports approval and an affiliated human approved this head. |
+| Merge | 100 total | A GitHub merge timestamp and commit settle the work at 100. |
+
+Optimize **delivered points** first. Use the provisional score and work queue to pick the next action the operator can take. Check the ledger, repository instructions and known external blockers before acting. A local candidate can earn 30 points, and an open PR can earn 60. Repeat runs, comments and empty PR submissions earn zero additional points. Closure without merge settles at zero. The policy measures upstream adoption. Runtime impact after release needs its own deployment evidence.
