@@ -20,3 +20,5 @@ The source checkout must contain both full revisions. Install the toolchain name
 The [act case](../contracts/upstream/act-6236.json) uses a real HTTP client and a loopback daemon fixture. [The hosted workflow](../.github/workflows/upstream-evidence.yml) publishes the same replay with its raw logs. The [pull request](https://github.com/nektos/act/pull/6265) uses a two-row table to show where the auth header changed.
 
 The [composite action case](../contracts/upstream/act-2517.json) uses the same replay job to verify an error-handling regression. The [Herdr Core clock case](../verification/herdr-core-302.sh) builds both versions of an existing test. It runs each with normal clocks and with a Linux time namespace that moves the boot clock ahead. Its logs show which failure the verifier expected and record the exact checkouts.
+
+The [Herdr Core reconnect case](../verification/herdr-core-305.sh) starts two isolated cores and checks a viewer's scrollback after the relay reconnects. Both builds run the same regression test. The baseline must fail on the scrollback assertion, and the candidate must pass. The workflow uploads the revisions, logs, and exit codes.
