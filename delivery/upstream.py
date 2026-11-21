@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 
-from .revisions import check_candidate, checkout, git, paths_between
+from .revisions import check_candidate, checkout, git
 
 
 def validate_command(command):
@@ -98,8 +98,7 @@ def replay(repo, contract_file, output, *, require_readiness=False):
         raise ValueError("supply a failing base exit, a successful candidate exit, and both output signals")
 
     repo = repo.resolve()
-    check_candidate(candidate, base, allowed, cwd=repo)
-    changed = paths_between(base, candidate, cwd=repo)
+    changed = check_candidate(candidate, base, allowed, cwd=repo)
     if (not regression and not checks) or not set(regression).issubset(changed):
         raise ValueError("regression_paths must name changed files in the candidate")
     if set(regression) == set(changed):

@@ -25,7 +25,9 @@ def check_candidate(head, base, allowed, *, cwd=None):
     if not FULL_REVISION.fullmatch(head) or not FULL_REVISION.fullmatch(base):
         raise ValueError("trusted and candidate revisions must be full Git SHAs")
     git("merge-base", "--is-ancestor", base, head, cwd=cwd)
-    check_scope(paths_between(base, head, cwd=cwd), allowed)
+    changed = paths_between(base, head, cwd=cwd)
+    check_scope(changed, allowed)
+    return changed
 
 
 @contextmanager
