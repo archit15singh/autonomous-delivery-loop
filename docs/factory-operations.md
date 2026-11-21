@@ -127,3 +127,9 @@ Per-verified-change metrics include unsuccessful attempts in the numerator and
 remain blank when a run is missing that metric. Read these reports alongside
 the fixed-cohort benchmark before adopting a change. Use actual billed data
 when putting USD amounts into a run spec.
+
+For a task-specific routing comparison, add `--cost-routing` to the frozen
+benchmark with a selected cohort and billed `cost_usd` for each trial. The
+baseline remains the recommended route while data is incomplete, independent
+verification fails, or two paired rounds do not each clear the cost gate
+without regressions in latency or interventions. The report is advisory.

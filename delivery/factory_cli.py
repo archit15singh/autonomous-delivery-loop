@@ -34,6 +34,7 @@ def register(commands):
     cases.add_argument("--frozen", type=Path)
     cases.add_argument("--trials", type=Path)
     cases.add_argument("--case", action="append")
+    cases.add_argument("--cost-routing", action="store_true", help="compare complete billed-cost trials")
     compare = actions.add_parser("classify")
     compare.add_argument("head", type=Path)
     compare.add_argument("base", type=Path)
@@ -111,6 +112,8 @@ def dispatch(args):
         if args.frozen and read(args.frozen) != manifest:
             raise ValueError("benchmark files differ from the pinned manifest")
         if not args.trials:
+            if args.cost_routing:
+                raise ValueError("cost routing requires trial receipts")
             return manifest, 0
         if not args.frozen:
             raise ValueError("rating trials requires a pinned benchmark manifest")
@@ -119,6 +122,8 @@ def dispatch(args):
             if not set(args.case) <= ids:
                 raise ValueError("selected trial case is outside the frozen manifest")
             ids = set(args.case)
+        if args.cost_routing:
+            return benchmark.cost_route(sorted(ids), read(args.trials)), 0
         result = benchmark.promotion(sorted(ids), read(args.trials))
         return result, int(not result["promote"])
     if op == "classify":

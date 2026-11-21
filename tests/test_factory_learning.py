@@ -5,7 +5,8 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from delivery.factory_evidence import browser_evidence, portfolio
-from delivery.factory_learning import mine, pr_evidence, run_record
+from delivery.factory_learning import measure, mine, pr_evidence, run_record
+from delivery.factory_benchmark import cost_route
 
 
 class LearningTests(unittest.TestCase):
@@ -62,3 +63,29 @@ class LearningTests(unittest.TestCase):
             (root / "before-primary.png").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 browser_evidence(path, head, base)
+
+
+    def test_cost_routing_requires_verified_paid_trials_in_two_rounds(self):
+        rows = []
+        for name in ("one", "two"):
+            for variant, cost in (("baseline", 2.0), ("candidate", 1.5)):
+                rows.append({"round": name, "case": "sample", "variant": variant, "verified": True,
+                             "seconds": 20, "tokens": 100, "interventions": 0, "cost_usd": cost})
+        self.assertEqual(cost_route(["sample"], rows)["recommendation"], "candidate")
+        self.assertEqual(cost_route(["sample"], rows[:2])["reason"], "needs_two_paired_rounds")
+        rows[-1].pop("cost_usd")
+        self.assertEqual(cost_route(["sample"], rows)["reason"], "billed_cost_incomplete")
+        rows[-1]["verified"] = False
+        self.assertEqual(cost_route(["sample"], rows)["reason"], "verification_incomplete")
+
+    def test_measure_deduplicates_verified_outcomes_and_preserves_unknown_cost(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            prototype = {"factory_revision": "a" * 40, "head": "b" * 40, "pr": None}
+            for index, (verdict, seconds) in enumerate((("verified", 10), ("verified", 20), ("failed", 30))):
+                (root / f"{index}.json").write_text(json.dumps({**prototype, "id": str(index),
+                    "metrics": {"wall_seconds":seconds}, "outcome":{"readiness":verdict}}))
+            result = measure(root)["cohorts"][0]
+            self.assertEqual(result["verified_changes"], 1)
+            self.assertEqual(result["metrics"]["wall_seconds"]["per_verified_change"], 60)
+            self.assertIsNone(result["metrics"]["cost_usd"]["per_verified_change"])
