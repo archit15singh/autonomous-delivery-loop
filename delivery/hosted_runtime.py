@@ -68,16 +68,16 @@ def collect(repo, state):
         revision, policy = request["revision"], request["policy_revision"]
         endpoint = f"repos/{OWNER_REPO}/actions/runs/{run_id}"
         run = gh_json("api", endpoint)
+        attempt = run["run_attempt"]
+        result = {**request, "status": run["status"], "attempt": attempt, "conclusion": run["conclusion"]}
+        if run["status"] != "completed":
+            # GitHub may still be resolving the dispatch title and policy revision.
+            return result
         if (run["id"] != run_id or run["repository"]["full_name"] != OWNER_REPO
                 or run["event"] != "workflow_dispatch" or run["head_branch"] != "main"
                 or run["head_sha"] != policy or run["path"] != f".github/workflows/{WORKFLOW}"
                 or run["display_title"] != f"Verify {revision} against {request['contract']}"):
             raise ValueError("hosted run differs from the reserved candidate or main policy")
-        attempt = run["run_attempt"]
-        result = {**request, "status": run["status"], "attempt": attempt, "conclusion": run["conclusion"]}
-        if run["status"] != "completed":
-            return result
-
         deployment = f"{run_id}-{attempt}"
         artifacts = gh_json("api", f"{endpoint}/artifacts")
         available = {a["name"] for a in artifacts["artifacts"] if not a["expired"]}
