@@ -402,8 +402,12 @@ class ActionLedger:
                 FROM pushes p JOIN actions a ON a.id=p.action_id WHERE p.state='unconfirmed'
                 ORDER BY p.pr""",
             )]
+            leases = [dict(row) for row in db.execute(
+                "SELECT id, pr, head, kind, expires FROM actions WHERE lease IS NOT NULL AND expires>? ORDER BY pr",
+                (now,),
+            )]
             history = [dict(row) for row in db.execute(
                 "SELECT pr, failure_key, count(*) AS attempts FROM pushes GROUP BY pr, failure_key ORDER BY pr, failure_key",
             )]
             return {"tracked_prs": tracked, "pending": pending, "unconfirmed_pushes": unresolved,
-                    "repair_attempts": history}
+                    "repair_attempts": history, "active_leases": leases}

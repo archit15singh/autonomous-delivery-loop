@@ -6,6 +6,7 @@ from pathlib import Path
 from . import factory_benchmark as benchmark
 from . import factory_evidence as evidence
 from . import factory_learning as learning
+from .factory_resume import resume
 from . import factory_score, run_index, work_intake
 from . import factory_publish as publication
 from . import product_runtime, runtime_cli
@@ -26,6 +27,11 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     product_runtime.register(actions)
+    recovery = actions.add_parser("resume", help="recover operator notes, checkout and live PR state")
+    recovery.add_argument("--workspace", type=Path, default=Path("."))
+    recovery.add_argument("--state-dir", type=Path, default=Path(".adl"))
+    recovery.add_argument("--note", type=Path, help="short milestone note for this task")
+    recovery.add_argument("--pr", help="refresh one PR and its existing ledger entries")
     actions.add_parser("self-check")
     runtime_cli.register(actions)
     snapshot = actions.add_parser("definition")
@@ -217,6 +223,8 @@ def dispatch(args):
         return result, int(not result["promote"])
     if op == "classify":
         return evidence.compare_failures(read(args.head), read(args.base)), 0
+    if op == "resume":
+        return resume(args.workspace, args.state_dir, args.note, args.pr)
     if op == "score":
         records = read(args.ci)
         if args.runs:
