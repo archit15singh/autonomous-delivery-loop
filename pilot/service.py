@@ -3,6 +3,7 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import socket
 from urllib.parse import parse_qs, urlsplit
 
 
@@ -25,6 +26,17 @@ class Handler(BaseHTTPRequestHandler):
                 "revision": self.server.revision,
                 "deployment": self.server.deployment,
             }
+        elif target.path == "/counter" and self.server.redis_host:
+            try:
+                with socket.create_connection((self.server.redis_host, 6379), timeout=2) as redis:
+                    redis.sendall(b"*2\r\n$4\r\nINCR\r\n$11\r\nadl:counter\r\n")
+                    with redis.makefile("rb") as response:
+                        result = response.readline(64)
+                if not result.startswith(b":") or not result.endswith(b"\r\n"):
+                    raise ValueError("Redis did not return an integer")
+                status, document = 200, {"count": int(result[1:])}
+            except (OSError, ValueError):
+                status, document = 503, {"error": "counter unavailable"}
         else:
             status, document = routes(target.path, target.query)
         payload = json.dumps(document).encode()
@@ -38,10 +50,12 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args()
-    with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
+    with ThreadingHTTPServer((args.host, args.port), Handler) as server:
         server.revision = os.environ["ADL_REVISION"]
         server.deployment = os.environ["ADL_DEPLOYMENT"]
+        server.redis_host = os.environ.get("ADL_REDIS_HOST")
         print(server.server_port, flush=True)
         server.serve_forever()
 

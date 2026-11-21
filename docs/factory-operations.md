@@ -41,6 +41,34 @@ For merge collisions, run `factory merge-preview --base SHA --candidate SHA` in 
 
 ## Browser proof and live rollout evidence
 
+### Run the disposable Redis pilot
+
+On a disposable Linux runner, pass the local Docker socket. For a dedicated
+Colima profile, pass that profile's socket. Run from the reviewed factory
+checkout with the candidate commit available in Git.
+
+```sh
+python3 -m delivery factory compose-pilot --socket /var/run/docker.sock \
+  --revision "$(git rev-parse HEAD)" --state .adl/compose-pilot/run-1 \
+  --runs .adl/factory-runs
+```
+
+Use a fresh state directory for each run. The command builds the exact service
+source into an image, verifies two counter increments against Redis, and records
+the observation and cleanup in `runtime.json`. Add `--retry-start` to approve one
+retry if the Compose start command times out. Inspect `final.log` for project
+status and diagnostics. An unconfirmed cleanup exits unsuccessfully even when
+the HTTP probes passed.
+
+After an interruption, rerun with `--socket` and `--state` set to the original
+values and pass `--cleanup-only`. This reconciles the existing project without
+deploying it again. The receipt still records whether verification completed.
+The runner requires 512 MiB of free host disk as a minimum. The Docker engine
+also needs enough space for the two images and build cache.
+
+See [Runtime operations in the factory](runtime-operations-design.md) for the
+design and later phases.
+
 Use `node verification/browser-proof.mjs SPEC OUTPUT PLAYWRIGHT_MODULE BROWSER` with a pinned Playwright Core module and a local Chromium binary. The spec has two loopback deployments in `before` and `after` with `origin`, `revision`, and `deployment`. Supply `primary` and `control` scenarios with a URL `path`, a list of click or fill steps, and an `assert` containing selector and expected before/after text. Serve `/_revision` from each deployment. The command writes four screenshots, console results, and image digests. Include them as declared workflow artifacts. [Playwright browser API](https://playwright.dev/docs/api/class-browsertype)
 
 For Argo, export the real AnalysisRun with a read-only Kubernetes identity and run `factory analysis RUN.json --contract CONTRACT --revision SHA --deployment ID --uid UID`. The run must be annotated with `adl/revision` and `adl/deployment`. The reviewed impact contract supplies the metric and observation floor. A completed run with matching identity and sufficient observations can verify the threshold. An unavailable or incomplete observation remains inconclusive. Use this adapter when a deployment has an Argo AnalysisRun.

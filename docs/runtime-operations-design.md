@@ -1,0 +1,52 @@
+# Runtime operations in the factory
+
+ADL's first runtime milestone is one owned application and a disposable Compose stack. The [runbook](factory-operations.md#run-the-disposable-redis-pilot) has the pilot command. Kubernetes, cloud, and production operation are later phases.
+
+## Fit with ADL today
+
+The [issue dispatcher](factory-interfaces.md#owned-issue-pilot) approves a specific issue, contract, and base before Codex starts. The [workflow runner](factory-operations.md#run-a-pinned-workflow) pins commands and artifacts. The existing `delivery stage` starts the pilot as a local process and uses `delivery.verify` to check its behavior and identity. [Outcome reporting](factory-interfaces.md#review-and-release-feedback) already ties release observations to a deployment and revision. Keep these interfaces. Add one trusted command to own the lifetime of a Compose stack and call the existing HTTP verifier against it. Make that command a single workflow step so cleanup belongs to the same process that creates the stack.
+
+```text
+Approved contract + exact candidate
+  → trusted runtime step reserves the run and starts its Compose project
+  → independent probes check behavior and deployment identity
+  → diagnostics and bounded recovery if needed
+  → remove the project's resources and confirm removal
+  → index runtime and cleanup receipts
+```
+
+## First runner
+
+Use a dedicated Colima Docker profile with a fixed local socket, host mounts and SSH agent forwarding disabled, and automatic context switching off. Keep the VM available across runs and create a unique Compose project per run. Set CPU, memory, VM disk, process, and log limits. Start with one active stack and a preflight free-space check based on the image and build footprint. At the design snapshot, the Mac mini had about 178 MiB free and neither Colima nor Docker was on PATH. Host capacity and installation are prerequisites for the live Mac pilot. A disposable Linux CI runner can exercise the same stack and failure drills while that prerequisite is resolved. [Colima configuration](https://colima.run/docs/configuration/) · [Docker Compose project names](https://docs.docker.com/compose/how-tos/project-name/)
+
+The approved plan chooses a named target and a reviewed Compose template from trusted main. It binds the template digest, candidate SHA, expected artifact digest, probe contract, and runtime limits. The trusted step resolves the target to the operator-configured socket and engine identity and rechecks it before writes. Use an explicit Compose project and file and a controlled process environment. Candidate code receives no daemon socket, host user-directory mount, production credential, or permission to alter the template. Build the artifact from the exact candidate with a reviewed recipe on the disposable runner. Pin fixture images by digest and use synthetic data. Expose the application probe on loopback only. Other services stay on the project's private network. [Docker Compose trust model](https://docs.docker.com/compose/trust-model/) · [Docker Engine security](https://docs.docker.com/engine/security/)
+
+## One task for the runtime lifecycle
+
+| Step | Behavior and evidence |
+| --- | --- |
+| Reserve | Use the existing durable ledgers and workflow state. Persist a unique project name and run identity before starting Compose. An orchestrator retry with the same reservation reconciles the actual resources before any further write. A different candidate, plan, or target needs a new reservation. |
+| Provision and deploy | Start only the reviewed services. Wait with a deadline and collect the actual container IDs, image IDs, health results, and probe origin. A resource name alone does not establish ownership. Verify the target and the project and run ownership labels before mutating or deleting anything. |
+| Investigate | Collect bounded logs, statuses, and health results from that project. Any in-container command uses an argv and service defined by reviewed policy, with its own timeout. Codex receives sanitized evidence and can propose an action. The trusted runner controls execution. |
+| Verify and recover | The verifier matches the runtime identity to the trusted artifact and deployment record and runs the existing acceptance probes. Pin identity before and after the observation. Allow one reviewed, idempotent recovery attempt for an observed transient infrastructure failure. Preserve both receipts, collect diagnostics before restarting, and send product failures back to the candidate loop. |
+| Clean up | Tear down this project's declared disposable resources in a finalizer. After interruption, a later reconciliation step claims the expired reservation and matches the current target and object identities before cleanup. Confirm absence before releasing the lease. Leave uncertain cleanup visible for an operator. Global prune and VM deletion require a separate operator action. |
+
+Compose supplies bounded readiness and project-scoped teardown. ADL supplies behavior checks and verifies that cleanup actually happened. Store cleanup state separately from the probe verdict. A failed cleanup leaves the run unresolved and blocks promotion even when the probes passed. [Compose start options](https://docs.docker.com/reference/cli/docker/compose/up/) · [Compose teardown options](https://docs.docker.com/reference/cli/docker/compose/down/)
+
+The runtime receipt binds the operator target, run and deployment IDs, policy revision, candidate, image and template digests, observation times, probe results, and diagnostic artifact hashes. The cleanup receipt records the project ownership check and whether its containers, networks, and volumes are absent. Index both with the existing run records. An approved run can place repeatable local operations inside the existing workflow. An approval or an investigation requiring human judgment ends the current attempt and waits for a new operator-triggered run.
+
+## Authority by target
+
+Local disposable targets can grant the trusted runner start, inspect, approved exec, restart, and cleanup for resources it created. Send third-party workloads to throwaway CI runners when they need capabilities beyond this profile. Treat logs and workload output as evidence.
+
+An owned cloud test target needs an explicit account and region, a run-specific resource scope, an expiry deadline, and an agreed spending limit. Keep plan and apply separate and bind approval to the exact plan and environment. A production target starts with read-only access. Production changes run through the existing deployment pipeline with a narrowly scoped identity. Review data migrations and other irreversible effects independently of application rollback.
+
+## Delivery phases
+
+| Phase | Deliverable | Acceptance evidence |
+| --- | --- | --- |
+| 1. Owned Compose pilot | One owned ADL API plus Redis, with an acceptance probe that exercises a real write and read through the API. Run it under one reviewed local runtime step. | Show the exact image passing the normal probe. Show a wrong revision and an unavailable dependency leaving the run unverified. Show a transient failure using at most one restart and an interrupted run being cleaned up on reconciliation. Keep a second project running to prove cleanup stays scoped. Repeat on the Mac mini once its runner preflight passes. |
+| 2. Kubernetes when a target requires it | Add one approved context and a disposable namespace or cluster. Reuse ADL's existing read-only Argo observation where applicable. | Verify that an exact rollout becomes ready, a probe failure is recorded, and the owned namespace is removed while a neighboring namespace survives. |
+| 3. Cloud and production | Use the existing deployment pipeline with a scoped cloud identity. Choose OpenTofu or Pulumi when an owned cloud target and its state ownership are known. Start production diagnostics with read-only logs, events, metrics, and health. Bind any approved rollout or rollback to its exact target, artifact, and plan. | Rehearse create, deploy, verify, and destroy in an owned non-production account. Verify actual production behavior only after the target, telemetry, and permitted actions are configured. Record exact deployment and observation IDs in the outcome report. |
+
+The pilot runs on an explicitly selected Docker socket. The existing Delivery evidence workflow exercises it on an owned branch or main. A runtime step can also call the command from an operator-reviewed workflow plan. Hosted staging and production each require observations from their own target.
