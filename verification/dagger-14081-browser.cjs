@@ -38,7 +38,7 @@ async function measure(browser, route, expectedDisk) {
   let hasNextSchema = false;
   for (const asset of assets) {
     const script = fs.readFileSync(path.join(process.cwd(), "build", asset));
-    hasNextSchema ||= script.includes(diskDescription);
+    hasNextSchema ||= script.includes("temporary directory on the engine");
     total += gzipSync(script).length;
   }
   assert.ok(assets.size > 0, route);
@@ -50,7 +50,7 @@ async function measure(browser, route, expectedDisk) {
 (async () => {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   try {
-    await measure(browser, "/");
+    await measure(browser, "/reference/glossary/");
     await measure(browser, "/reference/api/container/", mode === "base");
     await measure(browser, "/next/reference/api/container/", true);
   } finally {
