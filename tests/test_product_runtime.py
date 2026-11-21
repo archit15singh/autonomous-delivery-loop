@@ -68,3 +68,30 @@ class ProductRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "python-stdlib"):
             with self.product(base, base):
                 pass
+
+    def test_cleanup_replay_after_backend_shutdown(self):
+        from argparse import Namespace
+        from unittest.mock import patch
+        from delivery.product_runtime import dispatch
+
+        state = self.repo / "state"
+        state.mkdir()
+        missing = state / "offline"
+        context = "kind-adl-test"
+        for backend in ("compose", "kubernetes", "lima"):
+            with self.subTest(backend=backend):
+                args = Namespace(runtime_action="cleanup", state=state,
+                                 socket=missing if backend == "compose" else None,
+                                 kubeconfig=missing if backend == "kubernetes" else None,
+                                 context=context if backend == "kubernetes" else None)
+                receipt = {"product": {"backend": backend}, "context": context,
+                           "socket": str(missing.resolve()), "cleanup": {"status": "confirmed"}}
+                path = state / "runtime.json"
+                path.write_text(json.dumps(receipt))
+                with patch("delivery.lima_pilot.Lima", side_effect=FileNotFoundError("offline")):
+                    self.assertEqual(dispatch(args), (receipt, 0))
+                    receipt["cleanup"]["status"] = "pending"
+                    path.write_text(json.dumps(receipt))
+                    with self.assertRaises(FileNotFoundError):
+                        dispatch(args)
+                    self.assertEqual(json.loads(path.read_text()), receipt)

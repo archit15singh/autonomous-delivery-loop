@@ -220,19 +220,23 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
         if len(product.source) > 1024 * 1024:
             raise ValueError("Kubernetes product source exceeds the 1 MiB ConfigMap limit")
         revision, image = product.revision, PYTHON
-    kube = Kubectl(config, context)
-    selected = json.loads(kube.call("config", "view", "--minify", "-o", "json"))
-    endpoint = urlsplit(selected["clusters"][0]["cluster"]["server"])
-    if not context.startswith("kind-adl-") or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}:
-        raise ValueError("pilot writes require an owned, loopback kind-adl-* cluster")
     state = state.resolve()
     path = state / "runtime.json"
     with lock(state):
         if cleanup_only:
             receipt = json.loads(path.read_text())
-            if receipt["cleanup"]["status"] != "confirmed":
-                receipt["cleanup"] = cleanup(kube, receipt)
-                record(path, receipt)
+            if context != receipt["context"]:
+                raise ValueError("cleanup must use the original Kubernetes context")
+            if receipt["cleanup"]["status"] == "confirmed":
+                return receipt
+        kube = Kubectl(config, context)
+        selected = json.loads(kube.call("config", "view", "--minify", "-o", "json"))
+        endpoint = urlsplit(selected["clusters"][0]["cluster"]["server"])
+        if not context.startswith("kind-adl-") or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}:
+            raise ValueError("pilot writes require an owned, loopback kind-adl-* cluster")
+        if cleanup_only:
+            receipt["cleanup"] = cleanup(kube, receipt)
+            record(path, receipt)
             return receipt
         if path.exists():
             raise ValueError("use a new state directory or reconcile the existing run")

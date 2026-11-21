@@ -160,13 +160,13 @@ def browser_probe(lima, state, receipt, folder, shared, same_network, redis):
 def run(state, revision=None, *, cleanup_only=False, browser=False, product=None):
     with lock(state):
         path = state / "runtime.json"
-        lima = Lima()
         if cleanup_only:
             receipt = json.loads(path.read_text())
             if receipt["cleanup"]["status"] != "confirmed":
-                receipt["cleanup"] = cleanup(lima, receipt)
+                receipt["cleanup"] = cleanup(Lima(), receipt)
                 record(path, receipt)
             return receipt
+        lima = Lima()
         if product is not None:
             if revision is not None and revision != product.revision:
                 raise ValueError("candidate differs from the selected product revision")
