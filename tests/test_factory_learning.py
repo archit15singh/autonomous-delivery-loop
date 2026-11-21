@@ -4,6 +4,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from delivery import browser_proof
+from delivery.upstream_ci import attach_local_replay
 from delivery.factory_evidence import browser_evidence, portfolio
 from delivery.factory_learning import assess_process, indexed_runs, measure, mine, pr_evidence, run_record
 from delivery.factory_benchmark import cost_route
@@ -60,9 +62,37 @@ class LearningTests(unittest.TestCase):
             self.assertTrue(browser_evidence(path, head, base)[0])
             with self.assertRaisesRegex(ValueError, "another baseline"):
                 browser_evidence(path, head, head)
+            # Indexing and publishing must use the same validated revision pair.
+            request = {"id": "ui-replay", "head": head, "base": "3" * 40,
+                       "factory_revision": head, "pr": "https://github.com/Owner/Repo/pull/1",
+                       "finished_at": "2026-11-21T00:00:00+00:00",
+                       "receipts": {"browser": path.name, "readiness": "readiness.json"}}
+            spec = root / "spec.json"
+            spec.write_text(json.dumps(request))
+            with self.assertRaisesRegex(ValueError, "another baseline"):
+                run_record(spec, root / "index")
+            self.assertFalse((root / "index" / "ui-replay.json").exists())
+            (root / "readiness.json").write_text(json.dumps(
+                {"verdict": "verified", "candidate": head, "base": base}))
+            spec.write_text(json.dumps({**request, "base": base}))
+            run = run_record(spec, root / "index")
+            self.assertEqual(run["provenance"]["browser_base"], base)
+            row = {"url": request["pr"], "base": base, "head": head, "state": "OPEN"}
+            attach_local_replay([row], [run])
+            self.assertEqual(row["local_replay"]["status"], "verified")
+            attach_local_replay([row], [{**run, "provenance": {}}])
+            self.assertEqual(row["local_replay"]["status"], "unverified")
+            proof = browser_proof.capture(path, base=base, head=head)
+            self.assertEqual(proof.receipt_reference, run["receipts"]["browser"])
             (root / "before-primary.png").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 browser_evidence(path, head, base)
+            path.unlink()
+            archive = root / "archived"
+            proof.archive(archive)
+            self.assertEqual(json.loads((archive / path.name).read_bytes()), result)
+            self.assertEqual((archive / "before-primary.png").read_bytes(), b"before-primary.png")
+
 
 
     def test_cost_routing_requires_verified_paid_trials_in_two_rounds(self):

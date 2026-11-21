@@ -242,8 +242,11 @@ def attach_local_replay(records, runs):
         evidence = {"status": "unindexed"}
         if latest:
             if exact:
-                verified = (latest["outcome"]["readiness"] == "verified"
-                            and latest["outcome"].get("browser") != "failed")
+                outcome = latest["outcome"]
+                browser_verified = ("browser" not in outcome or (
+                    outcome["browser"] == "verified"
+                    and latest.get("provenance", {}).get("browser_base") == record["base"]))
+                verified = outcome["readiness"] == "verified" and browser_verified
                 status = "verified" if verified else "unverified"
             else:
                 status = "baseline_needs_replay" if same_head else "head_needs_replay"

@@ -7,6 +7,7 @@ import json
 import re
 from threading import Thread
 
+from . import browser_proof
 from .impact import impact_verdict
 from .verify import Contract, Probe, canonical_json, verify
 
@@ -100,28 +101,8 @@ def compare_failures(head, base):
 
 
 def browser_evidence(path, head, base=None):
-    data = json.loads(path.read_text())
-    if data["after"] != head or (base is not None and data["before"] != base):
-        raise ValueError("browser receipt belongs to another baseline or candidate")
-    outcomes = data["outcomes"]
-    if set(outcomes) != {"before", "after"} or any(
-        set(side) != {"primary", "control"} for side in outcomes.values()
-    ):
-        raise ValueError("browser receipt needs before and after primary and control checks")
-    files = [path]
-    checks = []
-    for phase, side in outcomes.items():
-        for scenario, check in side.items():
-            name = check["screenshot"]
-            if name != f"{phase}-{scenario}.png":
-                raise ValueError("unexpected browser screenshot name")
-            screenshot = path.parent / name
-            if sha256(screenshot.read_bytes()).hexdigest() != check["sha256"]:
-                raise ValueError("browser screenshot digest mismatch")
-            files.append(screenshot)
-            checks.append(check["passed"] is True and not check["errors"]
-                          and check["observed"] == check["expected"])
-    return data["passed"] is True and all(checks), files
+    proof = browser_proof.capture(path, head=head, base=base)
+    return proof.passed, [path for path, _ in proof.files]
 
 
 def portfolio(records, ledger, related=()):

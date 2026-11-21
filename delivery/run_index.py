@@ -7,7 +7,7 @@ import re
 
 from .revisions import FULL_REVISION
 from .factory_definition import check_definition
-from .factory_evidence import browser_evidence
+from . import browser_proof
 from .run_state import lock, record
 from .github import PR_URL
 
@@ -84,6 +84,14 @@ def run_record(spec, directory):
     runtime_identity = None
     for kind, filename in paths.items():
         path = spec.parent / filename
+        if kind == "browser":
+            base = request.get("base") or None
+            proof = browser_proof.capture(path, head=head, base=base)
+            receipts[kind] = proof.receipt_reference
+            outcome[kind] = "verified" if proof.passed else "failed"
+            if base:
+                provenance["browser_base"] = base
+            continue
         data, receipts[kind] = read_receipt(path)
         if kind == "definition":
             check_definition(data, factory)
@@ -102,15 +110,12 @@ def run_record(spec, directory):
                                 else "factory" if reason in {"revision_changed", "tracked_source_changed"}
                                 else "unclassified")
                     findings[("workflow", reason)] = category
-        elif kind in {"readiness", "runtime", "browser", "pr"}:
-            field = {"readiness": "candidate", "runtime": "revision", "browser": "after", "pr": "head"}[kind]
+        elif kind in {"readiness", "runtime", "pr"}:
+            field = {"readiness": "candidate", "runtime": "revision", "pr": "head"}[kind]
             if data[field] != head or (kind == "pr" and data["url"] != pr):
                 raise ValueError(f"{kind} receipt belongs to another PR or revision")
             if kind == "pr":
                 outcome.update(pr=data["state"], ci=data["action"], review=data.get("review", {}).get("action"))
-            elif kind == "browser":
-                passed, _ = browser_evidence(path, head)
-                outcome[kind] = "verified" if passed else "failed"
             else:
                 outcome[kind] = data["verdict"]
                 if kind == "readiness":
