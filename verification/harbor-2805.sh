@@ -25,7 +25,7 @@ exec "$REAL_DOCKER" "$@"
 WRAP
 chmod +x "$wrapper/docker"
 base=cee2a5eb0a13dd374bbc9b56008c92227981f704
-candidate=e0577a638cb55d368d741f709daccc4add6594d6
+candidate=d91fcb7affe403a6a1c39bf720647305f6099d57
 for phase in base candidate; do
     source_root="$(mktemp -d)"
     git init -q "$source_root"
