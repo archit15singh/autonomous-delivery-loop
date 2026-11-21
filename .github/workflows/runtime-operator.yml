@@ -89,9 +89,14 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: kubernetes-pilot
-          path: |
-            .adl/kube/runtime.json
-            .adl/products/*/*/runtime.json
+          path: .adl/kube/runtime.json
+          include-hidden-files: true
+      - name: Upload product runtime receipts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: product-runtime
+          path: .adl/products/*/*/runtime.json
           include-hidden-files: true
       - name: Remove CI cluster
         if: always()
