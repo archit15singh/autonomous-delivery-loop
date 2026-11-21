@@ -178,6 +178,8 @@ class Compose:
 
 def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index=None, product=None):
     socket, state = socket.resolve(), state.resolve()
+    if not cleanup_only and not stat.S_ISSOCK(socket.stat().st_mode):
+        raise ValueError("select a local Docker Unix socket")
     receipt_path = state / "runtime.json"
     with lock(state):
         if cleanup_only:
@@ -188,9 +190,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
                 raise ValueError("cleanup must use the original socket")
             if receipt["cleanup"]["status"] == "confirmed":
                 return receipt
-        if not stat.S_ISSOCK(socket.stat().st_mode):
-            raise ValueError("select a local Docker Unix socket")
-        if cleanup_only:
+            if not stat.S_ISSOCK(socket.stat().st_mode):
+                raise ValueError("select a local Docker Unix socket")
             stack = Compose(socket, state, receipt)
             assess_cleanup(receipt, cleanup(stack))
             receipt["finished_at"] = now()

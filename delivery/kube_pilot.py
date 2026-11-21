@@ -210,6 +210,15 @@ def wait_for_redis_service(kube, namespace):
                      namespace=namespace, timeout=32).strip()
 
 
+def owned_cluster(config, context):
+    kube = Kubectl(config, context)
+    selected = json.loads(kube.call("config", "view", "--minify", "-o", "json"))
+    endpoint = urlsplit(selected["clusters"][0]["cluster"]["server"])
+    if not context.startswith("kind-adl-") or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}:
+        raise ValueError("pilot writes require an owned, loopback kind-adl-* cluster")
+    return kube
+
+
 def run(config, context, state, revision=None, image=None, *, retry=False, cleanup_only=False,
         rollback_revision=None, product=None):
     if product:
@@ -220,6 +229,8 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
         if len(product.source) > 1024 * 1024:
             raise ValueError("Kubernetes product source exceeds the 1 MiB ConfigMap limit")
         revision, image = product.revision, PYTHON
+    if not cleanup_only:
+        kube = owned_cluster(config, context)
     state = state.resolve()
     path = state / "runtime.json"
     with lock(state):
@@ -229,13 +240,8 @@ def run(config, context, state, revision=None, image=None, *, retry=False, clean
                 raise ValueError("cleanup must use the original Kubernetes context")
             if receipt["cleanup"]["status"] == "confirmed":
                 return receipt
-        kube = Kubectl(config, context)
-        selected = json.loads(kube.call("config", "view", "--minify", "-o", "json"))
-        endpoint = urlsplit(selected["clusters"][0]["cluster"]["server"])
-        if not context.startswith("kind-adl-") or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}:
-            raise ValueError("pilot writes require an owned, loopback kind-adl-* cluster")
         if cleanup_only:
-            receipt["cleanup"] = cleanup(kube, receipt)
+            receipt["cleanup"] = cleanup(owned_cluster(config, context), receipt)
             record(path, receipt)
             return receipt
         if path.exists():
