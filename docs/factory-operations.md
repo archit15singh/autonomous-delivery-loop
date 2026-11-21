@@ -107,3 +107,50 @@ Set `--runs .adl/factory-runs --pr PR_URL` on `upstream-prepare` to index the
 readiness and browser receipts as part of verification. For other producers,
 drop reviewed specifications in a private spool and pass `--spool DIR` to
 `mine-runs`. A repeated scan retains each immutable run once.
+
+## Replay a factory change and observe release events
+```sh
+python3 -m delivery factory --output .adl/replay.json replay-change \
+  --baseline OLD_SHA --candidate FIXED_SHA \
+  --contract contracts/factory/workflow-identity.json --logs .adl/replay-logs
+python3 -m delivery factory lifecycle \
+  --repository OWNER/REPO --environment hosted-staging
+```
+
+The replay executes a reviewed, digest-pinned driver against two detached factory
+checkouts. It requires both a reproduced incident and a held-out control. Each
+receipt lists the actual exit, behavior marker, elapsed time and log digest.
+The workflow identity case came from the reported HEAD drift failure.
+
+Lifecycle reads recent GitHub deployments and published release tags. Use
+`--reverts FIRST LAST` to include first-parent Git revert messages from an exact
+range. Mutable tags report their current resolution. A deployment status is
+provider metadata and leaves runtime verification inconclusive. Revert messages
+are historical declarations.
+
+For a live Argo observation, use the existing `factory analysis` arguments for
+the contract, candidate revision, deployment and UID, and supply
+`--context CONTEXT --namespace NAMESPACE --name RUN` in place of a file. The
+command performs one read through the configured kubeconfig. Use a read-only
+Kubernetes identity and a reviewed runtime contract.
+
+Use `factory measure-runs --runs .adl/factory-runs` to compare factory versions
+on distinct verified changes, median wall time and known observation coverage.
+Per-verified-change metrics include unsuccessful attempts in the numerator and
+remain blank when a run is missing that metric. Read these reports alongside
+the fixed-cohort benchmark before adopting a change. Use actual billed data
+when putting USD amounts into a run spec.
+
+For a task-specific routing comparison, add `--cost-routing` to the frozen
+benchmark with a selected cohort and billed `cost_usd` for each trial. The
+baseline remains the recommended route while data is incomplete, independent
+verification fails, or two paired rounds do not each clear the cost gate
+without regressions in latency or interventions. The report is advisory.
+
+`factory assess-process FACTS.json` converts reviewed observations into the
+assessment rubric. The source ties to a full `head` and an `evidence` reference.
+An optional `skills` record declares `complete`, `required`, and `loaded`.
+An optional `tests` record declares `reviewed` and a list of confirmed
+`redundant` tests. An optional `retries` record declares `complete` and
+`repeated_without_change`. Facts can also enter a run directly as the
+`process` receipt. Unobserved dimensions remain unknown.

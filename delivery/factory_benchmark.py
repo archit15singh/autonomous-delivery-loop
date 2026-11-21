@@ -53,3 +53,28 @@ def promotion(dataset_ids, rows):
                        and len(observed) == 2 and max(observed) >= 15 and min(observed) >= -10})
     return {"promote": len(rounds) >= 2 and all(item["material_gain"] for item in rounds),
             "cases": len(dataset_ids), "rounds": rounds}
+
+
+def cost_route(dataset_ids, rows):
+    """Keep the baseline unless full paired observations justify a cheaper route."""
+    report = promotion(dataset_ids, rows)
+    if len(report["rounds"]) < 2:
+        return {"recommendation": "baseline", "reason": "needs_two_paired_rounds"}
+    if not all(row["verified"] for row in rows):
+        return {"recommendation": "baseline", "reason": "verification_incomplete"}
+    if not all(type(row.get("cost_usd")) in (int, float) and isfinite(row["cost_usd"]) and
+               row["cost_usd"] >= 0 for row in rows):
+        return {"recommendation": "baseline", "reason": "billed_cost_incomplete"}
+    cost = {}
+    names = {row["round"] for row in rows}
+    for name in sorted(names):
+        group = [row for row in rows if row["round"] == name]
+        baseline = sum(row["cost_usd"] for row in group if row["variant"] == "baseline")
+        candidate = sum(row["cost_usd"] for row in group if row["variant"] == "candidate")
+        cost[name] = round(100 * (baseline - candidate) / baseline, 2) if baseline > 0 else None
+    passes = all(value is not None and value >= 15 for value in cost.values()) and all(
+        item["interventions_delta"] <= 0 and item["median_reduction_pct"]["seconds"] >= -10
+        for item in report["rounds"])
+    return {"recommendation": "candidate" if passes else "baseline",
+            "reason": "replicated_cost_savings" if passes else "cost_or_latency_gate",
+            "cost_reduction_pct": cost}

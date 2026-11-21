@@ -15,7 +15,7 @@ from .factory_learning import run_record
 from .stage import stage
 from .upstream import replay
 from .upstream_actions import ActionLedger
-from .upstream_ci import inspect_prs
+from .upstream_ci import PR_URL, inspect_prs
 from .upstream_merge import merge_precedents
 from .upstream_pr import prepare
 from .verify import Contract
@@ -143,8 +143,23 @@ def main():
         ))
     if args.command == "upstream-prepare":
         try:
+            if args.pr and (not args.runs or not PR_URL.fullmatch(args.pr)):
+                raise ValueError("--pr needs an exact GitHub PR URL and --runs")
+            started = time.monotonic()
             receipt = prepare(args.repo, args.contract, args.template, args.evidence_url,
                               args.output, browser=args.browser_proof)
+            if args.runs:
+                verified_files = {"readiness": "receipt.json"}
+                if args.browser_proof and receipt["verdict"] == "verified":
+                    verified_files["browser"] = "browser-evidence/" + args.browser_proof.name
+                spec = args.output / "run-spec.json"
+                factory = git("rev-parse", "HEAD", cwd=Path(__file__).resolve().parents[1]).decode().strip()
+                write(spec, {"id": f"upstream-{receipt['candidate'][:12]}-{time.time_ns()}",
+                             "head": receipt["candidate"], "base": receipt["base"], "pr": args.pr,
+                             "factory_revision": factory, "finished_at": datetime.now(timezone.utc).isoformat(),
+                             "metrics": {"wall_seconds": round(time.monotonic() - started, 3)},
+                             "receipts": verified_files})
+                run_record(spec, args.runs)
         except (OSError, ValueError, TypeError, KeyError, subprocess.CalledProcessError) as exc:
             parser.error(str(exc))
         print(receipt["verdict"], file=sys.stderr)

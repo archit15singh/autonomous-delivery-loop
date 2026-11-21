@@ -1,0 +1,41 @@
+{
+  "incident": "A clean HEAD change let a later check verify against an obsolete workflow identity.",
+  "driver": "workflow-identity.py",
+  "driver_sha256": "65e06b2698d463611ea17826f11a4c4622cbbd954778deba27853be38355ef36",
+  "cases": [
+    {
+      "id": "drift",
+      "type": "observed",
+      "command": [
+        "python3",
+        "{driver}",
+        "drift"
+      ],
+      "baseline": {
+        "exit": 1,
+        "contains": "verified a different HEAD"
+      },
+      "candidate": {
+        "exit": 0,
+        "contains": "blocked a clean HEAD change"
+      }
+    },
+    {
+      "id": "approval",
+      "type": "held_out",
+      "command": [
+        "python3",
+        "{driver}",
+        "approval"
+      ],
+      "baseline": {
+        "exit": 0,
+        "contains": "approval resumes the same verified step"
+      },
+      "candidate": {
+        "exit": 0,
+        "contains": "approval resumes the same verified step"
+      }
+    }
+  ]
+}
