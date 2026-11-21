@@ -51,7 +51,8 @@ jobs:
             exit 1
           fi
           cat "$evidence/base-test.log"
-          grep -F 'host discovery must leave delegation to the host' "$evidence/base-test.log"
+          grep -F 'assertion failed: description.contains("persistent terminals")' "$evidence/base-test.log"
+          grep -F 'whenever you want sub-agents' skills/herdr-core/SKILL.md
           git restore crates/herdr-core/tests/skill.rs
           git checkout --detach "$CANDIDATE"
           test "$(git rev-parse HEAD)" = "$CANDIDATE"
