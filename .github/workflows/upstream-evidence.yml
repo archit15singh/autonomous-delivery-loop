@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
-      DAGGER_CANDIDATE: dc17102593e2d7cf153e11be91e5be5a79bbad3a
+      DAGGER_CANDIDATE: d3e63374bbd83702d623858e7098fe642a801446
       DAGGER_VERSION: 1.0.0-beta.28
       DAGGER_LINUX_SHA256: abd9f7e95f03c517e33cfbab0917fa1593d73e088d69304259884f8a47cc61a1
       SCHEMA_SOURCE_SHA: a84d72c63fede4c15d49bc212a6b4aaf391afe1d
