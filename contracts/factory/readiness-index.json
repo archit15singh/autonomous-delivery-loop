@@ -1,0 +1,43 @@
+{
+  "incident": "Readiness accepted its run-index flag without recording an exact-head run.",
+  "baseline": "82496478c60fba0a14e529417773756ac1df41c3",
+  "fixed": "939a9c0a84a742946e2bdefd76b7351f80bfb9ff",
+  "driver": "readiness-index.py",
+  "driver_sha256": "90d03fcff71688aa7952c692dede694ef936d68a75f7af0441b788a94abd844f",
+  "cases": [
+    {
+      "id": "indexed",
+      "type": "observed",
+      "command": [
+        "python3",
+        "{driver}",
+        "indexed"
+      ],
+      "baseline": {
+        "exit": 1,
+        "contains": "readiness accepted the flag and omitted the record"
+      },
+      "candidate": {
+        "exit": 0,
+        "contains": "readiness indexed the exact candidate"
+      }
+    },
+    {
+      "id": "ordinary",
+      "type": "held_out",
+      "command": [
+        "python3",
+        "{driver}",
+        "ordinary"
+      ],
+      "baseline": {
+        "exit": 0,
+        "contains": "ordinary readiness generated the PR packet"
+      },
+      "candidate": {
+        "exit": 0,
+        "contains": "ordinary readiness generated the PR packet"
+      }
+    }
+  ]
+}

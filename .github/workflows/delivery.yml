@@ -22,11 +22,29 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ env.REVISION }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
       - run: python -m delivery factory self-check
+      - name: Replay frozen factory incidents and held-out controls
+        shell: bash
+        run: |
+          mkdir -p .adl/factory-replays
+          python -m delivery factory benchmark --frozen evals/frozen.json > .adl/factory-replays/manifest.json
+          while IFS= read -r case; do
+            python -m delivery factory --output ".adl/factory-replays/$case.json" replay-change \
+              --frozen evals/frozen.json --case "$case" --candidate "$REVISION" \
+              --logs ".adl/factory-replays/$case"
+          done < <(jq -r '.factory_replays[].id' .adl/factory-replays/manifest.json)
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: factory-replays-${{ env.DEPLOYMENT }}
+          path: .adl/factory-replays
+          include-hidden-files: true
+          if-no-files-found: ignore
       - run: python -m delivery build --revision "$REVISION" --deployment "$DEPLOYMENT" --output .adl/bundle
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

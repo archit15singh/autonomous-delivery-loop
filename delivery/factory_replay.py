@@ -22,6 +22,18 @@ def replay_change(repo, baseline, candidate, contract_path, output):
     cases = contract["cases"]
     if {case["type"] for case in cases} != {"observed", "held_out"}:
         raise ValueError("include both an observed failure and a held-out control")
+    commands = set()
+    for case in cases:
+        validate_command(case["command"])
+        command = tuple(case["command"])
+        if command in commands:
+            raise ValueError("factory replay scenarios need distinct commands")
+        commands.add(command)
+        expected = case["baseline"], case["candidate"]
+        if case["type"] == "observed" and expected[0] == expected[1]:
+            raise ValueError("observed failure needs different baseline and candidate behavior")
+        if case["type"] == "held_out" and (expected[0] != expected[1] or expected[1]["exit"] != 0):
+            raise ValueError("held-out control must pass unchanged on both revisions")
     names = [case["id"] for case in cases]
     if len(names) != len(set(names)) or any(not name.isascii() or not name.isalnum() for name in names):
         raise ValueError("replay cases need distinct alphanumeric IDs")
@@ -35,7 +47,6 @@ def replay_change(repo, baseline, candidate, contract_path, output):
                 reports = outcomes[side] = {}
                 for case in cases:
                     argv = case["command"]
-                    validate_command(argv)
                     command = [str(driver.resolve()) if arg == "{driver}" else arg for arg in argv]
                     seconds = case.get("timeout", 30)
                     expected = case[side]

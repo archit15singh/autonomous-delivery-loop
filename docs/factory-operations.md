@@ -120,7 +120,12 @@ python3 -m delivery factory lifecycle \
 The replay executes a reviewed, digest-pinned driver against two detached factory
 checkouts. It requires both a reproduced incident and a held-out control. Each
 receipt lists the actual exit, behavior marker, elapsed time and log digest.
-The workflow identity case came from the reported HEAD drift failure.
+The frozen benchmark includes two factory incidents, HEAD drift and the
+missing readiness index. Each has its own held-out normal workflow. Use
+`replay-change --frozen evals/frozen.json --case workflow-identity` or
+`--case readiness-index` with an explicit candidate and log directory. Hosted
+delivery runs both pinned incident suites and saves their evidence. This cohort
+is separate from the six existing issue tasks used for Codex comparisons.
 
 Lifecycle reads recent GitHub deployments and published release tags. Use
 `--reverts FIRST LAST` to include first-parent Git revert messages from an exact
