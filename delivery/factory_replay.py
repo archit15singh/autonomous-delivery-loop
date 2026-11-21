@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
 
-from .candidate import FULL_REVISION
+from .candidate import FULL_REVISION, git
 from .upstream import checkout, run_check, validate_command
 
 
@@ -45,6 +45,9 @@ def replay_change(repo, baseline, candidate, contract_path, output):
                         raise ValueError("replay case needs an exit code and a behavior marker")
                     started = monotonic()
                     report = run_check(folder, command, seconds, expected, output / f"{side}-{case['id']}.log")
+                    if (git("rev-parse", "HEAD", cwd=folder).decode().strip() != revision
+                            or git("status", "--porcelain", "--untracked-files=no", cwd=folder)):
+                        raise ValueError("replay mutated the pinned factory checkout")
                     reports[case["id"]] = {**report, "seconds": round(monotonic() - started, 3)}
     return {"baseline": baseline, "candidate": candidate, "contract_sha256": sha256(raw).hexdigest(),
             "cases": outcomes, "passed": all(item["passed"] for reports in outcomes.values() for item in reports.values())}

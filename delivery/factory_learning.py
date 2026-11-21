@@ -1,10 +1,11 @@
 """Index trusted run receipts and mine reproducible factory failures."""
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from hashlib import file_digest, sha256
 import json
 from math import isfinite
 from pathlib import Path
+from statistics import median
 import re
 
 from .candidate import FULL_REVISION
@@ -143,6 +144,33 @@ def mine(directory, *, minimum=2):
                                  "preserve a held-out normal case"]}
                  for (dimension, reason), runs in sorted(clusters.items()) if len(runs) >= minimum]
     return {"runs": run_count, "proposals": proposals}
+
+
+def measure(directory):
+    cohorts = defaultdict(list)
+    for path in sorted(directory.glob("*.json")):
+        run = json.loads(path.read_text())
+        cohorts[run["factory_revision"]].append(run)
+    result = []
+    for revision, runs in sorted(cohorts.items()):
+        verified = [run for run in runs if any(run["outcome"].get(kind) == "verified"
+                    for kind in ("readiness", "runtime", "workflow")) and
+                    not any(run["outcome"].get(kind) == "failed"
+                            for kind in ("readiness", "runtime", "workflow", "browser"))]
+        changes = {(run["pr"], run["head"]) for run in verified}
+        columns = {}
+        for metric in ("wall_seconds", "tokens", "cost_usd", "human_interventions"):
+            values = [run["metrics"].get(metric) for run in runs]
+            known = [value for value in values if value is not None]
+            columns[metric] = {"observed": len(known),
+                               "median": median(known) if known else None,
+                               "per_verified_change": round(sum(known) / len(changes), 3)
+                               if changes and len(known) == len(values) else None}
+        assessments = Counter(key for run in runs for key, value in
+                              run["outcome"].get("assessment", {}).items() if value != "unknown")
+        result.append({"factory_revision": revision, "runs": len(runs), "verified_changes": len(changes),
+                       "metrics": columns, "assessments_observed": dict(assessments)})
+    return {"cohorts": result}
 
 
 def pr_evidence(directory):

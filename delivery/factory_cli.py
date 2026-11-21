@@ -45,6 +45,8 @@ def register(commands):
     run = actions.add_parser("record-run")
     run.add_argument("spec", type=Path)
     run.add_argument("--runs", type=Path, required=True)
+    measure = actions.add_parser("measure-runs")
+    measure.add_argument("--runs", type=Path, required=True)
     mine = actions.add_parser("mine-runs")
     mine.add_argument("--runs", type=Path, required=True)
     mine.add_argument("--minimum", type=int, default=2)
@@ -128,6 +130,8 @@ def dispatch(args):
         return evidence.portfolio(read(args.ci), read(args.ledger), attachments), 0
     if op == "record-run":
         return learning.run_record(args.spec, args.runs), 0
+    if op == "measure-runs":
+        return learning.measure(args.runs), 0
     if op == "mine-runs":
         if args.spool:
             learning.index_spool(args.spool, args.runs)

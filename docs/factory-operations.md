@@ -120,3 +120,10 @@ the contract, candidate revision, deployment and UID, and supply
 `--context CONTEXT --namespace NAMESPACE --name RUN` in place of a file. The
 command performs one read through the configured kubeconfig. Use a read-only
 Kubernetes identity and a reviewed runtime contract.
+
+Use `factory measure-runs --runs .adl/factory-runs` to compare factory versions
+on distinct verified changes, median wall time and known observation coverage.
+Per-verified-change metrics include unsuccessful attempts in the numerator and
+remain blank when a run is missing that metric. Read these reports alongside
+the fixed-cohort benchmark before adopting a change. Use actual billed data
+when putting USD amounts into a run spec.
