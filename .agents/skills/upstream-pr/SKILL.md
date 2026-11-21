@@ -4,10 +4,10 @@ description: Fix a reported upstream issue, open an evidenced pull request, and 
 ---
 
 1. Verify the issue against current upstream. Read the contribution rules, search for active PRs and claims, and record why the issue is eligible. Follow the project's route for maintainer-owned changes.
-2. Pin the upstream base. Exercise the issue through its real entry point before changing it. Use the smallest regression check that distinguishes the failure from an environment problem.
-3. Fix the cause and test the adjacent behavior the patch could affect. Pin the candidate commit and list the implementation and regression files.
-4. Run `python3 -m delivery upstream-replay` with a reviewed contract when the same command can run in both checkouts. For a platform-specific setup, use the project's test runner and record the exact base, candidate, and commands. Keep the raw logs with the receipt.
-5. Follow the project's PR template. Explain what caused the failure, show one before-and-after visual, link the hosted run and affected issue, and name any test limits.
+2. Set up an isolated local development checkout with the upstream toolchain and fixtures. Pin the base. Exercise the reported behavior through the real entry point before changing it.
+3. Fix the cause. Choose the few scenarios most likely to expose a regression. Include an unchanged normal flow and the relevant boundary or failure behavior. Pin the candidate commit.
+4. Run the [local pre-submission gate](../../../docs/upstream-replay.md#prepare-a-pr). A passing receipt must cover the live comparison, adjacent controls, and relevant existing suite. Use hosted CI for additional platform coverage. If the required local reproduction is unavailable, record the gap and stage the candidate.
+5. Fill the upstream template and review the generated `pr.md`. Check the evidence links, before-and-after comparison, and coverage limits. Open the PR only when the verified SHA matches the published branch and contribution requirements are met.
 6. Register the open PR and follow [upstream CI triage and repair](../../../docs/ci-follow-up.md). Start with the submitted SHA. Carry pending CI, approval, or upstream dependencies into the follow-up queue.
 7. Keep one local decision log for a batch. Record the issue, disposition, base and candidate SHAs when applicable, PR URL, and evidence URL.
 
