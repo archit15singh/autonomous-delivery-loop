@@ -9,6 +9,7 @@ from . import factory_publish as publication
 from .factory_definition import definition
 from .factory_outcomes import outcome_report
 from . import factory_issue as issue_delivery
+from . import factory_feedback as feedback
 from .factory_lifecycle import github_events, read_analysis_run, revert_events
 from .factory_replay import replay_change
 from . import factory_workflow as engine
@@ -80,8 +81,25 @@ def register(commands):
     issue_run.add_argument("--approval", type=Path)
     issue_run.add_argument("--ledger", type=Path, required=True)
     issue_run.add_argument("--receipts", type=Path, required=True)
+    issue_run.add_argument("--index", type=Path, help="add the verified publication to the run index")
     issue_run.add_argument("--model", default="gpt-6.2-sol")
     issue_run.add_argument("--timeout", type=int, choices=range(1, 601), default=180, metavar="SECONDS")
+    cold = actions.add_parser("cold-review")
+    cold.add_argument("pr")
+    correct = actions.add_parser("review-correction")
+    correct.add_argument("report", type=Path)
+    correct.add_argument("key")
+    correct.add_argument("rationale")
+    compare_review = actions.add_parser("review-replay")
+    for name in ("correction", "original", "control", "old_skill", "new_skill"):
+        compare_review.add_argument(name, type=Path)
+    for command in (cold, compare_review):
+        command.add_argument("--model", default="gpt-6.2-sol")
+        command.add_argument("--timeout", type=int, choices=range(1, 601), default=180, metavar="SECONDS")
+    release = actions.add_parser("staging-signal")
+    release.add_argument("run_id")
+    release.add_argument("--ledger", type=Path, required=True)
+    release.add_argument("--file-issue", action="store_true")
     review = actions.add_parser("handoff")
     review.add_argument("pr", type=Path)
     review.add_argument("findings", type=Path)
@@ -199,7 +217,20 @@ def dispatch(args):
         return issue_delivery.approve(args.issue, args.spec), 0
     if op == "issue-run":
         return issue_delivery.run_issue(Path.cwd(), args.issue, args.spec, args.approval,
-                                        args.ledger, args.receipts, args.model, args.timeout), 0
+                                        args.ledger, args.receipts, args.model, args.timeout, args.index), 0
+    if op == "cold-review":
+        return feedback.review(Path.cwd(), feedback.live_review_subject(args.pr),
+                               Path(".agents/skills/factory-cold-review/SKILL.md"),
+                               args.model, args.timeout), 0
+    if op == "review-correction":
+        return feedback.correction(read(args.report), args.key, args.rationale), 0
+    if op == "review-replay":
+        result = feedback.review_replay(Path.cwd(), read(args.correction), read(args.original),
+                                        read(args.control), args.old_skill, args.new_skill,
+                                        args.model, args.timeout)
+        return result, int(not result["passed"])
+    if op == "staging-signal":
+        return feedback.signal(feedback.staging_observation(args.run_id), args.ledger, args.file_issue), 0
     if op == "handoff":
         return engine.review_handoff(read(args.pr), read(args.findings)), 0
     if op == "adoption":
