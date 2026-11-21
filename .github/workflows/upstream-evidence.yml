@@ -7,12 +7,13 @@ permissions:
   contents: read
 
 jobs:
-  dagger-docs-base:
-    name: Build the pinned Dagger documentation
+  dagger-docs-candidate:
+    name: Build and verify the exact Dagger patch
     runs-on: ubuntu-24.04
     timeout-minutes: 14
     env:
-      DAGGER_BASE: c1f8e9ae88f6c238ee02bef12ff131847052abc2
+      DAGGER_CANDIDATE: a5eeca38648011d6b8137bf78bb01ea4c301a4ba
+      DAGGER_ROUTE_DIGEST: ce62fe64326c486d62f3d2cb2b4d2566ace6e7430bcbd0ca17d91d3eb2adb7a3
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -23,21 +24,23 @@ jobs:
       - name: Fetch the exact public source
         run: |
           git init "$RUNNER_TEMP/dagger"
-          git -C "$RUNNER_TEMP/dagger" fetch --depth 1 https://github.com/dagger/dagger.git "$DAGGER_BASE"
+          git -C "$RUNNER_TEMP/dagger" fetch --depth 1 https://github.com/archit15singh/dagger.git "$DAGGER_CANDIDATE"
           git -C "$RUNNER_TEMP/dagger" checkout --detach FETCH_HEAD
-          test "$(git -C "$RUNNER_TEMP/dagger" rev-parse HEAD)" = "$DAGGER_BASE"
-      - name: Build and measure the exported files
+          test "$(git -C "$RUNNER_TEMP/dagger" rev-parse HEAD)" = "$DAGGER_CANDIDATE"
+      - name: Install the independent Markdown parser
+        run: python3 -m pip install markdown-it-py==3.0.0
+      - name: Build and verify the exported files
         run: |
           mkdir -p "$GITHUB_WORKSPACE/.adl/dagger-docs"
           cd "$RUNNER_TEMP/dagger/docs"
           npm exec --yes --package yarn@1.22.22 -- yarn install --frozen-lockfile
           npm exec --yes --package yarn@1.22.22 -- yarn build
           cp build/llms.txt build/llms-full.txt "$GITHUB_WORKSPACE/.adl/dagger-docs/"
-          python3 "$GITHUB_WORKSPACE/verification/dagger-13559.py" build/llms.txt build/llms-full.txt |
+          python3 "$GITHUB_WORKSPACE/verification/dagger-13559-candidate.py" build/llms.txt build/llms-full.txt "$DAGGER_ROUTE_DIGEST" |
             tee "$GITHUB_WORKSPACE/.adl/dagger-docs/audit.txt"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
-          name: dagger-docs-baseline
+          name: dagger-docs-candidate
           path: .adl/dagger-docs
           if-no-files-found: warn
