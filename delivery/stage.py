@@ -12,7 +12,7 @@ from .verify import Contract, verify
 
 
 def stage(contract_path, archive, ci_path, revision, deployment, repairs_used=0, isolate=False,
-          *, impact_evidence=None, quiet=False):
+          *, impact_evidence=None, quiet=False, sandbox_local=False):
     contract = Contract.read(contract_path)
     ci = json.loads(ci_path.read_text())
     if not isinstance(ci, dict) or sha256(archive.read_bytes()).hexdigest() != ci.get("artifact_sha256"):
@@ -31,8 +31,22 @@ def stage(contract_path, archive, ci_path, revision, deployment, repairs_used=0,
             root.chmod(0o755)
             isolation = {"user": 65534, "group": 65534, "extra_groups": [],
                          "stderr": subprocess.DEVNULL}
+        command = [sys.executable, "-I", str(root / "pilot/service.py"), "--port", "0"]
+        if sandbox_local:
+            profile = """(version 1)
+                (allow default)
+                (deny file-write*)
+                (deny file-read* (subpath (param "HOME")))
+                (deny network*)
+                (allow network-bind (local ip "localhost:*"))
+                (allow network-inbound (local ip "localhost:*"))
+                (allow network-outbound (remote ip "localhost:*"))
+            """
+            if sys.platform != "darwin" or isolate:
+                raise ValueError("local sandbox requires a macOS runner")
+            command = ["/usr/bin/sandbox-exec", "-D", f"HOME={Path.home()}", "-p", profile, *command]
         with subprocess.Popen(
-            [sys.executable, "-I", str(root / "pilot/service.py"), "--port", "0"],
+            command,
             cwd=root, stdout=subprocess.PIPE, text=True, env=env, **isolation,
         ) as service:
             try:

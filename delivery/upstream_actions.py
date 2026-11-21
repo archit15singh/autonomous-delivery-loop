@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS pushes (
     state TEXT NOT NULL DEFAULT 'unconfirmed'
 );
 CREATE INDEX IF NOT EXISTS pushes_pr ON pushes(pr, failure_key);
+CREATE TABLE IF NOT EXISTS factory_reservations (
+    kind TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    identity TEXT NOT NULL,
+    result TEXT,
+    PRIMARY KEY (kind, subject)
+);
 CREATE TABLE IF NOT EXISTS staging_publications (
     publication TEXT PRIMARY KEY,
     candidate TEXT NOT NULL,
@@ -119,6 +126,26 @@ class ActionLedger:
                 yield db
         finally:
             db.close()
+
+    def reserve_once(self, kind, subject, identity):
+        """Return any existing reservation, or atomically reserve a new subject."""
+        with self._connection(write=True) as db:
+            row = db.execute("SELECT identity, result FROM factory_reservations WHERE kind=? AND subject=?",
+                             (kind, subject)).fetchone()
+            if row:
+                return {"identity": row["identity"],
+                        "result": json.loads(row["result"]) if row["result"] else None}
+            db.execute("INSERT INTO factory_reservations VALUES (?, ?, ?, NULL)",
+                       (kind, subject, identity))
+        return None
+
+    def finish_once(self, kind, subject, identity, result):
+        with self._connection(write=True) as db:
+            changed = db.execute("""UPDATE factory_reservations SET result=?
+                WHERE kind=? AND subject=? AND identity=? AND result IS NULL""",
+                                 (json.dumps(result), kind, subject, identity)).rowcount
+            if not changed:
+                raise ValueError("no unfinished factory reservation matches this identity")
 
     def staging_publication(self, *, candidate, policy, manifest, reservation, branch, state):
         if state not in {"reserved", "published"}:

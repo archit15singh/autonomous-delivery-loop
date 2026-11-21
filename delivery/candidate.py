@@ -64,6 +64,7 @@ def propose(contract, output, events, model, timeout, receipt=None, *, recipe_ou
         f"Files you may modify: {', '.join(contract.allowed_changes)}\n"
         f"Required HTTP behavior: {json.dumps([p.__dict__ for p in contract.probes])}\n"
         f"{examples}"
+        f"{contract.technical_brief or ''}\n"
         "Leave changes in the working tree and report your local checks. "
         "The release operator owns GitHub and the independent verdict."
         + context
