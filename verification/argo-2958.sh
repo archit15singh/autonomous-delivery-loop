@@ -59,7 +59,7 @@ kubectl -n "$namespace" get ingress ingress -o json > "$output/matching.json"
 jq -e '.metadata.annotations."alb.ingress.kubernetes.io/conditions.preview-header" | fromjson |
   any(.[]; .field == "http-header" and .httpHeaderConfig.httpHeaderName == "X-Preview" and .httpHeaderConfig.values == ["true"])' "$output/matching.json"
 jq -e '.metadata.annotations."alb.ingress.kubernetes.io/actions.preview-header" | fromjson |
-  .forwardConfig.targetGroups == [{serviceName:"canary-service",servicePort:"80",weight:100}]' "$output/matching.json"
+  .ForwardConfig.TargetGroups == [{ServiceName:"canary-service",ServicePort:"80",Weight:100}]' "$output/matching.json"
 jq -e 'any(.spec.rules[].http.paths[]; .backend.service.name == "preview-header")' "$output/matching.json"
 kubectl -n "$namespace" patch rollout rollouts-demo --subresource=status --type=merge -p '{"status":{"pauseConditions":null}}'
 for attempt in {1..45}; do
