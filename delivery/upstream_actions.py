@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS factory_reservations (
     result TEXT,
     PRIMARY KEY (kind, subject)
 );
+CREATE TABLE IF NOT EXISTS owned_issue_attempts (
+    issue TEXT PRIMARY KEY,
+    receipts TEXT NOT NULL,
+    attempt INTEGER NOT NULL,
+    candidate TEXT
+);
 CREATE TABLE IF NOT EXISTS staging_publications (
     publication TEXT PRIMARY KEY,
     candidate TEXT NOT NULL,
@@ -146,6 +152,46 @@ class ActionLedger:
                                  (json.dumps(result), kind, subject, identity)).rowcount
             if not changed:
                 raise ValueError("no unfinished factory reservation matches this identity")
+
+    def issue_attempt(self, issue):
+        with self._connection() as db:
+            row = db.execute("""SELECT r.identity, r.result, a.receipts, a.attempt, a.candidate
+                FROM factory_reservations r LEFT JOIN owned_issue_attempts a ON a.issue=r.subject
+                WHERE r.kind='owned_issue' AND r.subject=?""", (issue,)).fetchone()
+        if row is None:
+            return None
+        return {**dict(row), "result": json.loads(row["result"]) if row["result"] else None}
+
+    def begin_issue_attempt(self, issue, identity, receipts, prior):
+        """Claim under the issue lock, before writing files or starting a worker."""
+        attempt = 1 if prior is None else (prior["attempt"] or 1) + 1
+        with self._connection(write=True) as db:
+            if prior is None:
+                db.execute("INSERT INTO factory_reservations VALUES ('owned_issue', ?, ?, NULL)",
+                           (issue, identity))
+            else:
+                updated = db.execute("""UPDATE factory_reservations SET identity=?
+                    WHERE kind='owned_issue' AND subject=? AND identity=? AND result IS NULL""",
+                                     (identity, issue, prior["identity"]))
+                if not updated.rowcount:
+                    raise ValueError("issue reservation changed")
+            if prior is None or prior["attempt"] is None:
+                db.execute("INSERT INTO owned_issue_attempts VALUES (?, ?, ?, NULL)",
+                           (issue, str(receipts), attempt))
+            else:
+                changed = db.execute("""UPDATE owned_issue_attempts SET attempt=?
+                    WHERE issue=? AND receipts=? AND attempt=? AND candidate IS NULL""",
+                                     (attempt, issue, str(receipts), prior["attempt"]))
+                if not changed.rowcount:
+                    raise ValueError("issue attempt changed or already has a verified candidate")
+        return attempt
+
+    def verify_issue_attempt(self, issue, attempt, candidate):
+        with self._connection(write=True) as db:
+            changed = db.execute("""UPDATE owned_issue_attempts SET candidate=?
+                WHERE issue=? AND attempt=? AND candidate IS NULL""", (candidate, issue, attempt))
+            if not changed.rowcount:
+                raise ValueError("cannot checkpoint the verified issue attempt")
 
     def staging_publication(self, *, candidate, policy, manifest, reservation, branch, state):
         if state not in {"reserved", "published"}:

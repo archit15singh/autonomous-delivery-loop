@@ -32,10 +32,32 @@ python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \
 
 Run the dispatcher from reviewed main on macOS with authenticated GitHub and
 Codex CLIs and a Python installation outside the user home directory. An edited issue, contract, or main revision invalidates the approval.
-Keep one durable SQLite ledger across invocations. The dispatcher holds a
-reservation before starting the agent. A retry can finish an interrupted publication from its verified checkpoint or report the existing reservation
-and any published PR. Investigate an unfinished reservation against the local
-receipts and GitHub branch before taking another action. Candidate execution
+Keep the same durable SQLite ledger and receipts directory across invocations. The ledger
+records the generation attempt before starting the worker. If it stops, rerun the original
+command to inspect the attempt. A `generation_interrupted` response includes its number
+and the directory containing its partial evidence. The CLI exits with status 3.
+
+After inspecting the output, rerun the command with the reported attempt number:
+
+```sh
+python3 -m delivery factory issue-run "$ISSUE" "$SPEC" \
+  --approval .adl/approval.json --ledger .adl/factory.sqlite3 --receipts .adl/issue-runs \
+  --retry-generation 1
+```
+
+Each explicit retry authorizes one additional generation. A repeated request for the
+same attempt cannot spend another generation. If the issue, spec or main changed,
+approve the new plan first. Attempt 1 keeps its original paths, and later attempts
+write into numbered subdirectories under their plan. Keep these directories for the
+partial traces and receipts. The process lock serializes competing dispatchers.
+Once the ledger holds a verified candidate, a retry uses that candidate for publication.
+A changed plan at this point requires reconciliation.
+
+For legacy reservations, use the original ledger and receipts. Recovery checks the
+saved approval, the verified checkpoint and the owned issue branch. Missing approval
+evidence or an existing branch without a verified checkpoint returns
+`reconciliation_required` (exit 3). Inspect the original evidence and branch before
+taking further action. Candidate execution
 denies writes, home directory reads and non-loopback networking.
 
 ## Review and release feedback

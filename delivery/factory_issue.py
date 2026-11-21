@@ -172,7 +172,8 @@ def index_publication(repo, output, result, index):
     return run_record(spec, index)
 
 
-def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout, index=None):
+def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout, index=None, *,
+              retry_generation=None):
     started = time.monotonic()
     plan = issue_plan(url, spec)
     if approval is None:
@@ -189,36 +190,87 @@ def run_issue(repo, url, spec, approval, ledger_path, output, model, timeout, in
         raise ValueError("use a macOS runner with Python installed outside the home directory")
     ledger = ActionLedger(ledger_path)
     key = digest(plan)
-    output = output.resolve() / key
-    with lock(output):
-        return dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started, index)
+    root = output.resolve()
+    # The issue lock spans plans and receipt directories. A process exit releases it.
+    with lock(ledger.path.resolve().parent / (ledger.path.name + ".issue-locks") / digest(url)):
+        prior = ledger.issue_attempt(url)
+        if prior and prior["receipts"] and prior["receipts"] != str(root):
+            raise ValueError(f"use the original receipts directory: {prior['receipts']}")
+        old_dir = root / (prior["identity"] if prior else key)
+        # Older dispatchers held this exact lock while generating and publishing.
+        legacy = prior is not None and prior["attempt"] is None
+        if legacy and not (old_dir / "workflow.lock").is_file() and not prior["result"]:
+            return {"state": "reconciliation_required", "reason": "original_receipts_missing"}
+        with lock(old_dir):
+            return dispatch(repo, url, spec, grant, ledger, root, plan, model, timeout, key,
+                            started, index, prior, retry_generation)
 
 
-def dispatch(repo, url, spec, grant, ledger, output, plan, model, timeout, key, started, index):
-    checkpoint = output / "verified-head.json"
-    prior = ledger.reserve_once("owned_issue", url, key)
-    if prior is not None and (prior["identity"] != key or prior["result"] or not checkpoint.exists()):
-        if prior["identity"] == key and prior["result"] and prior["result"]["state"] == "published":
+def attempt_dir(root, key, attempt):
+    folder = root / key
+    return folder if attempt == 1 else folder / f"attempt-{attempt}"
+
+
+def dispatch(repo, url, spec, grant, ledger, root, plan, model, timeout, key, started,
+             index, prior, retry_generation):
+    attempt = 1
+    candidate = None
+    if prior:
+        attempt = prior["attempt"] or 1
+        previous = attempt_dir(root, prior["identity"], attempt)
+        if prior["result"]:
             result = prior["result"]
-            record(output / "publication.json", result)
-            if index is not None:
-                index_publication(repo, output, result, index)
-        return {"state": "already_dispatched", "reservation": prior}
-    if prior is None:
+            if key == prior["identity"] and result["state"] == "published":
+                record(previous / "publication.json", result)
+                if index is not None:
+                    index_publication(repo, previous, result, index)
+            return {"state": "already_dispatched", "reservation": prior}
+        candidate = prior["candidate"]
+        if prior["attempt"] is None:
+            checkpoint = previous / "verified-head.json"
+            if checkpoint.exists():
+                candidate = json.loads(checkpoint.read_text())["candidate"]
+                if not FULL_REVISION.fullmatch(candidate):
+                    raise ValueError("invalid legacy verified candidate")
+        if candidate:
+            if prior["identity"] != key:
+                return {"state": "reconciliation_required", "reason": "verified_plan_changed",
+                        "candidate": candidate}
+        else:
+            if retry_generation != attempt:
+                return {"state": "generation_interrupted", "attempt": attempt,
+                        "plan": prior["identity"], "receipts": str(previous)}
+            if prior["attempt"] is None:
+                # Old reservations did not bind a receipt path or record publication intent.
+                # Require original on-disk evidence and check the deterministic remote branch.
+                frozen = previous / "approval.json"
+                if not frozen.exists() or digest(json.loads(frozen.read_text())["plan"]) != prior["identity"]:
+                    return {"state": "reconciliation_required", "reason": "legacy_approval_missing"}
+                remote = f"git@github.com:{REPOSITORY}.git"
+                if git("ls-remote", remote, f"refs/heads/factory/issue-{plan['number']}", cwd=repo).strip():
+                    return {"state": "reconciliation_required", "reason": "existing_issue_branch"}
+    elif retry_generation is not None:
+        raise ValueError("no interrupted generation matches this retry")
+
+    if candidate is None:
+        attempt = ledger.begin_issue_attempt(url, key, root, prior)
+        output = attempt_dir(root, key, attempt)
+        output.mkdir(parents=True, exist_ok=(attempt == 1))
         frozen_spec = output / "contract.json"
         frozen_spec.write_bytes(spec.read_bytes())
         if Contract.read(frozen_spec).digest != plan["spec_sha256"]:
             raise ValueError("specification changed during dispatch")
         record(output / "approval.json", grant)
         candidate = generate(repo, output, plan, frozen_spec, model, timeout, key)
-        record(checkpoint, {"candidate": candidate})
+        ledger.verify_issue_attempt(url, attempt, candidate)
     else:
-        candidate = json.loads(checkpoint.read_text())["candidate"]
+        output = attempt_dir(root, key, attempt)
+    record(output / "verified-head.json", {"candidate": candidate})
     if issue_plan(url, spec) != plan:
         return {"state": "stale_before_publication", "candidate": candidate}
     pr = publish(repo, output, plan, candidate)
     result = {"state": "published", "issue": url, "pr": pr, "head": candidate,
-              "base": plan["base"], "approval": key,
+              "base": plan["base"], "approval": key, "generation_attempt": attempt,
               "wall_seconds": round(time.monotonic() - started, 3),
               "human_approvals": 1, "finished_at": datetime.now(timezone.utc).isoformat()}
     ledger.finish_once("owned_issue", url, key, result)

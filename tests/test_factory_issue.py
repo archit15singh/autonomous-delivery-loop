@@ -54,3 +54,127 @@ class IssueDispatchTest(unittest.TestCase):
             self.assertIsNone(ActionLedger(path).reserve_once("owned_issue", "issue", "identity"))
             self.assertEqual(ActionLedger(path).reserve_once("owned_issue", "issue", "new-identity"),
                              {"identity": "identity", "result": None})
+
+
+class GenerationRecoveryTest(unittest.TestCase):
+    def setUp(self):
+        root = Path(self.enterContext(TemporaryDirectory()))
+        self.spec = root / "spec.json"
+        self.spec.write_text(json.dumps({
+            "version": 1, "outcome": "Return the expected greeting", "allowed_changes": ["pilot/service.py"],
+            "max_repairs": 0, "probes": [{"path": "/hello", "expect": {"ok": True}}],
+        }))
+        self.issue = f"https://github.com/{factory_issue.REPOSITORY}/issues/34"
+        self.plan = {"issue": self.issue, "number": 34, "base": "a" * 40,
+                     "snapshot_sha256": "b" * 64, "spec_sha256": factory_issue.Contract.read(self.spec).digest}
+        self.root, self.ledger, self.receipts = root, root / "actions.db", root / "runs"
+        self.approval = root / "approval.json"
+        self.approve()
+        self.enterContext(patch.object(factory_issue, "issue_plan", side_effect=lambda *_: self.plan.copy()))
+        self.enterContext(patch.object(factory_issue, "gh_json", side_effect=lambda *args:
+            {"login": "owner"} if args[-1] == "user" else {"permissions": {"push": True}}))
+        self.enterContext(patch.object(factory_issue.sys, "platform", "darwin"))
+        self.enterContext(patch.object(factory_issue, "running_definition",
+                                             side_effect=lambda *_: {"revision": self.plan["base"]}))
+        self.generate = self.enterContext(patch.object(factory_issue, "generate", return_value="c" * 40))
+        self.publish = self.enterContext(patch.object(factory_issue, "publish", return_value="draft"))
+
+    def approve(self):
+        self.approval.write_text(json.dumps({"plan": self.plan, "operator": "owner"}))
+
+    def run_issue(self, retry=None, receipts=None):
+        return factory_issue.run_issue(self.root, self.issue, self.spec, self.approval, self.ledger,
+                                       receipts or self.receipts, "model", 50, retry_generation=retry)
+
+    def test_process_death_preserves_attempt_and_requires_an_explicit_current_retry(self):
+        import subprocess
+        import sys
+        # Use a new interpreter so os._exit exercises SQLite durability and OS lock release.
+        code = """
+from pathlib import Path
+from unittest.mock import patch
+import json, os, sys
+from delivery import factory_issue as f
+root = Path(sys.argv[1])
+grant = json.loads((root / 'approval.json').read_text())
+def die(repo, folder, *args):
+    (folder / 'codex.jsonl').write_text('partial trace')
+    os._exit(73)
+with patch.object(f, 'issue_plan', return_value=grant['plan']), patch.object(f.sys,'platform','darwin'), \\
+     patch.object(f, 'gh_json', side_effect=[{'login':'owner'}, {'permissions':{'push':True}}]), \\
+     patch.object(f, 'running_definition', return_value={'revision':grant['plan']['base']}), \\
+     patch.object(f,'generate',side_effect=die):
+    f.run_issue(root, grant['plan']['issue'],root/'spec.json',root/'approval.json',
+                root/'actions.db',root/'runs','model',50)
+"""
+        result = subprocess.run([sys.executable, "-B", "-c", code, str(self.root)],
+                                cwd=Path(__file__).resolve().parents[1])
+        self.assertEqual(result.returncode, 73)
+        interrupted = self.run_issue()
+        self.assertEqual((interrupted["state"], interrupted["attempt"]), ("generation_interrupted", 1))
+        with self.assertRaisesRegex(ValueError, "original receipts"):
+            self.run_issue(1, self.root / "other")
+        self.plan = {**self.plan, "base": "d" * 40}
+        self.assertEqual(self.run_issue(1)["state"], "stale_approval")
+        self.approve()
+        self.assertEqual(self.run_issue(42)["state"], "generation_interrupted")
+        self.generate.assert_not_called()
+        recovered = self.run_issue(1)
+        self.assertEqual((recovered["state"], recovered["generation_attempt"]), ("published", 2))
+        self.assertEqual((Path(interrupted["receipts"]) / "codex.jsonl").read_text(), "partial trace")
+        self.assertEqual(self.generate.call_args.args[1].name, "attempt-2")
+        self.assertEqual(self.run_issue(1)["state"], "already_dispatched")
+        self.generate.assert_called_once()
+        self.publish.assert_called_once()
+
+    def test_lost_publication_response_reuses_verified_candidate_even_with_retry_flag(self):
+        self.publish.side_effect = [OSError("reply lost"), "draft"]
+        with self.assertRaisesRegex(OSError, "reply lost"):
+            self.run_issue()
+        self.plan = {**self.plan, "base": "d" * 40}
+        self.approve()
+        self.assertEqual(self.run_issue(1)["state"], "reconciliation_required")
+        self.plan = {**self.plan, "base": "a" * 40}
+        self.approve()
+        self.assertEqual(self.run_issue(1)["head"], "c" * 40)
+        self.generate.assert_called_once()
+        self.assertEqual(self.publish.call_args_list[0], self.publish.call_args_list[1])
+
+    def test_two_retries_of_same_attempt_launch_only_one_new_worker(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+        self.generate.side_effect = ValueError("baseline unavailable")
+        with self.assertRaises(ValueError):
+            self.run_issue()
+        started, release = Event(), Event()
+
+        def fail_again(*args):
+            started.set()
+            self.assertTrue(release.wait(3))
+            raise ValueError("second failure")
+
+        self.generate.side_effect = fail_again
+        with ThreadPoolExecutor(2) as pool:
+            first = pool.submit(self.run_issue, 1)
+            self.assertTrue(started.wait(3))
+            second = pool.submit(self.run_issue, 1)
+            release.set()
+            with self.assertRaisesRegex(ValueError, "second failure"):
+                first.result()
+            self.assertEqual(second.result()["attempt"], 2)
+        self.assertEqual(self.generate.call_count, 2)
+        self.publish.assert_not_called()
+
+    def test_legacy_recovery_checks_original_evidence_and_remote_branch(self):
+        key = factory_issue.digest(self.plan)
+        ActionLedger(self.ledger).reserve_once("owned_issue", self.issue, key)
+        self.assertEqual(self.run_issue(1)["reason"], "original_receipts_missing")
+        folder = self.receipts / key
+        with factory_issue.lock(folder):
+            pass
+        self.assertEqual(self.run_issue(1)["reason"], "legacy_approval_missing")
+        (folder / "approval.json").write_bytes(self.approval.read_bytes())
+        with patch.object(factory_issue, "git", side_effect=[b"existing branch", b""]):
+            self.assertEqual(self.run_issue(1)["reason"], "existing_issue_branch")
+            self.assertEqual(self.run_issue(1)["generation_attempt"], 2)
+        self.generate.assert_called_once()
