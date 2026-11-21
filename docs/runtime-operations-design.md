@@ -65,3 +65,10 @@ The local path starts with one dedicated Linux VM on the Mac using containerd.
 It will prove the same Redis-backed pilot with the existing HTTP contract and
 backing-store readback. The hosted path remains available for independent
 attestation when the local VM is unavailable.
+
+Extend the pilot in three steps. Add a browser interaction backed by Redis and
+SQLite, checking the worker's persisted result and retaining a screenshot.
+Then route confirmed product failures to one Codex attempt in a guest checkout
+with separate authentication, an offline shell, and a fixed scope. Finally
+import only the scope-checked patch, rerun the same workload in a fresh stack,
+and retain both receipts. Infrastructure or cleanup failures stop the loop.

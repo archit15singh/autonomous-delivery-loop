@@ -1,4 +1,5 @@
 """Verify the owned Redis pilot in a dedicated Docker-free Lima VM."""
+from base64 import b64decode
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -18,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTANCE = "adl-runtime"
 PYTHON = "docker.io/library/python:3.12-alpine@sha256:c5ba3deef00c7758561a0f03c26f44f10589263d40e732b8748e0d1f38f6dd89"
 REDIS = "docker.io/library/redis@sha256:1273af45b299d2b8b60d0e400d90aa6c2c5b1794f01d6a7ca60ff3ba6e65efb5"
+BROWSER = "mcr.microsoft.com/playwright@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f"
 PROJECT = re.compile(r"adl-local-[a-f0-9]{16}")
 ERRORS = (OSError, ValueError, subprocess.SubprocessError)
 
@@ -96,11 +98,14 @@ class Lima:
         return {"status": "confirmed"}
 
 
-def payload(source, revision):
+def payload(source, revision, browser=False):
     files = {"service.py": source, "judge/check.py": PROBE.encode(),
              "judge/contract.json": git("show", f"{revision}:contracts/compose-pilot.json", cwd=ROOT)}
     for name in ("__init__.py", "verify.py", "impact.py"):
         files[f"judge/delivery/{name}"] = git("show", f"{revision}:delivery/{name}", cwd=ROOT)
+    if browser:
+        for name in ("lima-job-worker.py", "lima-job-browser.mjs"):
+            files[f"judge/{name}"] = git("show", f"{revision}:verification/{name}", cwd=ROOT)
     buffer = BytesIO()
     with tarfile.open(fileobj=buffer, mode="w") as archive:
         for name, contents in files.items():
@@ -118,7 +123,40 @@ def cleanup(lima, receipt):
         return {"status": "unconfirmed", "error": str(exc)}
 
 
-def run(state, revision=None, *, cleanup_only=False):
+def browser_probe(lima, state, receipt, folder, shared, same_network, redis):
+    revision, project = receipt["revision"], receipt["deployment"]
+    packages = lima.guest("sh", "-ec", 'test -f "$HOME/.local/share/adl/playwright-core-1.64.1/index.mjs"; '
+                          'printf %s "$HOME/.local/share/adl/playwright-core-1.64.1"')
+    worker = f"{project}-worker"
+    lima.nerdctl("run", "-d", "--name", worker, *shared, *same_network,
+                 "--read-only", "--user", "65534:65534", "--memory", "96m",
+                 "-v", f"{folder}/data:/data:rw", "-v", f"{folder}/judge:/judge:ro",
+                 PYTHON, "python", "-B", "/judge/lima-job-worker.py")
+    result = json.loads(lima.nerdctl(
+        "run", "--rm", "--name", f"{project}-browser", *shared, *same_network,
+        "--user", "1000:1000", "--memory", "640m", "--shm-size", "128m",
+        "--env", "HOME=/tmp", "-v", f"{folder}/judge:/judge:ro", "-v", f"{packages}:/playwright:ro",
+        BROWSER, "node", "/judge/lima-job-browser.mjs", revision, project, timeout=180,
+    ))
+    screenshot = b64decode(result.pop("screenshot"), validate=True)
+    if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) > 2 * 1024 * 1024:
+        raise ValueError("browser did not return a bounded PNG")
+    (state / "browser.png").write_bytes(screenshot)
+    if result["revision"] != revision or result["deployment"] != project:
+        raise ValueError("browser evidence belongs to another deployment")
+    if result["passed"]:
+        query = ("import sqlite3,sys; "
+                 "db=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True); "
+                 "row=db.execute('SELECT status FROM jobs WHERE id=?',(sys.argv[2],)).fetchone(); "
+                 "print(row[0] if row else '')")
+        db_status = lima.guest("python3", "-c", query, f"{folder}/data/jobs.sqlite3", result["job"])
+        result["sqlite_status"] = db_status
+        result["queue_remaining"] = lima.nerdctl("exec", redis, "redis-cli", "--raw", "LLEN", "adl:jobs")
+        result["passed"] = db_status == "completed" and result["queue_remaining"] == "0"
+    return {**result, "screenshot": "browser.png", "screenshot_sha256": sha256(screenshot).hexdigest()}
+
+
+def run(state, revision=None, *, cleanup_only=False, browser=False):
     with lock(state):
         path = state / "runtime.json"
         lima = Lima()
@@ -151,7 +189,7 @@ def run(state, revision=None, *, cleanup_only=False):
         try:
             lima.guest("sh", "-ec", 'mkdir -m 755 -- "$1"; printf %s "$2" > "$1/.owner"',
                        "sh", folder, project)
-            lima.guest("tar", "-xf", "-", "-C", folder, payload=payload(source, policy["revision"]))
+            lima.guest("tar", "-xf", "-", "-C", folder, payload=payload(source, policy["revision"], browser))
             if lima.guest("sha256sum", f"{folder}/service.py").split()[0] != source_sha:
                 raise ValueError("transferred candidate differs from Git")
             receipt["redis_container"] = lima.nerdctl(
@@ -162,10 +200,15 @@ def run(state, revision=None, *, cleanup_only=False):
             )
             same_network = ["--network", f"container:{redis}"]
             restricted = ["--read-only", "--user", "65534:65534", "--memory", "96m", "--pids-limit", "64"]
+            job_args = []
+            if browser:
+                lima.guest("mkdir", "-m", "777", "--", f"{folder}/data")
+                job_args = ["--env", "ADL_JOB_DB=/data/jobs.sqlite3", "-v", f"{folder}/data:/data:ro"]
             receipt["api_container"] = lima.nerdctl(
                 "run", "-d", "--name", api, *shared, *same_network, *restricted,
                 "--env", f"ADL_REVISION={revision}", "--env", f"ADL_DEPLOYMENT={project}",
                 "--env", "ADL_REDIS_HOST=127.0.0.1", "-v", f"{folder}/service.py:/service.py:ro",
+                *job_args,
                 PYTHON, "python", "-I", "-B", "/service.py", timeout=180,
             )
             observed = json.loads(lima.nerdctl(
@@ -178,6 +221,10 @@ def run(state, revision=None, *, cleanup_only=False):
                 receipt["redis_counter"] = lima.nerdctl("exec", redis, "redis-cli", "--raw", "GET", "adl:counter")
                 if receipt["redis_counter"] != "2":
                     receipt.update(verdict="failed", reason="redis_readback_mismatch")
+            if browser and receipt["verdict"] == "verified":
+                receipt["browser"] = browser_probe(lima, state, receipt, folder, shared, same_network, redis)
+                if not receipt["browser"]["passed"]:
+                    receipt.update(verdict="failed", reason="browser_job_failed")
         except ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:
