@@ -24,13 +24,27 @@ esac
 exec "$REAL_DOCKER" "$@"
 WRAP
 chmod +x "$wrapper/docker"
-export ADL_DOCKER_LOG="$receipts/injection.log"
 base=cee2a5eb0a13dd374bbc9b56008c92227981f704
-git init -q "$source_root"
-git -C "$source_root" fetch -q --depth=1 https://github.com/harbor-framework/harbor.git "$base"
-git -C "$source_root" checkout --detach FETCH_HEAD
-git -C "$source_root" rev-parse HEAD | tee "$receipts/revision.txt"
-cd "$source_root"
-uv sync --locked --no-dev --python 3.13
-PATH="$wrapper:$PATH" .venv/bin/python "$here/harbor-2805.py" 2>&1 | tee "$receipts/baseline.log"
-test "$(grep -Fc 'fixture: initial down failed' "$ADL_DOCKER_LOG")" -eq 1
+candidate=e0577a638cb55d368d741f709daccc4add6594d6
+for phase in base candidate; do
+    source_root="$(mktemp -d)"
+    git init -q "$source_root"
+    if [[ "$phase" == base ]]; then
+        repo=https://github.com/harbor-framework/harbor.git
+        revision="$base"
+    else
+        repo=https://github.com/archit15singh/harbor.git
+        revision="$candidate"
+    fi
+    git -C "$source_root" fetch -q --depth=1 "$repo" "$revision"
+    git -C "$source_root" checkout --detach FETCH_HEAD
+    test "$(git -C "$source_root" rev-parse HEAD)" = "$revision"
+    printf '%s %s\n' "$phase" "$revision" | tee -a "$receipts/revisions.txt"
+    (
+        cd "$source_root"
+        uv sync --locked --no-dev --python 3.13
+        export ADL_DOCKER_LOG="$receipts/$phase-injection.log"
+        PATH="$wrapper:$PATH" .venv/bin/python "$here/harbor-2805.py" "$phase" 2>&1 | tee "$receipts/$phase.log"
+        test "$(grep -Fc 'fixture: initial down failed' "$ADL_DOCKER_LOG")" -eq 1
+    )
+done

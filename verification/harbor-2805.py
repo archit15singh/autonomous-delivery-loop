@@ -2,6 +2,7 @@
 import asyncio
 import os
 import subprocess
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -18,9 +19,10 @@ def docker(*args: str, capture: bool = False) -> str:
     ).stdout or ""
 
 
-async def run(seed: bool) -> None:
+async def run(seed: bool, expect_recovery: bool) -> None:
     project = "adl2805-" + uuid.uuid4().hex[:12]
     stale = project + "-main-1"
+    neighbor = project + "-neighbor-main-1"
     image = os.environ["REPLAY_IMAGE"]
     env_key = "ADL_FAIL_INITIAL_DOWN"
     try:
@@ -38,39 +40,55 @@ async def run(seed: bool) -> None:
                 task_env_config=EnvironmentConfig(docker_image=image),
             )
             if seed:
-                docker(
+                neighbor_id = docker(
+                    "create", "--name", neighbor,
+                    "--label", f"com.docker.compose.project={project}-neighbor",
+                    image, "sleep", "3600", capture=True,
+                ).strip()
+                stale_id = docker(
                     "create", "--name", stale,
                     "--label", f"com.docker.compose.project={project}",
                     "--label", "com.docker.compose.service=retired",
                     "--label", "com.docker.compose.oneoff=False",
-                    image, "sleep", "3600",
-                )
+                    image, "sleep", "3600", capture=True,
+                ).strip()
                 os.environ[env_key] = project
             try:
                 await env.start(force_build=False)
             except RuntimeError as exc:
-                if not seed:
+                if not seed or expect_recovery:
                     raise
                 assert "already in use" in str(exc) and stale in str(exc), exc
                 print("seeded retry: exact Docker name conflict reproduced")
             else:
-                assert not seed, "seeded retry did not reproduce the issue"
+                assert not seed or expect_recovery, "seeded retry did not reproduce the issue"
                 output = docker("exec", stale, "printf", "harbor-live", capture=True)
                 assert output == "harbor-live", output
-                print("clean control: Harbor started and executed inside live Docker")
+                if seed:
+                    assert not docker("ps", "-aq", "--filter", f"id={stale_id}", capture=True)
+                    print("seeded retry: stale container removed and replacement is runnable")
+                else:
+                    print("clean control: Harbor started and executed inside live Docker")
             finally:
+                if seed:
+                    surviving = docker("inspect", "--format", "{{.Id}}", neighbor, capture=True)
+                    assert surviving.strip() == neighbor_id
+                    print("neighbor control: different Compose project preserved")
                 os.environ.pop(env_key, None)
                 await env.stop(delete=False)
     finally:
-        # The fixture owns this UUID-derived name even if Compose cleanup fails.
-        ids = docker("ps", "-aq", "--filter", f"name=^/{stale}$", capture=True).split()
-        if ids:
-            docker("rm", "-f", *ids)
+        # The fixture owns both UUID-derived names even if Compose cleanup fails.
+        for name in (stale, neighbor):
+            ids = docker("ps", "-aq", "--filter", f"name=^/{name}$", capture=True).split()
+            if ids:
+                docker("rm", "-f", *ids)
 
 
 async def main() -> None:
-    await run(seed=False)
-    await run(seed=True)
+    phase = sys.argv[1]
+    assert phase in {"base", "candidate"}, phase
+    await run(seed=False, expect_recovery=False)
+    await run(seed=True, expect_recovery=phase == "candidate")
 
 
 if __name__ == "__main__":
