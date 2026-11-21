@@ -100,6 +100,7 @@ def register(commands):
     release.add_argument("run_id")
     release.add_argument("--ledger", type=Path, required=True)
     release.add_argument("--file-issue", action="store_true")
+    release.add_argument("--drill", action="store_true", help="inspect the explicit hosted staging rehearsal")
     review = actions.add_parser("handoff")
     review.add_argument("pr", type=Path)
     review.add_argument("findings", type=Path)
@@ -230,7 +231,7 @@ def dispatch(args):
                                         args.model, args.timeout)
         return result, int(not result["passed"])
     if op == "staging-signal":
-        return feedback.signal(feedback.staging_observation(args.run_id), args.ledger, args.file_issue), 0
+        return feedback.signal(feedback.staging_observation(args.run_id, drill=args.drill), args.ledger, args.file_issue), 0
     if op == "handoff":
         return engine.review_handoff(read(args.pr), read(args.findings)), 0
     if op == "adoption":

@@ -123,13 +123,15 @@ def review_replay(repo, correction_record, original, control, old_skill, new_ski
     return {"passed": passed, "results": results}
 
 
-def staging_observation(run_id):
+def staging_observation(run_id, *, drill=False):
     if not re.fullmatch(r"[1-9][0-9]*", run_id):
         raise ValueError("enter a numeric workflow run ID")
     run = gh_json("api", f"repos/{REPOSITORY}/actions/runs/{run_id}")
-    if (run["path"] != ".github/workflows/delivery.yml" or run["event"] != "push"
+    expected_event = "workflow_dispatch" if drill else "push"
+    if (run["path"] != ".github/workflows/delivery.yml" or run["event"] != expected_event
             or run["head_branch"] != "main" or run["status"] != "completed"
-            or run["head_repository"]["full_name"].lower() != REPOSITORY):
+            or run["head_repository"]["full_name"].lower() != REPOSITORY
+            or (drill and run["conclusion"] != "success")):
         raise ValueError("use a completed main delivery run from the owned repository")
     deployment = f"{run['id']}-{run['run_attempt']}"
     with TemporaryDirectory(prefix="adl-observation-") as temp:
@@ -139,7 +141,8 @@ def staging_observation(run_id):
         receipt = json.loads((Path(temp) / "evidence.json").read_text())
     if receipt["revision"] != run["head_sha"] or receipt["deployment"] != deployment:
         raise ValueError("staging receipt does not match the hosted workflow identity")
-    return {"environment": "hosted-staging", "revision": run["head_sha"], "deployment": deployment,
+    environment = "hosted-staging-drill" if drill else "hosted-staging"
+    return {"environment": environment, "revision": run["head_sha"], "deployment": deployment,
             "url": run["html_url"], "receipt": receipt}
 
 
@@ -172,14 +175,17 @@ def signal(observation, ledger_path, apply=False):
         return {"state": "investigation_publication_uncertain", "identity": key}
     with TemporaryDirectory(prefix="adl-release-signal-") as temp:
         body = Path(temp) / "issue.md"
-        body.write_text(f"An approved staging probe failed.\n\n"
+        rehearsal = observation["environment"] == "hosted-staging-drill"
+        heading = "Intentional staging drill. No service incident." if rehearsal else "An approved staging probe failed."
+        body.write_text(f"{heading}\n\n"
                         f"Deployment: {observation['deployment']}\n\n"
                         f"Revision: {observation['revision']}\n\n"
                         f"Workflow: {observation['url']}\n\n"
                         f"Failed paths: {', '.join(failed)}\n\n"
                         f"Signal: {key}\n")
         url = subprocess.check_output(["gh", "issue", "create", "--repo", REPOSITORY,
-                                       "--title", "Investigate staging probe failure",
+                                       "--title", "Rehearse staging investigation" if rehearsal
+                                       else "Investigate staging probe failure",
                                        "--body-file", str(body)], text=True).strip()
     outcome = {"state": "filed_investigation", "issue": url, "identity": key}
     ledger.finish_once("release_signal", key, key, outcome)
