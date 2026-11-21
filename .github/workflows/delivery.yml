@@ -113,10 +113,26 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+      - name: Preflight the selected runner
+        run: |
+          mkdir -p .adl/compose-pilot
+          python -m delivery factory --output .adl/compose-pilot/preflight.json compose-preflight \
+            --socket /var/run/docker.sock --state .adl/compose-pilot/normal
+          test ! -e .adl/compose-pilot/normal
+          touch .adl/compose-pilot/not-a-socket
+          if python -m delivery factory --output .adl/compose-pilot/refused.json compose-preflight \
+            --socket .adl/compose-pilot/not-a-socket --state .adl/compose-pilot/normal; then
+            exit 1
+          fi
+          jq -e '.status=="blocked" and (.blockers | index("docker_unix_socket_unavailable") != null)' \
+            .adl/compose-pilot/refused.json
       - name: Verify and clean up the exact candidate
         run: |
           python -m delivery factory compose-pilot --socket /var/run/docker.sock \
             --state .adl/compose-pilot/normal --revision "$REVISION" --runs .adl/compose-pilot/index
+          jq -e --slurpfile preflight .adl/compose-pilot/preflight.json \
+            '.engine==$preflight[0].engine and .engine_version==$preflight[0].engine_version and
+             .compose_version==$preflight[0].compose_version' .adl/compose-pilot/normal/runtime.json
           PYTHONPATH=. python verification/compose-pilot-check.py "$REVISION" .adl/compose-pilot/drills
       - name: Require the recorded runtime before assembling the staging manifest
         run: |

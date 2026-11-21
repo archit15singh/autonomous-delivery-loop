@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
-from shutil import disk_usage
+from shutil import disk_usage, which
 import stat
 import subprocess
 from tempfile import TemporaryDirectory
@@ -23,10 +23,73 @@ RECIPE = ROOT / "verification/compose-pilot.Dockerfile"
 CONTRACT = ROOT / "contracts/compose-pilot.json"
 PROJECT = re.compile(r"adl-pilot-[a-f0-9]{16}")
 DOCKER_ERRORS = (OSError, ValueError, subprocess.SubprocessError)
+MIN_FREE_BYTES = 512 * 1024**2
+MIN_ENGINE_MAJOR = 28
 
 
 def now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def docker_cli(socket, config, cwd, *argv, variables=None, timeout=15):
+    command = ["docker", "--config", str(config), "--host", f"unix://{socket}"]
+    env = {"PATH": os.environ.get("PATH", os.defpath),
+           "HOME": str(Path.home()), **(variables or {})}
+    result = subprocess.run([*command, *argv], env=env, cwd=cwd,
+                            capture_output=True, text=True, timeout=timeout)
+    if result.returncode:
+        raise ValueError(f"Docker {argv[0]} failed: {result.stderr[-3000:]}")
+    return result.stdout.strip()
+
+
+def engine_id(call):
+    engine = call("info", "--format", "{{.ID}}")
+    if not engine or engine == "<no value>":
+        raise ValueError("Docker did not report its engine ID")
+    return engine
+
+
+def inspect_runner(call):
+    version = call("version", "--format", "{{.Server.Version}}")
+    major = re.match(r"([0-9]+)\.", version)
+    if not major or int(major[1]) < MIN_ENGINE_MAJOR:
+        raise ValueError(f"Docker Engine {MIN_ENGINE_MAJOR}+ is required; found {version!r}")
+    compose = call("compose", "version", "--short")
+    if not compose:
+        raise ValueError("Docker Compose did not report its version")
+    return {"engine": engine_id(call), "engine_version": version, "compose_version": compose}
+
+
+def preflight(socket, state):
+    state = state.resolve()
+    folder = next(path for path in (state, *state.parents) if path.exists())
+    free = disk_usage(folder).free
+    tools = {name: which(name) is not None for name in ("docker", "colima")}
+    blockers = []
+    if not folder.is_dir():
+        blockers.append("state_path_is_not_a_directory")
+    if free < MIN_FREE_BYTES:
+        blockers.append("insufficient_runner_disk")
+    if not tools["docker"]:
+        blockers.append("docker_cli_missing")
+    socket = socket.resolve()
+    try:
+        is_socket = stat.S_ISSOCK(socket.stat().st_mode)
+    except OSError:
+        is_socket = False
+    if not is_socket:
+        blockers.append("docker_unix_socket_unavailable")
+    runtime = {}
+    if is_socket and tools["docker"]:
+        try:
+            with TemporaryDirectory(prefix="adl-docker-config-") as config:
+                runtime = inspect_runner(lambda *args: docker_cli(socket, config, config, *args))
+        except DOCKER_ERRORS as exc:
+            blockers.append("docker_runner_unavailable")
+            runtime["error"] = str(exc)
+    return {"status": "blocked" if blockers else "ready", "socket": str(socket),
+            "state": str(state), "free_bytes": free, "minimum_free_bytes": MIN_FREE_BYTES,
+            "tools": tools, "blockers": blockers, **runtime}
 
 
 class Compose:
@@ -40,29 +103,22 @@ class Compose:
         self.file = state / "compose.yaml"
         if file_digest(self.file) != identity["template_sha256"]:
             raise ValueError("saved Compose template changed")
-        config = state / "docker-config"
-        config.mkdir(exist_ok=True)
-        self.command = ["docker", "--config", str(config), "--host", f"unix://{socket}"]
-        self.env = {"PATH": os.environ["PATH"], "HOME": str(Path.home()),
-                    "ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
-                    "ADL_REVISION": identity["revision"]}
+        self.socket = socket
+        self.config = state / "docker-config"
+        self.config.mkdir(exist_ok=True)
+        self.variables = {"ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
+                          "ADL_REVISION": identity["revision"]}
 
     def docker(self, *argv, timeout=15):
-        result = subprocess.run([*self.command, *argv], env=self.env, cwd=self.state,
-                                capture_output=True, text=True, timeout=timeout)
-        if result.returncode:
-            raise ValueError(f"Docker {argv[0]} failed: {result.stderr[-3000:]}")
-        return result.stdout.strip()
+        return docker_cli(self.socket, self.config, self.state, *argv, variables=self.variables,
+                          timeout=timeout)
 
     def compose(self, *argv, timeout=15):
         return self.docker("compose", "--env-file", os.devnull, "-f", str(self.file),
                            "-p", self.project, *argv, timeout=timeout)
 
     def engine(self):
-        engine = self.docker("info", "--format", "{{.ID}}")
-        if not engine or engine == "<no value>":
-            raise ValueError("Docker did not report its engine ID")
-        return engine
+        return engine_id(self.docker)
 
     def resources(self):
         if self.engine() != self.identity["engine"]:
@@ -141,7 +197,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
         if not revision or not FULL_REVISION.fullmatch(revision):
             raise ValueError("provide the full candidate revision")
         git("cat-file", "-e", f"{revision}^{{commit}}", cwd=ROOT)
-        if disk_usage(state).free < 512 * 1024**2:
+        if disk_usage(state).free < MIN_FREE_BYTES:
             raise ValueError("Compose pilot requires at least 512 MiB available on the runner")
         source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
         compile(source, "pilot/service.py", "exec")
@@ -159,8 +215,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             "recovery": [],
         }
         stack = Compose(socket, state, receipt)
-        receipt["engine"] = stack.engine()
-        stack.compose("version")
+        receipt.update(inspect_runner(stack.docker))
         if any(stack.resources().values()):
             raise ValueError("pilot project already exists")
         record(receipt_path, receipt)

@@ -48,6 +48,18 @@ Colima profile, pass that profile's socket. Run from the reviewed factory
 checkout with the candidate commit available in Git.
 
 ```sh
+python3 -m delivery factory compose-preflight --socket "$DOCKER_SOCKET" \
+  --state .adl/compose-pilot/run-1
+```
+
+The preflight reports free space on the state volume, Docker and Colima
+availability, and the selected Engine and Compose versions. It exits unsuccessfully
+with specific blockers when the runner is unready. It creates no project or run
+state. On the Mac, point `DOCKER_SOCKET` at the dedicated Colima profile socket.
+On Linux CI, use `/var/run/docker.sock`. Allow space inside the Colima VM for
+image pulls and builds as well.
+
+```sh
 python3 -m delivery factory compose-pilot --socket /var/run/docker.sock \
   --revision "$(git rev-parse HEAD)" --state .adl/compose-pilot/run-1 \
   --runs .adl/factory-runs
