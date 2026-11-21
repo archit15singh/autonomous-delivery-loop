@@ -63,6 +63,7 @@ def main():
     ci.add_argument("urls", metavar="PR_URL", nargs="*")
     ci.add_argument("--file", type=Path, help="one GitHub PR URL per line")
     ci.add_argument("--output", type=Path, default=Path("-"))
+    ci.add_argument("--review", action="store_true", help="include reviews, unresolved threads, and merge state")
     args = parser.parse_args()
     if args.command == "upstream-prepare":
         try:
@@ -76,11 +77,13 @@ def main():
         try:
             if args.file:
                 urls += [line.strip() for line in args.file.read_text().splitlines() if line.strip()]
-            records = inspect_prs(urls)
+            records = inspect_prs(urls, review=args.review)
         except (OSError, ValueError) as exc:
             parser.error(str(exc))
         write(args.output, records)
-        return int(any(item["action"] == "lookup_failed" for item in records))
+        return int(any(item["action"] == "lookup_failed"
+                       or item.get("review", {}).get("action") == "lookup_failed"
+                       for item in records))
     if args.command == "upstream-replay":
         receipt = replay(args.repo, args.contract, args.output)
         write(args.output / "receipt.json", receipt)

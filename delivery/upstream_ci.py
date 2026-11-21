@@ -57,13 +57,125 @@ def next_action(signals):
     return "inspect_missing_evidence"
 
 
-def inspect_pr(url, repo, number):
-    pr = gh_json("pr", "view", str(number), "--repo", repo, "--json",
-                 "headRefOid,headRefName,headRepository,baseRefOid,state,isDraft,statusCheckRollup")
+REVIEW_QUERY = """
+query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      headRefOid
+      author { login }
+      latestReviews(first: 100) {
+        nodes {
+          state url authorAssociation
+          commit { oid }
+          author { login __typename }
+        }
+        pageInfo { hasNextPage }
+      }
+      comments(last: 30) {
+        nodes { url isMinimized authorAssociation author { login __typename } }
+      }
+      reviewThreads(first: 100, after: $endCursor) {
+        nodes {
+          isResolved isOutdated
+          comments(first: 1) {
+            nodes { url authorAssociation author { login __typename } }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}
+"""
+
+REPO_AFFILIATION = {"OWNER", "MEMBER", "COLLABORATOR"}
+
+
+def review_participant(item, pr_author):
+    author = item.get("author") or {}
+    login = author.get("login")
+    if not login:
+        return "unknown"
+    if author.get("__typename") == "Bot" or login.lower().endswith("[bot]"):
+        return "bot"
+    return "author" if login == pr_author else "human"
+
+
+def review_action(record, pr, unresolved):
+    decision, merge_state = pr["reviewDecision"], pr["mergeStateStatus"]
+    if record["draft"]:
+        return "complete_draft_requirements"
+    if decision == "CHANGES_REQUESTED" or any(
+        t["participant"] == "human" and not t["outdated"] for t in unresolved
+    ):
+        return "inspect_review_feedback"
+    if pr["mergeable"] == "CONFLICTING" or merge_state == "DIRTY":
+        return "resolve_conflicts"
+    if merge_state == "BEHIND":
+        return "check_branch_update"
+    if record["action"] != "checks_passed":
+        return record["action"]
+    if decision == "REVIEW_REQUIRED":
+        return "await_maintainer_review"
+    if merge_state == "CLEAN" and pr["mergeable"] == "MERGEABLE":
+        return "await_maintainer_merge"
+    return "inspect_merge_gate"
+
+
+def inspect_reviews(repo, number, pr, record):
+    owner, name = repo.split("/")
+    pages = gh_json("api", "graphql", "--paginate", "--slurp",
+                    "-f", f"query={REVIEW_QUERY}", "-f", f"owner={owner}",
+                    "-f", f"repo={name}", "-F", f"number={number}")
+    snapshots = [page["data"]["repository"]["pullRequest"] for page in pages]
+    if not snapshots or any(page["headRefOid"] != record["head"] for page in snapshots):
+        raise ValueError("PR head changed during review lookup; scan again")
+    first = snapshots[0]
+    pr_author = (first["author"] or {}).get("login")
+    if first["latestReviews"]["pageInfo"]["hasNextPage"]:
+        raise ValueError("too many reviewers for a complete review snapshot")
+    reviews = [
+        {"url": item["url"], "state": item["state"],
+         "login": (item.get("author") or {}).get("login"),
+         "participant": review_participant(item, pr_author),
+         "association": item["authorAssociation"],
+         "head": (item["commit"] or {}).get("oid")}
+        for item in first["latestReviews"]["nodes"]
+        if item["state"] != "PENDING"
+    ]
+    threads = []
+    for snapshot in snapshots:
+        for thread in snapshot["reviewThreads"]["nodes"]:
+            if thread["isResolved"]:
+                continue
+            nodes = thread["comments"]["nodes"]
+            comment = nodes[0] if nodes else {}
+            threads.append({"url": comment.get("url"), "outdated": thread["isOutdated"],
+                            "participant": review_participant(comment, pr_author),
+                            "association": comment.get("authorAssociation")})
+    discussion = [
+        {"url": item["url"], "login": item["author"]["login"],
+         "association": item["authorAssociation"]}
+        for item in first["comments"]["nodes"]
+        if (not item["isMinimized"] and item["authorAssociation"] in REPO_AFFILIATION
+            and review_participant(item, pr_author) == "human")
+    ]
+    return {"decision": pr["reviewDecision"], "merge_state": pr["mergeStateStatus"],
+            "mergeable": pr["mergeable"], "reviews": reviews, "unresolved_threads": threads,
+            "recent_affiliated_comments": discussion,
+            "action": review_action(record, pr, threads)}
+
+
+def inspect_pr(url, repo, number, *, review=False):
+    fields = "headRefOid,headRefName,headRepository,baseRefOid,state,isDraft,statusCheckRollup"
+    if review:
+        fields += ",reviewDecision,mergeStateStatus,mergeable,mergedAt"
+    pr = gh_json("pr", "view", str(number), "--repo", repo, "--json", fields)
     record = {"url": url, "head": pr["headRefOid"], "base": pr["baseRefOid"],
               "state": pr["state"], "draft": pr["isDraft"]}
     if pr["state"] != "OPEN":
-        return {**record, "action": "closed", "signals": []}
+        return {**record, "action": "closed", "signals": [],
+                **({"merged_at": pr["mergedAt"]} if review else {})}
     if not re.fullmatch(r"[a-f0-9]{40}", record["head"]):
         raise ValueError("GitHub did not return a full PR head")
     rollup = [
@@ -76,10 +188,16 @@ def inspect_pr(url, repo, number):
     pages = gh_json("api", "--paginate", "--slurp",
                     f"repos/{repo}/actions/runs?head_sha={record['head']}&event=pull_request&per_page=100")
     signals = rollup + collect_runs(pages, pr, number)
-    return {**record, "action": next_action(signals), "signals": signals}
+    record.update(action=next_action(signals), signals=signals)
+    if review:
+        try:
+            record["review"] = inspect_reviews(repo, number, pr, record)
+        except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
+            record["review"] = {"action": "lookup_failed", "error": str(exc)}
+    return record
 
 
-def inspect_prs(urls):
+def inspect_prs(urls, *, review=False):
     targets = []
     for url in dict.fromkeys(urls):
         match = PR_URL.fullmatch(url)
@@ -92,7 +210,7 @@ def inspect_prs(urls):
 
     def inspect(target):
         try:
-            return inspect_pr(*target)
+            return inspect_pr(*target, review=review)
         except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
             return {"url": target[0], "action": "lookup_failed", "error": str(exc)}
 
