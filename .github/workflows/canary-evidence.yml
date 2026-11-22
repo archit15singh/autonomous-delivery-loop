@@ -1,0 +1,38 @@
+name: Canary metrics evidence
+
+on:
+  pull_request:
+    paths:
+      - 'delivery/canary.py'
+      - 'delivery/factory_cli.py'
+      - 'verification/canary-metrics.py'
+      - '.github/workflows/canary-evidence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'delivery/canary.py'
+      - 'delivery/factory_cli.py'
+      - 'verification/canary-metrics.py'
+      - '.github/workflows/canary-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: Observe independent canary traffic
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - run: python3 -B verification/canary-metrics.py .adl/canary
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: canary-read-only-receipts
+          path: .adl/canary
+          include-hidden-files: true
