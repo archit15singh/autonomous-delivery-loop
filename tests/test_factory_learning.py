@@ -6,7 +6,7 @@ import unittest
 
 from delivery import browser_proof
 from delivery.upstream_ci import attach_local_replay
-from delivery.factory_evidence import browser_evidence, portfolio
+from delivery.factory_evidence import portfolio
 from delivery.factory_learning import assess_process, indexed_runs, measure, mine, pr_evidence, run_record
 from delivery.factory_benchmark import cost_route
 
@@ -59,9 +59,9 @@ class LearningTests(unittest.TestCase):
                         "sha256": sha256(name.encode()).hexdigest(), "passed": True}
             path = root / "browser.json"
             path.write_text(json.dumps(result))
-            self.assertTrue(browser_evidence(path, head, base)[0])
+            self.assertTrue(browser_proof.capture(path, head=head, base=base).passed)
             with self.assertRaisesRegex(ValueError, "another baseline"):
-                browser_evidence(path, head, head)
+                browser_proof.capture(path, head=head, base=head)
             # Indexing and publishing must use the same validated revision pair.
             request = {"id": "ui-replay", "head": head, "base": "3" * 40,
                        "factory_revision": head, "pr": "https://github.com/Owner/Repo/pull/1",
@@ -86,7 +86,7 @@ class LearningTests(unittest.TestCase):
             self.assertEqual(proof.receipt_reference, run["receipts"]["browser"])
             (root / "before-primary.png").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
-                browser_evidence(path, head, base)
+                browser_proof.capture(path, head=head, base=base)
             path.unlink()
             archive = root / "archived"
             proof.archive(archive)

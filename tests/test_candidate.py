@@ -1,7 +1,8 @@
 from pathlib import Path
 import unittest
 
-from delivery.candidate import check_scope, repair_context
+from delivery.candidate import repair_context
+from delivery.revisions import check_scope
 from delivery.verify import Contract
 
 CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contracts/named-greeting.json"

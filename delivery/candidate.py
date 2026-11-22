@@ -6,7 +6,7 @@ import subprocess
 
 from .patch_checkout import write_patch
 from .local_codex import check_local_runner, check_subagents
-from .revisions import FULL_REVISION, check_candidate, check_scope, git, paths_between
+from .revisions import git
 from .verify import advice
 
 def repair_context(contract, revision, receipt):

@@ -7,7 +7,6 @@ import json
 import re
 from threading import Thread
 
-from . import browser_proof
 from .impact import impact_verdict
 from .verify import Contract, Probe, canonical_json, verify
 
@@ -98,11 +97,6 @@ def compare_failures(head, base):
         routes.append({**item, "fingerprint": fingerprint,
                        "action": "follow_upstream_dependency" if fingerprint in baseline else "investigate_candidate"})
     return {"verdict": "classified", "head": head["revision"], "base": base["revision"], "routes": routes}
-
-
-def browser_evidence(path, head, base=None):
-    proof = browser_proof.capture(path, head=head, base=base)
-    return proof.passed, [path for path, _ in proof.files]
 
 
 def portfolio(records, ledger, related=()):
