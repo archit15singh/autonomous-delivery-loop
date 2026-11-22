@@ -385,3 +385,15 @@ environment, a successful deployment, a matching deployment ID and revision,
 and a threshold observation after deployment creation. Staging and missing
 analysis evidence do not establish production success. Metric totals stay
 unknown if any indexed attempt in that outcome is missing the measurement.
+
+## Local operator console
+
+Start the console from the factory checkout containing your private evidence.
+
+```sh
+python3 -m delivery.console --root "$PWD" --port 8765
+```
+
+Open `http://127.0.0.1:8765/`. The overview reads the local upstream board and run index. Use the queue to filter PRs, inspect their current recorded checks and follow the links to GitHub. Refresh rereads local evidence after a 30-second cache window. The hourly upstream loop refreshes the underlying receipts independently.
+
+Runs & traces shows indexed receipts and recognized local Codex transcript layouts. Session details display bounded events. Choose **Show recorded agent messages** to inspect message excerpts. Raw tool outputs and shell commands stay on disk. Judge scores, improvement experiments, benchmark cohorts and usage come from available factory evidence. Benchmark selections are browser-local. Billed USD requires an actual billing measurement. This console serves one operator on loopback and provides read-only access to the factory.
