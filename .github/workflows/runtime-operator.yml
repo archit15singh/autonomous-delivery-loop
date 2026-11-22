@@ -104,6 +104,40 @@ jobs:
           tool="$RUNNER_TEMP/adl-bin/kind"
           if test -x "$tool"; then "$tool" delete cluster --name adl-ci --kubeconfig "$RUNNER_TEMP/adl-kubeconfig"; fi
 
+  firecracker:
+    name: Firecracker product verification and runtime comparison
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.REVISION }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare the pinned offline guest
+        run: |
+          test -c /dev/kvm
+          sudo setfacl -m "u:$(id -u):rw" /dev/kvm
+          bash verification/firecracker-ci-assets.sh "$RUNNER_TEMP/adl-firecracker"
+      - name: Run paired runtime controls
+        run: |
+          python3 verification/product-runtime-check.py compose .adl/runtime-eval/compose --extended \
+            --socket /var/run/docker.sock
+          python3 verification/product-runtime-check.py firecracker .adl/runtime-eval/firecracker --extended \
+            --firecracker-assets "$RUNNER_TEMP/adl-firecracker"
+          python3 verification/product-runtime-check.py compare .adl/runtime-eval
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: runtime-comparison
+          path: |
+            .adl/runtime-eval/*/results.json
+            .adl/runtime-eval/*/*/runtime.json
+            .adl/runtime-eval/firecracker/*/serial.log
+            .adl/runtime-eval/comparison.json
+          include-hidden-files: true
+
   infrastructure:
     name: OpenTofu plan, approval and destroy
     runs-on: ubuntu-latest
