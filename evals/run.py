@@ -247,14 +247,19 @@ def trial(case, python, model, variant, base, run, timeout, *, agent="codex", la
     run.mkdir(parents=True)
     tree = checkout(base, run / "solve")
     if protected:
-        program = (
-            "import pathlib,sys; "
-            "assert pathlib.Path('.git').exists(); "
-            "sys.exit(1 if pathlib.Path(sys.argv[1]).read_bytes() else 1)"
-        )
+        program = """from pathlib import Path
+import sys
+assert Path(".git").exists()
+try:
+    Path(sys.argv[1]).read_bytes()
+except PermissionError:
+    print("protected grader read denied")
+else:
+    raise SystemExit("protected grader was accessible")
+"""
         verifier = command(["codex", "sandbox", *grader_permissions(protected), "-P", "adl_eval",
                             "--", python, "-c", program, str(ROOT / "cases.json")], tree, check=False)
-        if verifier.returncode != 1 or "PermissionError" not in verifier.stdout:
+        if verifier.returncode != 0 or "protected grader read denied" not in verifier.stdout.splitlines():
             raise RuntimeError("Codex sandbox did not demonstrate protected grader read denial")
     execution = run_agent(case, python, model, variant, tree, run, timeout, agent=agent, launcher=launcher,
                           protected=protected)
