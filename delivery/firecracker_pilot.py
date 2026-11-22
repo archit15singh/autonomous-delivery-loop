@@ -1,5 +1,4 @@
 """Boot and verify one reviewed product in a disposable, offline Linux microVM."""
-import fcntl
 from hashlib import sha256
 import json
 import math
@@ -38,6 +37,8 @@ os.execv(sys.argv[1], sys.argv[1:])
 def preflight(assets):
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "aarch64"}:
         raise ValueError("Firecracker requires an x86_64 or aarch64 Linux host with /dev/kvm")
+    import fcntl
+
     try:
         with open("/dev/kvm", "r+b", buffering=0) as device:
             if not stat.S_ISCHR(os.fstat(device.fileno()).st_mode) or fcntl.ioctl(device, KVM_GET_API_VERSION) != 12:
@@ -89,11 +90,13 @@ def build_payload(scratch, product, policy, deployment):
 
 
 def vm_config(files, image, product):
-    console = "ttyS0" if platform.machine() == "x86_64" else "ttyAMA0"
+    boot_args = "console=ttyS0 reboot=k panic=1 pci=off ro init=/sbin/adl-init"
+    if platform.machine() == "aarch64":
+        boot_args = "keep_bootcon " + boot_args
     return {
         "boot-source": {
             "kernel_image_path": str(files["vmlinux"]),
-            "boot_args": f"console={console} reboot=k panic=1 pci=off ro init=/sbin/adl-init",
+            "boot_args": boot_args,
         },
         "drives": [
             {"drive_id": "rootfs", "path_on_host": str(files["rootfs.ext4"]),
