@@ -77,23 +77,36 @@ def _model(value):
 
 
 def _score(root):
-    folder = ".adl/upstream-ci"
-    snapshots = sorted((name for name in console_files.names(root, Path(folder).parts)
-                        if re.fullmatch(r"score-round[0-9]{1,6}\.json", name)),
-                       key=lambda name: int(name[11:-5]), reverse=True)
-    for name in snapshots:
-        report = _object(_json(root, f"{folder}/{name}"))
-        fields = ("total", "delivered", "provisional", "subjects")
-        milestones = _object(report.get("by_milestone"))
-        if (all(_count(report.get(key)) for key in fields)
-                and all(_count(milestones.get(key)) for key in WEIGHTS)):
-            break
-    else:
+    folder = (".adl", "upstream-ci")
+    latest = None
+    fields = ("total", "delivered", "provisional", "subjects")
+    for name in console_files.names(root, folder):
+        round_name = re.fullmatch(r"score-round([0-9]{1,6})\.json", name)
+        if round_name is None and not re.fullmatch(r"scorecard(?:-[0-9]{4})?\.json", name):
+            continue
+        source = console_files.read(root, (*folder, name), READ_LIMIT)
+        if source is None:
+            continue
+        order = (source[1], int(round_name[1]) if round_name else -1, name)
+        if latest is not None and order <= latest:
+            continue
+        try:
+            candidate = _object(json.loads(source[0]))
+        except (ValueError, RecursionError):
+            continue
+        candidate_milestones = _object(candidate.get("by_milestone"))
+        if (all(_count(candidate.get(key)) for key in fields)
+                and all(_count(candidate_milestones.get(key)) for key in WEIGHTS)):
+            latest = order
+            report, milestones = candidate, candidate_milestones
+            subtitle = (f"Upstream score round {round_name[1]}" if round_name
+                        else "Latest upstream score snapshot")
+    if latest is None:
         return [_missing("Delivery score", "Upstream outcome snapshots")]
 
     breakdown = [f"{key.replace('_', ' ').capitalize()} · {milestones[key]} points"
                  for key in WEIGHTS]
-    rows = [_row("Delivery score", f"Upstream score round {int(name[11:-5])}", "recorded",
+    rows = [_row("Delivery score", subtitle, "recorded",
                  f"{report['total']} points across {report['subjects']} subjects. "
                  f"{report['delivered']} delivered points and {report['provisional']} provisional points.",
                  milestones=breakdown)]
