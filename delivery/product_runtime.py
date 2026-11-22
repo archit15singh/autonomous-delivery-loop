@@ -9,7 +9,8 @@ from tempfile import TemporaryDirectory
 
 from . import compose_pilot, firecracker_pilot, kube_pilot, lima_pilot
 from .revisions import FULL_REVISION, check_candidate, git
-from .verify import Contract, product_path
+from .scenario import RedisStep
+from .verify import Contract, product_path, canonical_json
 
 
 BACKENDS = ("compose", "lima", "kubernetes", "firecracker")
@@ -27,6 +28,7 @@ class Product:
     memory_mb: int
     cpu_limit: float
     identity: dict
+    files: tuple[tuple[str, bytes], ...] = ()
 
 
 def blob(repo, revision, path, limit):
@@ -55,18 +57,31 @@ def resolve(repo, base, revision, spec_path, backend):
     spec = json.loads(raw)
     if (not isinstance(spec, dict) or set(spec) != {"version", "name", "build", "contract", "port",
                                                      "fixture", "limits", "cleanup"}
-            or type(spec["version"]) is not int or spec["version"] != 1):
-        raise ValueError("expected a version 1 product runtime specification")
+            or type(spec["version"]) is not int or spec["version"] not in (1, 2)):
+        raise ValueError("expected a version 1 or version 2 product runtime specification")
     if not isinstance(spec["name"], str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,62}", spec["name"]):
         raise ValueError("invalid product name")
     build = spec["build"]
-    if (not isinstance(build, dict) or set(build) != {"kind", "source"}
-            or build["kind"] != "python-stdlib" or not product_path(build["source"])
-            or not build["source"].endswith(".py")):
-        raise ValueError("build must select a python-stdlib source file")
-    source_path = build["source"]
+    profile = spec["version"]
+    if profile == 1:
+        if (not isinstance(build, dict) or set(build) != {"kind", "source"}
+                or build["kind"] != "python-stdlib" or not product_path(build["source"])
+                or not build["source"].endswith(".py")):
+            raise ValueError("build must select a python-stdlib source file")
+        source_path = build["source"]
+        files = [source_path]
+    else:
+        if (backend != "compose" or not isinstance(build, dict)
+                or build.keys() != {"kind", "files"} or build["kind"] != "bottle-wsgi"):
+            raise ValueError("the bottle-wsgi application profile requires Compose")
+        files = build["files"]
+        source_path = "app.py"
+        if (not isinstance(files, list) or not 2 <= len(files) <= 32
+                or any(not product_path(name) or not name.endswith(".py") for name in files)
+                or source_path not in files or len(set(files)) != len(files)):
+            raise ValueError("bottle-wsgi requires app.py and an explicit list of Python files")
     contract_name = spec["contract"]
-    if not product_path(contract_name) or len({source_path, spec_path, contract_name}) != 3:
+    if not product_path(contract_name) or spec_path == contract_name or {spec_path, contract_name} & set(files):
         raise ValueError("source, specification and contract require distinct paths")
     port, limits = spec["port"], spec["limits"]
     if type(port) is not int or not 1024 <= port <= 65535:
@@ -75,28 +90,39 @@ def resolve(repo, base, revision, spec_path, backend):
             or type(limits["memory_mb"]) is not int or not 32 <= limits["memory_mb"] <= 512
             or type(limits["cpu"]) not in (float, int) or not 0.1 <= limits["cpu"] <= 2):
         raise ValueError("select 32–512 MiB and 0.1–2 CPUs for the application")
-    if spec["fixture"] not in ("none", "redis-counter") or spec["cleanup"] != "always":
-        raise ValueError("supported fixtures are none and redis-counter; cleanup must be always")
+    fixtures = ("none", "redis-counter") if profile == 1 else ("none", "redis-scenario")
+    if spec["fixture"] not in fixtures or spec["cleanup"] != "always":
+        raise ValueError(f"supported fixtures are {', '.join(fixtures)}; cleanup must be always")
     if backend == "firecracker" and spec["fixture"] != "none":
         raise ValueError("the Firecracker pilot supports the none fixture")
     with TemporaryDirectory(prefix="adl-contract-") as folder:
         contract_path = Path(folder) / "contract.json"
         contract_path.write_bytes(blob(repo, base, contract_name, 65536))
         contract = Contract.read(contract_path, product=True)
-        if contract.allowed_changes != (source_path,):
-            raise ValueError("the reviewed contract must scope changes to the declared source file")
+        if (profile == 1 and (contract.steps or contract.allowed_changes != (source_path,))
+                or profile == 2 and (not contract.steps or not set(contract.allowed_changes) <= set(files))):
+            raise ValueError("the reviewed contract must scope changes to declared application files and match the profile")
+        redis = spec["fixture"] != "none"
+        if not redis and any(isinstance(step, RedisStep) for step in contract.steps):
+            raise ValueError("Redis readbacks require the reviewed Redis scenario fixture")
         check_candidate(revision, base, contract.allowed_changes, cwd=repo)
-        source = blob(repo, revision, source_path, 256 * 1024)
-        try:
-            compile(source, source_path, "exec")
-        except (SyntaxError, ValueError, OverflowError) as exc:
-            raise ValueError(f"invalid Python source in {source_path}: {exc}") from exc
+        sources = tuple((name, blob(repo, revision, name, 256 * 1024)) for name in sorted(files))
+        for name, contents in sources:
+            try:
+                compile(contents, name, "exec")
+            except (SyntaxError, ValueError, OverflowError) as exc:
+                raise ValueError(f"invalid Python source in {name}: {exc}") from exc
+        source = dict(sources)[source_path]
         identity = {"name": spec["name"], "backend": backend, "base": base, "revision": revision,
                     "spec_path": spec_path, "spec_sha256": sha256(raw).hexdigest(),
                     "source_path": source_path, "source_sha256": sha256(source).hexdigest(),
                     "contract_path": contract_name, "contract_sha256": contract.digest}
-        yield Product(source, source_path, revision, contract_path, contract, port,
-                      spec["fixture"] == "redis-counter", limits["memory_mb"], limits["cpu"], identity)
+        if profile == 2:
+            manifest = {name: sha256(contents).hexdigest() for name, contents in sources}
+            identity.update(build="bottle-wsgi", source_files=manifest,
+                            source_bundle_sha256=sha256(canonical_json(manifest).encode()).hexdigest())
+        yield Product(source, source_path, revision, contract_path, contract, port, redis,
+                      limits["memory_mb"], limits["cpu"], identity, sources if profile == 2 else ())
 
 
 def register(actions):
@@ -157,8 +183,9 @@ def dispatch(args):
     with resolve(args.repo, args.base, args.revision, args.spec, args.backend) as product:
         if args.runtime_action == "plan":
             return {"product": product.identity, "port": product.port,
-                    "fixture": "redis-counter" if product.redis else "none",
+                    "fixture": ("redis-scenario" if product.files else "redis-counter") if product.redis else "none",
                     "limits": {"memory_mb": product.memory_mb, "cpu": product.cpu_limit},
-                    "cleanup": "always", "probes": [p.path for p in product.contract.probes]}, 0
+                    "cleanup": "always", "probes": [p.path for p in (*product.contract.probes, *product.contract.steps)
+                                                      if not isinstance(p, RedisStep)]}, 0
         receipt = invoke(args.backend, args, product)
         return receipt, int(receipt["verdict"] != "verified" or receipt["cleanup"]["status"] != "confirmed")

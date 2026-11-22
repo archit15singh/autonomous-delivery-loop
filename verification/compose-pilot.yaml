@@ -39,6 +39,7 @@ services:
     environment:
       ADL_API_PORT: ${ADL_API_PORT:?}
       ADL_PROBE_PATHS: ${ADL_PROBE_PATHS:?}
+      ADL_PROBE_ROUTES: ${ADL_PROBE_ROUTES:-[]}
     ports: ["127.0.0.1::8080"]
     networks: [default, probe]
     depends_on:
@@ -54,17 +55,28 @@ services:
         from http.client import HTTPConnection, HTTPException
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-        paths = set(json.loads(os.environ["ADL_PROBE_PATHS"]))
+        routes = {("GET", path) for path in json.loads(os.environ["ADL_PROBE_PATHS"])}
+        routes.update(map(tuple, json.loads(os.environ["ADL_PROBE_ROUTES"])))
         port = int(os.environ["ADL_API_PORT"])
 
         class ProbeRelay(BaseHTTPRequestHandler):
-            def do_GET(self):
-                if self.path not in paths:
+            def relay(self):
+                if (self.command, self.path) not in routes:
                     self.send_error(404)
                     return
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if not 0 <= length <= 65536 or self.headers.get("Transfer-Encoding"):
+                        raise ValueError()
+                except ValueError:
+                    self.send_error(400)
+                    return
+                self.connection.settimeout(4)
                 upstream = HTTPConnection("api", port, timeout=4)
                 try:
-                    upstream.request("GET", self.path)
+                    body = self.rfile.read(length) if length else None
+                    headers = {"Content-Type": "application/json"} if length else {}
+                    upstream.request(self.command, self.path, body, headers)
                     response = upstream.getresponse()
                     status, body = response.status, response.read(65537)
                 except (OSError, HTTPException):
@@ -75,6 +87,8 @@ services:
                 self.send_response(status)
                 self.end_headers()
                 self.wfile.write(body)
+
+            do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = relay
 
         ThreadingHTTPServer(("0.0.0.0", 8080), ProbeRelay).serve_forever()
     healthcheck:

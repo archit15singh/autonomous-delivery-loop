@@ -78,7 +78,7 @@ def build_payload(scratch, product, policy, deployment):
         "source_sha256": product.identity["source_sha256"], "contract_sha256": product.contract.digest,
         "memory_mb": product.memory_mb, "cpu_limit": product.cpu_limit,
     }))
-    for name in ("__init__.py", "verify.py", "impact.py"):
+    for name in ("__init__.py", "verify.py", "impact.py", "scenario.py"):
         (judge / name).write_bytes(git("show", f"{policy}:delivery/{name}", cwd=ROOT))
     (payload / "judge.py").write_bytes(git("show", f"{policy}:verification/firecracker-judge.py", cwd=ROOT))
     image = scratch / "input.ext4"

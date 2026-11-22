@@ -102,7 +102,7 @@ def payload(source, revision, browser=False, contract_bytes=None):
         contract_bytes = git("show", f"{revision}:contracts/compose-pilot.json", cwd=ROOT)
     files = {"service.py": source, "judge/check.py": PROBE.encode(),
              "judge/contract.json": contract_bytes}
-    for name in ("__init__.py", "verify.py", "impact.py"):
+    for name in ("__init__.py", "verify.py", "impact.py", "scenario.py"):
         files[f"judge/delivery/{name}"] = git("show", f"{revision}:delivery/{name}", cwd=ROOT)
     if browser:
         for name in ("lima-job-worker.py", "lima-job-browser.mjs"):
