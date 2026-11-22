@@ -9,7 +9,7 @@ from . import factory_learning as learning
 from .factory_resume import resume
 from . import factory_score, run_index, work_intake
 from . import factory_publish as publication
-from . import product_runtime, runtime_cli
+from . import canary, product_runtime, runtime_cli
 from .revisions import FULL_REVISION, git
 from .local_codex import MAX_SUBAGENTS
 from .factory_definition import definition
@@ -29,6 +29,7 @@ def register(commands):
     root.add_argument("--output", type=Path, default=Path("-"))
     actions = root.add_subparsers(dest="operation", required=True)
     product_runtime.register(actions)
+    canary.register(actions)
     review_improvement.register(actions)
     recovery = actions.add_parser("resume", help="recover operator notes, checkout and live PR state")
     recovery.add_argument("--workspace", type=Path, default=Path("."))
@@ -175,6 +176,8 @@ def benchmark_manifest(repo, frozen):
 
 
 def dispatch(args):
+    if args.operation == "canary-observe":
+        return canary.dispatch(args)
     if args.operation == "runtime":
         return product_runtime.dispatch(args)
     if hasattr(args, "runtime_handler"):
