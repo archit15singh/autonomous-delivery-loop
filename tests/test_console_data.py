@@ -61,8 +61,9 @@ class ConsoleDataTests(unittest.TestCase):
 
         visible = snapshot(self.root)
         self.assertEqual(set(visible), {"prs", "runs", "traces", "as_of"})
-        self.assertEqual(visible["as_of"], datetime.fromtimestamp(120, timezone.utc).isoformat())
-        self.assertEqual([p["title"] for p in visible["prs"]], ["Fresh current"])
+        self.assertEqual(visible["as_of"], datetime.fromtimestamp(140, timezone.utc).isoformat())
+        self.assertEqual([p["state"] for p in visible["prs"]], ["OPEN", "UNKNOWN"])
+        (self.adl / "upstream-ci/round102.json").unlink()
         replacement = self.write("upstream-ci/replacement.json", [], at=170)
         replacement.replace(self.adl / "upstream-ci/current.json")
         visible = snapshot(self.root)

@@ -472,12 +472,14 @@ async function traceDetail(t, messages = false) {
           bind(() => traceDetail(t, true)) +
           ">Show recorded agent messages</button>") +
         '<p class="statsline">' +
-        fmt(t.turns) +
+        fmt(d.turns) +
         " turns · " +
-        fmt(t.tokens) +
+        fmt(d.tokens) +
         " observed tokens · " +
-        fmt(t.events_count) +
-        " events</p>" +
+        fmt(d.events_count) +
+        (d.counts_truncated
+          ? " events in the captured prefix</p>"
+          : " events</p>") +
         events
           .map(
             (e) =>
@@ -486,7 +488,12 @@ async function traceDetail(t, messages = false) {
               "</span> &nbsp;<b>" +
               esc(label(e.item?.type || e.type)) +
               "</b>" +
-              (e.item?.text ? "<pre>" + esc(e.item.text) + "</pre>" : "") +
+              (e.text
+                ? "<pre>" +
+                  esc(e.text) +
+                  (e.text_truncated ? "… [excerpt]" : "") +
+                  "</pre>"
+                : "") +
               (e.item?.status
                 ? '<p class="sub">' + esc(label(e.item.status)) + "</p>"
                 : "") +
@@ -591,7 +598,9 @@ function listing() {
             data.traces
               .filter(matches)
               .map((t) => [
-                button(t.label, () => traceDetail(t)),
+                button(t.label + (t.counts_truncated ? " · partial" : ""), () =>
+                  traceDetail(t),
+                ),
                 fmt(t.turns),
                 fmt(t.tokens),
                 date(t.date),

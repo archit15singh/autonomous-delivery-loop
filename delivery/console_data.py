@@ -202,11 +202,12 @@ def _complete_round(rows):
         return False
     for row in rows:
         row = _object(row)
+        if _pr_url(row.get("url")) and row.get("action") == "lookup_failed":
+            continue
         if (not _pr_url(row.get("url")) or _code(row.get("state")) not in {"OPEN", "CLOSED", "MERGED"}
-                or not _code(row.get("action")) or row["action"] == "lookup_failed"
+                or not _code(row.get("action"))
                 or not _sha(row.get("head")) or not _sha(row.get("base"))
-                or not isinstance(row.get("signals"), list)
-                or _object(row.get("review")).get("action") == "lookup_failed"):
+                or not isinstance(row.get("signals"), list)):
             return False
     return True
 
@@ -259,7 +260,7 @@ def _pr_rows(rows, titles):
         url = row["url"]
         repo, number = PR_URL.fullmatch(url).groups()
         checks = []
-        for check in row["signals"]:
+        for check in _array(row.get("signals")):
             check = _object(check)
             if name := _display(check.get("name")):
                 checks.append({"name": name, "state": _code(check.get("state")) or "unknown",
@@ -271,7 +272,7 @@ def _pr_rows(rows, titles):
             "created_at": row.get("created_at") if _timestamp(row.get("created_at")) else None,
             "merged_at": row.get("merged_at") if _timestamp(row.get("merged_at")) else None,
             "title": _display(row.get("title")) or titles.get(url.lower()) or f"{repo} #{number}",
-            "state": row["state"], "action": row["action"], "head": _sha(row.get("head")),
+            "state": "UNKNOWN" if row["action"] == "lookup_failed" else row["state"], "action": row["action"], "head": _sha(row.get("head")),
             "base": _sha(row.get("base")), "checks": checks,
             "review": {key: value for key in ("decision", "action", "merge_state", "mergeable")
                        if (value := _code(review.get(key)))},
@@ -432,6 +433,8 @@ def _read_trace(root, trace_id, parts, *, detail=False, include_messages=False):
         return None
     result = {"id": trace_id, "label": _display("/".join(parts)), "date": _date(date),
               "turns": turns, "tokens": tokens if usage_turns else None, "events_count": count}
+    if byte_limited:
+        result["counts_truncated"] = True
     if detail:
         result.update(events=events, truncated=byte_limited or count > _EVENT_LIMIT,
                       counts_truncated=byte_limited, skipped_events=skipped,

@@ -123,7 +123,7 @@ def _score(root):
                  for key in WEIGHTS]
     rows = [_row("Delivery score", f"Upstream score round {int(name[11:-5])}", "recorded",
                  f"{report['total']} points across {report['subjects']} subjects. "
-                 f"{report['delivered']} delivered and {report['provisional']} provisional.",
+                 f"{report['delivered']} delivered points and {report['provisional']} provisional points.",
                  milestones=breakdown)]
     for subject in _records(report.get("rows")):
         url = subject.get("subject")
