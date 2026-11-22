@@ -1,9 +1,9 @@
 {
   "incident": "Learning ignored newer scorecards emitted by the hosted upstream monitor.",
   "baseline": "e15c1495e1a791495d7550517c830a51a044c2bd",
-  "fixed": "3e474f6af5136efd3b2f9ebbeeb0a4f9266588ef",
+  "fixed": "ff95e58c22434897e4858dbc399ae8aa3d3bef17",
   "driver": "learning-score.py",
-  "driver_sha256": "667921194072eb001e4150fa4a5094f170e6ca7585c2132ca609230ea7776027",
+  "driver_sha256": "96f9b781d768ed8fe434ac7aa5933bb097978cb38e744b2d88bd88866647f873",
   "cases": [
     {
       "id": "fresh",

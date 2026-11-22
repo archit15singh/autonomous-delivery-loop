@@ -78,7 +78,7 @@
     {
       "id": "learning-score",
       "baseline": "e15c1495e1a791495d7550517c830a51a044c2bd",
-      "fixed": "3e474f6af5136efd3b2f9ebbeeb0a4f9266588ef",
+      "fixed": "ff95e58c22434897e4858dbc399ae8aa3d3bef17",
       "contract": "contracts/factory/learning-score.json",
       "scenarios": {
         "fresh": "observed",
@@ -118,8 +118,8 @@
     "contracts/upstream/act-2517.json": "da2ed6b21f6525bb4104329b6e67cad19c7e7b1ad5172340b242ca6cdbfa9e67",
     "contracts/upstream/act-2708.json": "d26d27ce121037bfad23d6f366a84d8b6f7b719683811bef1a915775fbfc7cd2",
     "contracts/upstream/act-6236.json": "4e83ca594f339099ab6f408ff511b6180e53ecb521fa9e8ed1761fe985ae0d1d",
-    "contracts/factory/learning-score.json": "76cb24b3d3c36c98ee1992a787cef801dad5b23ee3d13094e27ab77028659e91",
-    "contracts/factory/learning-score.py": "667921194072eb001e4150fa4a5094f170e6ca7585c2132ca609230ea7776027",
+    "contracts/factory/learning-score.json": "133139061cc3e5ce44247d3dac87dd2b41df701fa39feab81d9a21c994d235a9",
+    "contracts/factory/learning-score.py": "96f9b781d768ed8fe434ac7aa5933bb097978cb38e744b2d88bd88866647f873",
     "contracts/factory/readiness-index.json": "6011f23e11a6b279e9a503dc36538ec547dd0c286ca08c6e090e1ec865dbd420",
     "contracts/factory/readiness-index.py": "78d1342e6961ced1238788a175f16d7d3d8ee82da1b80791ef5f41202fd9378c",
     "contracts/factory/workflow-identity.json": "0c3927c1b4a7b2211136da83f04f48dbdb6ac32ef8abcf2b3be29fa2d1510b09",

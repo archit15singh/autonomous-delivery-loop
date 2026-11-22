@@ -27,11 +27,18 @@ with TemporaryDirectory() as directory:
     save(score_dir, "score-round76.json", 100, 1_000_000_000)
     if sys.argv[1] == "fresh":
         save(score_dir, "scorecard-0133.json", 200, 2_000_000_000)
+        timed = next(row for row in learning(root)["improvements"] if row["title"] == "Delivery score")
+        if timed["details"]["evidence"].startswith("100 points"):
+            print("Learning ignored newer score snapshots")
+            raise SystemExit(1)
+        assert timed["details"]["evidence"].startswith("200 points")
         save(score_dir, "scorecard.json", 300, 3_000_000_000)
         malformed = score_dir / "scorecard-0336.json"
         malformed.write_text("{")
         os.utime(malformed, ns=(4_000_000_000, 4_000_000_000))
-    elif sys.argv[1] != "legacy":
+    elif sys.argv[1] == "legacy":
+        save(score_dir, "score-round75.json", 200, 2_000_000_000)
+    else:
         raise ValueError("unknown replay")
     score = next(row for row in learning(root)["improvements"] if row["title"] == "Delivery score")
     evidence = score["details"]["evidence"]
