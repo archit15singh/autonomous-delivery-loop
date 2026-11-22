@@ -53,7 +53,8 @@ Use it on an unprivileged account with read/write access to Linux `/dev/kvm` and
 `mke2fs`. Continue using Lima on macOS. The operator supplies an asset directory
 with a Firecracker executable, matching `vmlinux`, and `rootfs.ext4`. The guest
 image must have the fixed [boot script](../verification/firecracker-init) as
-`/sbin/adl-init`, plus Python, BusyBox-compatible utilities and an empty `/run`.
+`/sbin/adl-init`, plus Python, BusyBox-compatible utilities, an empty `/run`, and a localhost entry
+in `/etc/hosts` for offline name resolution.
 The [CI asset recipe](../verification/firecracker-ci-assets.sh) builds the
 x86_64 pilot from a checksum-verified Firecracker release and kernel and a
 digest-pinned Python image. It uses the hosted runner's existing Docker CLI to

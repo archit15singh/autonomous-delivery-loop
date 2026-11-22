@@ -23,5 +23,8 @@ guest=$(docker create "$image")
 mkdir "$source/root"
 docker export "$guest" | sudo tar -C "$source/root" -xf -
 sudo install -m 0755 "$init" "$source/root/sbin/adl-init"
+# Container engines inject these files on start; their exported image lacks them.
+printf '127.0.0.1 localhost\n::1 localhost\n' | sudo tee "$source/root/etc/hosts" >/dev/null
+sudo install -m 0644 /dev/null "$source/root/etc/resolv.conf"
 truncate -s 128M "$assets/rootfs.ext4"
 sudo mke2fs -q -F -t ext4 -d "$source/root" "$assets/rootfs.ext4"
