@@ -87,6 +87,14 @@ scrape_configs:
                 raise RuntimeError("Prometheus did not become ready")
             client = Thread(target=probes, daemon=True)
             client.start()
+            for _ in range(40):
+                with urlopen(origin + "/api/v1/query?query=up%7Bjob%3D%22independent-http%22%7D", timeout=2) as response:
+                    active = json.load(response)["data"]["result"]
+                if active and active[0]["value"][1] == "1":
+                    break
+                time.sleep(0.3)
+            else:
+                raise RuntimeError("Prometheus has not scraped the independent observer")
             policy = folder / "policy.json"
             policy.write_text(json.dumps({"version": 1, "requests_metric": "adl_requests_total",
                                           "successes_metric": "adl_successes_total", "step_seconds": 1,
