@@ -12,6 +12,7 @@ reviewed outcome contract
 ```
 
 - [Run local Codex workers and inspect usage](docs/factory-operations.md#local-codex-workers)
+- [Open the local operator web app](docs/factory-operations.md#local-operator-console)
 - [Outcome contract](contracts/pilot.json)
 - [Hosted workflow](.github/workflows/delivery.yml)
 - [Paired Codex eval and scorecard](evals/README.md)

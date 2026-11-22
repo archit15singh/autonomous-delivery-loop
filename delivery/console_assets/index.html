@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Factory / Overview</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <aside>
+      <div class="brand">
+        <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+          <rect width="34" height="34" rx="8" fill="#204b37" />
+          <path d="M7 23v-8l6 3v-6l6 3V8h6l2 15z" fill="#d8fb98" /></svg
+        ><strong>Foundry</strong>
+      </div>
+      <div class="workspace">
+        <span class="cube">F</span>
+        <div><b>Software factory</b><small>Local workspace</small></div>
+      </div>
+      <nav aria-label="Workspace navigation"></nav>
+      <div class="local"><i></i> Local Codex CLI</div>
+    </aside>
+    <div id="main">
+      <header>
+        <button id="menu" aria-label="Toggle navigation">☰</button
+        ><span>Workspace</span><b>/</b><strong id="crumb">Overview</strong
+        ><span id="boarddate"></span
+        ><button id="refresh" title="Reload evidence">↻ &nbsp; Refresh</button>
+      </header>
+      <main id="content">
+        <h1>Factory overview</h1>
+        <p>Reading local evidence…</p>
+      </main>
+    </div>
+    <dialog>
+      <div id="detail"></div>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+  </body>
+</html>
