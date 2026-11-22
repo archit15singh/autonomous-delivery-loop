@@ -53,7 +53,7 @@ def summarize(state, rounds):
             replay = json.loads(replay_path.read_text()) if replay_path.exists() else {}
             usage = run["usage"]
             acceptance, regression = (run.get(key, {}) for key in ("acceptance", "regression"))
-            commands, _, _ = events(path.with_name("events.jsonl"))
+            commands, _, _ = events(path.with_name("events.jsonl"), native=run.get("coding_agent", "codex") == "codex")
             test_commands = [
                 cmd for cmd in commands if cmd["test_outcome"]
             ]

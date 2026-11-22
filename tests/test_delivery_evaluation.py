@@ -52,7 +52,11 @@ class EvidenceEvaluationTest(unittest.TestCase):
                 self.assertFalse(row["seen"])
                 self.assertEqual((row["argv"][0], row["argv"][-1]), (agent, "- literal prompt"))
                 self.assertTrue(all(flag in row["argv"] for flag in flags))
-                self.assertEqual(events(output), ([], "", {}))
+                with output.open("a") as transcript:
+                    transcript.write(json.dumps({"type": "item.completed", "item": {
+                        "type": "command_execution", "command": "python -m pytest",
+                        "exit_code": 0, "aggregated_output": "9 passed"}}) + "\n")
+                self.assertEqual(events(output, native=False), ([], "", {}))
 
     def test_evidence_gate_requires_complete_rounds_and_cost_coverage(self):
         from evals.summarize import ROOT, learning_report

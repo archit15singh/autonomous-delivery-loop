@@ -191,7 +191,9 @@ def run_agent(case, python, model, variant, tree, run, timeout, *, agent="codex"
     return {"exit": exit_code, "seconds": round(time.monotonic() - started, 2)}
 
 
-def events(path):
+def events(path, *, native=True):
+    if not native:
+        return [], "", {}
     commands, reports = [], []
     for line in path.read_text().splitlines():
         try:
@@ -270,7 +272,7 @@ else:
     modes = git(tree, "diff", "--raw", "--no-renames", "-z", "HEAD", "--")
     scope_ok = permitted_diff(modes, (case["package"], case["tests"]))
     source_patch = git(tree, "diff", "--binary", "HEAD", "--", case["package"])
-    commands, report, usage = events(run / "events.jsonl")
+    commands, report, usage = events(run / "events.jsonl", native=agent == "codex")
     result = {"case": case["instance_id"], "variant": variant, "model": model,
               "agent": execution, "coding_agent": agent, "usage": usage, "human_interventions": 0,
               "grader_read_denial": bool(protected), "commands": commands, "report": report,
