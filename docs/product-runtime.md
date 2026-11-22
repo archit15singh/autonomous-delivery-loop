@@ -23,6 +23,7 @@ Use a fresh state directory per run. Keep it under operator control. The run own
 | --- | --- |
 | Compose | Select a local Docker engine with `--socket /var/run/docker.sock`. The candidate uses an internal network and a trusted relay exposes the contract probes on loopback. |
 | Lima | Start the existing dedicated `adl-runtime` instance. API and judge share a loopback-only network namespace. The VM has host mounts and SSH forwarding disabled. |
+| Firecracker | Select reviewed Linux assets with `--firecracker-assets DIR`. Each run boots with read-only disks, loopback only, an unprivileged app and a fixed guest judge. The first profile supports the `none` fixture. |
 | Kubernetes | Specify `--kubeconfig FILE --context kind-adl-NAME`. Use operator-trusted code in a disposable local cluster. Network egress depends on the cluster. The adapter uses a scoped namespace, a read-only source mount and a pinned interpreter. |
 
 ## Version 1 product specification
@@ -44,3 +45,44 @@ python3 verification/product-runtime-check.py lima .adl/catalog-replay
 ```
 
 The receipts establish runtime behavior for the checked artifact and deployment. Product receipts carry no authority to publish a release. Package installation, multi-file builds, custom images and additional fixture types require explicit future runtime profiles.
+
+## Firecracker pilot
+
+Firecracker gives the narrowly scoped HTTP verifier a fresh VM for each run.
+Use it on an unprivileged account with read/write access to Linux `/dev/kvm` and
+`mke2fs`. Continue using Lima on macOS. The operator supplies an asset directory
+with a Firecracker executable, matching `vmlinux`, and `rootfs.ext4`. The guest
+image must have the fixed [boot script](../verification/firecracker-init) as
+`/sbin/adl-init`, plus Python, BusyBox-compatible utilities, an empty `/run`, and a localhost entry
+in `/etc/hosts` for offline name resolution.
+The [CI asset recipe](../verification/firecracker-ci-assets.sh) builds the
+x86_64 pilot from a checksum-verified Firecracker release and kernel and a
+digest-pinned Python image. It uses the hosted runner's existing Docker CLI to
+unpack the image. Runtime execution requires no container engine.
+
+```sh
+python3 -m delivery factory runtime run --backend firecracker --repo "$PRODUCT_REPO" \
+  --spec runtime.json --base "$BASE" --revision "$CANDIDATE" \
+  --firecracker-assets "$ASSETS" --state .adl/catalog-microvm
+python3 -m delivery factory runtime inspect --state .adl/catalog-microvm
+python3 -m delivery factory runtime cleanup --state .adl/catalog-microvm
+```
+
+The receipt records the reviewed contract and source hashes, factory policy,
+guest asset hashes, observed runtime conditions, and wall time by phase. The
+VMM runs without a management socket or a virtual NIC. Use this pilot for
+operator-reviewed single-file Python HTTP products on a dedicated disposable
+runner. A shared production host or an untrusted-code service needs a separate
+isolation review and the upstream [jailer setup](https://github.com/firecracker-microvm/firecracker/blob/v1.18.0/docs/jailer.md).
+
+### Paired runtime eval
+
+The runtime workflow replays byte-identical commits against the existing Compose
+backend and Firecracker. Both arms must accept the catalog, catch its behavior
+regression, mark stale identity inconclusive, and refuse a change to the reviewed
+contract before allocating state. Every started run must confirm cleanup and
+return the same receipt when cleanup is repeated. Firecracker additionally
+checks the guest boundary. The `runtime-comparison` artifact contains the scorecard,
+exact receipts, and bounded guest serial output. Each case runs once per arm.
+Elapsed time includes CLI startup and teardown and excludes provisioning the
+runner and its guest assets. First-use image costs affect the comparison.

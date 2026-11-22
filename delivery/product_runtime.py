@@ -7,12 +7,12 @@ from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
 
-from . import compose_pilot, kube_pilot, lima_pilot
+from . import compose_pilot, firecracker_pilot, kube_pilot, lima_pilot
 from .revisions import FULL_REVISION, check_candidate, git
 from .verify import Contract, product_path
 
 
-BACKENDS = ("compose", "lima", "kubernetes")
+BACKENDS = ("compose", "lima", "kubernetes", "firecracker")
 
 
 @dataclass(frozen=True)
@@ -77,6 +77,8 @@ def resolve(repo, base, revision, spec_path, backend):
         raise ValueError("select 32–512 MiB and 0.1–2 CPUs for the application")
     if spec["fixture"] not in ("none", "redis-counter") or spec["cleanup"] != "always":
         raise ValueError("supported fixtures are none and redis-counter; cleanup must be always")
+    if backend == "firecracker" and spec["fixture"] != "none":
+        raise ValueError("the Firecracker pilot supports the none fixture")
     with TemporaryDirectory(prefix="adl-contract-") as folder:
         contract_path = Path(folder) / "contract.json"
         contract_path.write_bytes(blob(repo, base, contract_name, 65536))
@@ -116,6 +118,7 @@ def register(actions):
         action.add_argument("--socket", type=Path, help="local Docker socket for Compose")
         action.add_argument("--kubeconfig", type=Path)
         action.add_argument("--context", help="owned kind-adl-* context")
+    run.add_argument("--firecracker-assets", type=Path, help="operator-reviewed executable, kernel and rootfs")
 
 
 def invoke(backend, args, product=None):
@@ -127,6 +130,11 @@ def invoke(backend, args, product=None):
     if (backend == "kubernetes" and not (args.kubeconfig and args.context)
             or backend != "kubernetes" and (args.kubeconfig or args.context)):
         raise ValueError("--kubeconfig and --context are required exclusively for Kubernetes")
+    assets = getattr(args, "firecracker_assets", None)
+    if bool(assets) != (backend == "firecracker" and product is not None):
+        raise ValueError("--firecracker-assets is required exclusively for Firecracker runs")
+    if backend == "firecracker":
+        return firecracker_pilot.run(state, assets=assets, **options)
     if backend == "compose":
         return compose_pilot.run(args.socket, state, revision, **options)
     if backend == "kubernetes":

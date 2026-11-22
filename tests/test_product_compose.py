@@ -52,6 +52,7 @@ class ComposeProductTest(unittest.TestCase):
 
                 with (
                     patch.object(pilot, "docker_cli", side_effect=docker),
+                    patch.object(pilot, "disk_usage", return_value=SimpleNamespace(free=pilot.MIN_FREE_BYTES)),
                     patch.object(pilot, "running_definition", return_value=policy),
                     patch.object(pilot.Compose, "observe", return_value=observed) as observe,
                     patch.object(pilot, "git", side_effect=AssertionError("must use the resolved product revision")),
