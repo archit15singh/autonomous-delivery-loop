@@ -18,6 +18,11 @@ class FirecrackerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Linux host with /dev/kvm"):
                 preflight(Path("/missing"))
 
+    def test_factory_import_without_fcntl(self):
+        subprocess.run([sys.executable, "-B", "-c",
+                        'import subprocess, sys; sys.modules["fcntl"] = None; import delivery.factory_cli'],
+                       check=True, timeout=5, capture_output=True)
+
     def test_linux_preflight_refuses_unavailable_kvm(self):
         with patch("delivery.firecracker_pilot.platform.system", return_value="Linux"), \
                 patch("delivery.firecracker_pilot.platform.machine", return_value="x86_64"), \
@@ -32,6 +37,12 @@ class FirecrackerTests(unittest.TestCase):
         self.assertEqual(set(config), {"boot-source", "drives", "machine-config"})
         self.assertTrue(all(disk["is_read_only"] for disk in config["drives"]))
         self.assertEqual(config["machine-config"], {"vcpu_count": 1, "mem_size_mib": 160})
+
+    def test_arm_guest_uses_firecrackers_8250_console(self):
+        with patch("delivery.firecracker_pilot.platform.machine", return_value="aarch64"):
+            files = {"vmlinux": Path("/kernel"), "rootfs.ext4": Path("/rootfs")}
+            config = vm_config(files, Path("/payload"), SimpleNamespace(cpu_limit=0.5, memory_mb=64))
+        self.assertTrue(config["boot-source"]["boot_args"].startswith("keep_bootcon console=ttyS0 "))
 
     def test_serial_reads_the_framed_result_by_line(self):
         report = b'boot\nADL_FIRECRACKER_RESULT {"verdict":"failed"}\r\n'

@@ -6,7 +6,6 @@ mount -t tmpfs -o mode=0755,nosuid,nodev,size=16m tmpfs /run
 mkdir /run/input /run/cgroup
 mount -t ext4 -o ro,nosuid,nodev,noexec /dev/vdb /run/input
 mount -t cgroup2 -o nosuid,nodev,noexec cgroup2 /run/cgroup
-chmod 0600 /dev/console /dev/ttyS0 /dev/tty 2>/dev/null || true
-if [ -e /dev/ttyAMA0 ]; then chmod 0600 /dev/ttyAMA0; fi
+chmod 0600 /dev/console /dev/ttyS0 /dev/tty /dev/kmsg
 ip link set lo up
 exec /usr/local/bin/python3 -B /run/input/judge.py
