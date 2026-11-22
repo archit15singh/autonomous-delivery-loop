@@ -1,6 +1,5 @@
 """Read-only projections of the factory's local receipts and Codex exec logs."""
 
-from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from fnmatch import fnmatchcase
 from hashlib import sha256
@@ -12,6 +11,7 @@ import re
 import stat
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+from . import console_files
 from .factory_score import WEIGHTS
 from .github import PR_URL
 from .revisions import FULL_REVISION
@@ -22,8 +22,6 @@ _JSON_BYTES = 8 * 1024 * 1024
 _TRACE_BYTES = 4 * 1024 * 1024
 _EVENT_LIMIT = 250
 _MESSAGE_LIMIT = 2000
-_DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-_FILE_FLAGS = os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW
 _ROUND = re.compile(r"round([0-9]{1,12})\.json")
 _SAFE_ID = re.compile(r"[a-f0-9]{64}")
 _ITEM_ID = re.compile(r"item_[0-9]{1,16}")
@@ -69,49 +67,6 @@ _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ud800-\udfff]")
 _MESSAGE_URL = re.compile(r"https?://[^\s<>\"'`]+")
 
 
-@contextmanager
-def _directory(root, parts=()):
-    # Resolve each component against the open parent with O_NOFOLLOW. A concurrent
-    # rename can replace a receipt but cannot redirect the open through a symlink.
-    with ExitStack() as stack:
-        fd = os.open(root, _DIRECTORY_FLAGS)
-        stack.callback(os.close, fd)
-        for part in parts:
-            fd = os.open(part, _DIRECTORY_FLAGS, dir_fd=fd)
-            stack.callback(os.close, fd)
-        yield fd
-
-
-def _read(root, parts, limit, *, growing=False):
-    try:
-        with _directory(root, parts[:-1]) as parent:
-            fd = os.open(parts[-1], _FILE_FLAGS, dir_fd=parent)
-            try:
-                before = os.fstat(fd)
-                if not stat.S_ISREG(before.st_mode) or (not growing and before.st_size > limit):
-                    return None
-                with os.fdopen(fd, "rb", closefd=False) as stream:
-                    data = stream.read(limit + 1)
-                after = os.fstat(fd)
-                if not growing and (len(data) != before.st_size or len(data) > limit
-                                    or before.st_mtime_ns != after.st_mtime_ns
-                                    or before.st_size != after.st_size):
-                    return None
-                return data, before.st_mtime_ns
-            finally:
-                os.close(fd)
-    except OSError:
-        return None
-
-
-def _names(root, parts):
-    try:
-        with _directory(root, parts) as fd:
-            return sorted(os.listdir(fd))
-    except OSError:
-        return []
-
-
 def _parse(data):
     try:
         return json.loads(data)
@@ -120,7 +75,7 @@ def _parse(data):
 
 
 def _json(root, *parts):
-    source = _read(root, parts, _JSON_BYTES)
+    source = console_files.read(root, parts, _JSON_BYTES)
     return _parse(source[0]) if source else None
 
 
@@ -215,7 +170,7 @@ def _complete_round(rows):
 def _round(root):
     candidates = []
     try:
-        with _directory(root, ("upstream-ci",)) as fd:
+        with console_files.directory(root, ("upstream-ci",)) as fd:
             for name in os.listdir(fd):
                 match = _ROUND.fullmatch(name)
                 if name != "current.json" and not match:
@@ -229,7 +184,7 @@ def _round(root):
     except OSError:
         pass
     for _, _, name in sorted(candidates, reverse=True):
-        source = _read(root, ("upstream-ci", name), _JSON_BYTES)
+        source = console_files.read(root, ("upstream-ci", name), _JSON_BYTES)
         if source and _complete_round(rows := _parse(source[0])):
             return rows, name, _date(source[1])
     return [], None, None
@@ -300,7 +255,7 @@ def _round_scores(root, round_name):
 
 def _run_rows(root, scores):
     result = []
-    for name in _names(root, ("factory-runs",)):
+    for name in console_files.names(root, ("factory-runs",)):
         if not name.endswith(".json") or not KEY.fullmatch(name[:-5]):
             continue
         row = _object(_json(root, "factory-runs", name))
@@ -356,7 +311,7 @@ def _trace_paths(root):
         prefixes = [()]
         for part in layout.split("/"):
             if "*" in part:
-                prefixes = [prefix + (name,) for prefix in prefixes for name in _names(root, prefix)
+                prefixes = [prefix + (name,) for prefix in prefixes for name in console_files.names(root, prefix)
                             if _match(KEY, name) and fnmatchcase(name, part)]
             else:
                 prefixes = [prefix + (part,) for prefix in prefixes]
@@ -405,7 +360,7 @@ def _trace_event(line, event, include_messages):
 
 
 def _read_trace(root, trace_id, parts, *, detail=False, include_messages=False):
-    source = _read(root, parts, _TRACE_BYTES, growing=True)
+    source = console_files.read(root, parts, _TRACE_BYTES, growing=True)
     if not source:
         return None
     data, date = source

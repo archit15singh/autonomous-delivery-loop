@@ -1,15 +1,13 @@
 """Read the factory checkout's saved learning evidence for the operator console."""
 from collections import Counter, defaultdict
-from contextlib import ExitStack, contextmanager
 from hashlib import sha256
 import json
 from math import isfinite
-import os
 from pathlib import Path
 import re
-import stat
 from statistics import median
 
+from . import console_files
 from .factory_definition import POLICY_PATHS
 from .factory_score import ISSUE_URL, WEIGHTS
 from .github import PR_URL
@@ -32,33 +30,11 @@ SKILLS = {
 }
 
 
-@contextmanager
-def _open(root, relative, *, directory=False):
-    """Open fixed receipt paths without following symlinks, including intermediate ones."""
-    parts = Path(relative).parts
-    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY
-    with ExitStack() as stack:
-        parent = os.open(root, flags)
-        stack.callback(os.close, parent)
-        for part in parts[:-1]:
-            parent = os.open(part, flags, dir_fd=parent)
-            stack.callback(os.close, parent)
-        flags = flags if directory else os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
-        fd = os.open(parts[-1], flags, dir_fd=parent)
-        stack.callback(os.close, fd)
-        yield fd
-
-
 def _read(root, relative):
-    with _open(root, relative) as fd:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_size > READ_LIMIT:
-            raise ValueError("unreadable evidence file")
-        with os.fdopen(os.dup(fd), "rb") as stream:
-            raw = stream.read(READ_LIMIT + 1)
-    if len(raw) > READ_LIMIT:
-        raise ValueError("evidence file too large")
-    return raw
+    source = console_files.read(root, Path(relative).parts, READ_LIMIT)
+    if source is None:
+        raise ValueError("unreadable evidence file")
+    return source[0]
 
 
 def _json(root, relative):
@@ -102,13 +78,9 @@ def _model(value):
 
 def _score(root):
     folder = ".adl/upstream-ci"
-    try:
-        with _open(root, folder, directory=True) as fd:
-            snapshots = sorted((name for name in os.listdir(fd)
-                                if re.fullmatch(r"score-round[0-9]{1,6}\.json", name)),
-                               key=lambda name: int(name[11:-5]), reverse=True)
-    except OSError:
-        snapshots = []
+    snapshots = sorted((name for name in console_files.names(root, Path(folder).parts)
+                        if re.fullmatch(r"score-round[0-9]{1,6}\.json", name)),
+                       key=lambda name: int(name[11:-5]), reverse=True)
     for name in snapshots:
         report = _object(_json(root, f"{folder}/{name}"))
         fields = ("total", "delivered", "provisional", "subjects")
@@ -340,12 +312,7 @@ def _workflows(root):
 def _proposals(root):
     rows = []
     for folder in (".adl/review-loop", ".adl/review-pilot/runs"):
-        try:
-            with _open(root, folder, directory=True) as fd:
-                names = sorted(os.listdir(fd))
-        except OSError:
-            continue
-        for name in names:
+        for name in console_files.names(root, Path(folder).parts):
             if not re.fullmatch(r"[0-9a-f]{64}", name):
                 continue
             proposal = _object(_json(root, f"{folder}/{name}/proposal.json"))
@@ -364,13 +331,8 @@ def _proposals(root):
 
 def _workflow_sources(root):
     folder = ".github/workflows"
-    try:
-        with _open(root, folder, directory=True) as fd:
-            names = sorted(os.listdir(fd))
-    except OSError:
-        return []
     rows = []
-    for name in names:
+    for name in console_files.names(root, Path(folder).parts):
         if not re.fullmatch(r"[a-z0-9_-]+\.ya?ml", name):
             continue
         path = f"{folder}/{name}"
