@@ -1,6 +1,6 @@
 # Follow up on upstream PRs
 
-After opening a PR, record its URL in `.adl/upstream-ci/prs.txt` and check the submitted head. Keep the file in the factory checkout. An active Codex session can check immediately and a local Codex heartbeat can resume the queue after CI changes.
+After opening a PR, [explain its motivation and show the before/after flow in the live description](../.agents/skills/upstream-pr/SKILL.md#after-creating-the-pr). Then record its URL in `.adl/upstream-ci/prs.txt` and check the submitted head. Keep the file in the factory checkout. An active Codex session can check immediately and a local Codex heartbeat can resume the queue after CI changes.
 
 ```sh
 python3 -m delivery upstream-ci https://github.com/OWNER/REPO/pull/123
