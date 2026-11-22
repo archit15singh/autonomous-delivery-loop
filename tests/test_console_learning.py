@@ -1,8 +1,10 @@
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from delivery.console_learning import learning
 from delivery.factory_score import WEIGHTS
@@ -21,6 +23,26 @@ class ConsoleLearningTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data))
         return path
+
+    def test_skips_workflow_source_changed_during_read(self):
+        folder = self.root / ".github/workflows"
+        folder.mkdir(parents=True)
+        path = folder / "delivery.yml"
+        path.write_text("name: Before\n")
+        target = path.stat()
+        fstat = os.fstat
+
+        def rewrite_after_first_stat(fd):
+            info = fstat(fd)
+            if os.path.samestat(info, target) and info.st_mtime_ns == target.st_mtime_ns:
+                path.write_text("name: During\n")
+                os.utime(path, ns=(target.st_atime_ns, target.st_mtime_ns + 2_000_000_000))
+            return info
+
+        with patch("os.fstat", side_effect=rewrite_after_first_stat):
+            workflows = learning(self.root)["workflows"]
+        self.assertFalse(any(row.get("url") for row in workflows))
+        self.assertIn("During", [row["title"] for row in learning(self.root)["workflows"]])
 
     def test_projects_receipts_into_display_evidence(self):
         subject = "https://github.com/example/factory/pull/14"
