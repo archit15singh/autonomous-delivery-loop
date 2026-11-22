@@ -78,7 +78,7 @@ def _model(value):
 
 def _score(root):
     folder = (".adl", "upstream-ci")
-    latest = None
+    latest = {}
     fields = ("total", "delivered", "provisional", "subjects")
     for name in console_files.names(root, folder):
         round_name = re.fullmatch(r"score-round([0-9]{1,6})\.json", name)
@@ -87,8 +87,11 @@ def _score(root):
         source = console_files.read(root, (*folder, name), READ_LIMIT)
         if source is None:
             continue
-        order = (source[1], int(round_name[1]) if round_name else -1, name)
-        if latest is not None and order <= latest:
+        mtime = source[1]
+        number = int(round_name[1]) if round_name else None
+        kind = "round" if round_name else "scorecard"
+        order = (number if round_name else mtime, mtime, name)
+        if kind in latest and order <= latest[kind][0]:
             continue
         try:
             candidate = _object(json.loads(source[0]))
@@ -97,12 +100,14 @@ def _score(root):
         candidate_milestones = _object(candidate.get("by_milestone"))
         if (all(_count(candidate.get(key)) for key in fields)
                 and all(_count(candidate_milestones.get(key)) for key in WEIGHTS)):
-            latest = order
-            report, milestones = candidate, candidate_milestones
-            subtitle = (f"Upstream score round {round_name[1]}" if round_name
-                        else "Latest upstream score snapshot")
-    if latest is None:
+            latest[kind] = (order, number, candidate, candidate_milestones)
+    if not latest:
         return [_missing("Delivery score", "Upstream outcome snapshots")]
+
+    # A copied older round must not outrank the highest numbered legacy round.
+    _, number, report, milestones = max(latest.values(), key=lambda item: item[0][1:])
+    subtitle = (f"Upstream score round {number}" if number is not None
+                else "Latest upstream score snapshot")
 
     breakdown = [f"{key.replace('_', ' ').capitalize()} · {milestones[key]} points"
                  for key in WEIGHTS]
