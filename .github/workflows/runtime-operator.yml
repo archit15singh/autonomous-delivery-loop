@@ -8,6 +8,7 @@ on:
       - 'contracts/**'
       - 'verification/**'
       - 'examples/catalog/**'
+      - 'examples/order-service/**'
       - '.github/workflows/runtime-operator.yml'
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - 'contracts/**'
       - 'verification/**'
       - 'examples/catalog/**'
+      - 'examples/order-service/**'
       - '.github/workflows/runtime-operator.yml'
 
 permissions:
@@ -140,6 +142,26 @@ jobs:
             .adl/runtime-eval/*/*/runtime.json
             .adl/runtime-eval/firecracker/*/serial.log
             .adl/runtime-eval/comparison.json
+          include-hidden-files: true
+
+  application:
+    name: Multi-file application and state assertions
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.REVISION }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python3 verification/application-scenarios.py --state .adl/orders --socket /var/run/docker.sock
+      - name: Upload independent application receipts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: application-scenario-receipts
+          path: .adl/orders/*/runtime.json
           include-hidden-files: true
 
   infrastructure:

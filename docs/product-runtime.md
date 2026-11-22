@@ -86,3 +86,36 @@ checks the guest boundary. The `runtime-comparison` artifact contains the scorec
 exact receipts, and bounded guest serial output. Each case runs once per arm.
 Elapsed time includes CLI startup and teardown and excludes provisioning the
 runner and its guest assets. First-use image costs affect the comparison.
+
+## Multi-file Bottle application
+
+The Compose backend accepts a version 2 product spec. Use `bottle-wsgi` with an
+explicit file list containing `app.py`. The reviewed base selects the file list,
+fixture and scenario. The scenario scopes which listed files Codex can change.
+For an example, copy [the order service](../examples/order-service) into a new
+Git repository and commit it. Use the same plan/run/inspect commands with
+`--backend compose` and pass the local socket to run and cleanup.
+
+The trusted build context contains only the selected files, the factory recipe
+and its wheel lock. The recipe uses a pinned Python base and hash-checked
+Bottle and Redis packages. It runs `app.py` as an unprivileged user. Receipt
+fields bind the file manifest, dependency lock and observed OCI config digest.
+The runner checks the deployed container against that digest around verification.
+
+The ordered [scenario](../examples/order-service/outcome.json) supports HTTP
+method, path, expected status and optional JSON body/assertion, plus Redis
+point readbacks. A readback can expect absence or wait up to five seconds for
+an exact text value. The factory reads Redis directly through the disposable
+fixture. The app cannot report the readback for itself. A failed step stops the
+sequence and still triggers cleanup. The runtime checks deployment identity
+around the sequence and between steps. Keep these write-capable scenarios on
+disposable environments. The production metrics collector uses read-only
+measurements separately.
+
+```sh
+python3 verification/application-scenarios.py --state .adl/orders --socket /var/run/docker.sock
+```
+
+The live replay checks correct behavior, wrong persisted quantity, wrong
+background-job result, an invalid request that writes state, and a candidate
+edit to protected acceptance criteria. It stores receipts for each started run.
