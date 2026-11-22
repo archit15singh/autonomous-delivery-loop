@@ -77,23 +77,41 @@ def _model(value):
 
 
 def _score(root):
-    folder = ".adl/upstream-ci"
-    snapshots = sorted((name for name in console_files.names(root, Path(folder).parts)
-                        if re.fullmatch(r"score-round[0-9]{1,6}\.json", name)),
-                       key=lambda name: int(name[11:-5]), reverse=True)
-    for name in snapshots:
-        report = _object(_json(root, f"{folder}/{name}"))
-        fields = ("total", "delivered", "provisional", "subjects")
-        milestones = _object(report.get("by_milestone"))
-        if (all(_count(report.get(key)) for key in fields)
-                and all(_count(milestones.get(key)) for key in WEIGHTS)):
-            break
-    else:
+    folder = (".adl", "upstream-ci")
+    latest = {}
+    fields = ("total", "delivered", "provisional", "subjects")
+    for name in console_files.names(root, folder):
+        round_name = re.fullmatch(r"score-round([0-9]{1,6})\.json", name)
+        if round_name is None and not re.fullmatch(r"scorecard(?:-[0-9]{4})?\.json", name):
+            continue
+        source = console_files.read(root, (*folder, name), READ_LIMIT)
+        if source is None:
+            continue
+        mtime = source[1]
+        number = int(round_name[1]) if round_name else None
+        kind = "round" if round_name else "scorecard"
+        order = (number if round_name else mtime, mtime, name)
+        if kind in latest and order <= latest[kind][0]:
+            continue
+        try:
+            candidate = _object(json.loads(source[0]))
+        except (ValueError, RecursionError):
+            continue
+        candidate_milestones = _object(candidate.get("by_milestone"))
+        if (all(_count(candidate.get(key)) for key in fields)
+                and all(_count(candidate_milestones.get(key)) for key in WEIGHTS)):
+            latest[kind] = (order, number, candidate, candidate_milestones)
+    if not latest:
         return [_missing("Delivery score", "Upstream outcome snapshots")]
+
+    # A copied older round must not outrank the highest numbered legacy round.
+    _, number, report, milestones = max(latest.values(), key=lambda item: item[0][1:])
+    subtitle = (f"Upstream score round {number}" if number is not None
+                else "Latest upstream score snapshot")
 
     breakdown = [f"{key.replace('_', ' ').capitalize()} · {milestones[key]} points"
                  for key in WEIGHTS]
-    rows = [_row("Delivery score", f"Upstream score round {int(name[11:-5])}", "recorded",
+    rows = [_row("Delivery score", subtitle, "recorded",
                  f"{report['total']} points across {report['subjects']} subjects. "
                  f"{report['delivered']} delivered points and {report['provisional']} provisional points.",
                  milestones=breakdown)]

@@ -1,0 +1,43 @@
+{
+  "incident": "Learning ignored newer scorecards emitted by the hosted upstream monitor.",
+  "baseline": "e15c1495e1a791495d7550517c830a51a044c2bd",
+  "fixed": "ff95e58c22434897e4858dbc399ae8aa3d3bef17",
+  "driver": "learning-score.py",
+  "driver_sha256": "96f9b781d768ed8fe434ac7aa5933bb097978cb38e744b2d88bd88866647f873",
+  "cases": [
+    {
+      "id": "fresh",
+      "type": "observed",
+      "command": [
+        "python3",
+        "{driver}",
+        "fresh"
+      ],
+      "baseline": {
+        "exit": 1,
+        "contains": "Learning ignored newer score snapshots"
+      },
+      "candidate": {
+        "exit": 0,
+        "contains": "Learning chose latest valid score snapshot"
+      }
+    },
+    {
+      "id": "legacy",
+      "type": "held_out",
+      "command": [
+        "python3",
+        "{driver}",
+        "legacy"
+      ],
+      "baseline": {
+        "exit": 0,
+        "contains": "Numbered score round remains readable"
+      },
+      "candidate": {
+        "exit": 0,
+        "contains": "Numbered score round remains readable"
+      }
+    }
+  ]
+}
