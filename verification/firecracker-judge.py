@@ -9,6 +9,7 @@ import signal
 import socket
 import subprocess
 import sys
+from tempfile import TemporaryFile
 import time
 
 from delivery.verify import Contract, fetch, verify
@@ -50,24 +51,30 @@ def main():
         limit = job["memory_mb"] * 1024 * 1024
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
         resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (64 * 1024, 64 * 1024))
         app_privileges()
 
     port = str(job["port"])
     revision, deployment = job["revision"], job["deployment"]
-    subprocess.Popen([sys.executable, "-IB", str(source)], preexec_fn=start_app,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     cwd="/", env={"PATH": "/usr/local/bin:/bin", "HOME": "/",
-                                   "ADL_REVISION": revision, "ADL_DEPLOYMENT": deployment,
-                                   "PORT": port, "ADL_PORT": port, "ADL_HOST": "127.0.0.1", "HOST": "127.0.0.1"})
-    origin = f"http://127.0.0.1:{port}"
-    for _ in range(30):
-        if fetch(origin, "/_revision").get("status") == 200:
-            break
-        time.sleep(0.1)
-    report = verify(contract, origin, revision, deployment, {
-        "status": "passed", "source": "firecracker_exact_source", "revision": revision,
-        "deployment": deployment, "artifact_sha256": job["source_sha256"],
-    })
+    with TemporaryFile(dir="/run") as stderr:
+        app = subprocess.Popen([sys.executable, "-IB", str(source)], preexec_fn=start_app,
+                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=stderr,
+                               cwd="/", env={"PATH": "/usr/local/bin:/bin", "HOME": "/",
+                                             "ADL_REVISION": revision, "ADL_DEPLOYMENT": deployment,
+                                             "PORT": port, "ADL_PORT": port, "ADL_HOST": "127.0.0.1", "HOST": "127.0.0.1"})
+        origin = f"http://127.0.0.1:{port}"
+        for _ in range(30):
+            if app.poll() is not None or fetch(origin, "/_revision").get("status") == 200:
+                break
+            time.sleep(0.1)
+        report = verify(contract, origin, revision, deployment, {
+            "status": "passed", "source": "firecracker_exact_source", "revision": revision,
+            "deployment": deployment, "artifact_sha256": job["source_sha256"],
+        })
+        if report["reason"] == "runtime_unavailable":
+            report["app_exit"] = app.poll()
+            stderr.seek(0)
+            report["app_stderr"] = stderr.read(2048).decode(errors="replace")
     report["guest"] = {"network_interfaces": interfaces, "read_only_drives": True, "app_uid": APP_USER,
                        "memory_mb": job["memory_mb"], "cpu_quota": (app_group / "cpu.max").read_text().strip()}
     print("ADL_FIRECRACKER_RESULT " + json.dumps(report), flush=True)
