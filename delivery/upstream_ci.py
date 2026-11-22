@@ -167,12 +167,13 @@ def inspect_pr(url, repo, number, *, review=False):
     fields = "headRefOid,headRefName,headRepository,baseRefOid,state,isDraft,statusCheckRollup"
     if review:
         fields += ",reviewDecision,mergeStateStatus,mergeable,mergedAt,baseRefName,closingIssuesReferences"
-        fields += ",mergedBy,mergeCommit"
+        fields += ",mergedBy,mergeCommit,title,createdAt"
     pr = gh_json("pr", "view", str(number), "--repo", repo, "--json", fields)
     record = {"url": url, "head": pr["headRefOid"], "base": pr["baseRefOid"],
               "state": pr["state"], "draft": pr["isDraft"]}
     if review:
-        record.update(base_branch=pr["baseRefName"], linked_issues=[
+        record.update(title=pr.get("title"), created_at=pr.get("createdAt"),
+                      base_branch=pr["baseRefName"], linked_issues=[
             issue["url"] for issue in pr["closingIssuesReferences"]
         ])
     if pr["state"] != "OPEN":

@@ -268,6 +268,8 @@ def _pr_rows(rows, titles):
         # Keep GitHub review decisions separate from the CI action.
         result.setdefault(url.lower(), {
             "id": url, "url": url, "repo": repo, "number": int(number),
+            "created_at": row.get("created_at") if _timestamp(row.get("created_at")) else None,
+            "merged_at": row.get("merged_at") if _timestamp(row.get("merged_at")) else None,
             "title": _display(row.get("title")) or titles.get(url.lower()) or f"{repo} #{number}",
             "state": row["state"], "action": row["action"], "head": _sha(row.get("head")),
             "base": _sha(row.get("base")), "checks": checks,

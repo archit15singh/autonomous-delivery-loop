@@ -550,3 +550,6 @@ a {
     margin-left: auto;
   }
 }
+.dashboardtabs {
+  margin: -4px 0 19px;
+}

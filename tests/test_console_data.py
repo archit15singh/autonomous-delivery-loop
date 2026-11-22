@@ -76,12 +76,14 @@ class ConsoleDataTests(unittest.TestCase):
                             "url": "https://ci.example/check/42?token=secret#private", "stderr": "hidden"},
                      {"name": "Invalid link", "state": ["bad"], "url": "javascript:alert(1)"},
                      {"name": "Userinfo", "url": "https://user:password@ci.example/"}],
+            created_at="2026-11-22T00:01:00Z", merged_at="unparseable",
             review={"action": "inspect_review_feedback", "decision": "CHANGES_REQUESTED",
                     "reviews": [{"body": "hidden"}], "error": "hidden"},
         )])
         self.assertEqual(snapshot(self.root)["prs"], [{
             "id": PR, "url": PR, "repo": "owner/repo", "number": 12, "title": "owner/repo #12",
             "state": "OPEN", "action": "wait_for_ci", "head": HEAD, "base": BASE,
+            "created_at": "2026-11-22T00:01:00Z", "merged_at": None,
             "review": {"action": "inspect_review_feedback", "decision": "CHANGES_REQUESTED"},
             "checks": [{"name": "Tests", "state": "success", "url": "https://ci.example/check/42"},
                        {"name": "Invalid link", "state": "unknown", "url": None},

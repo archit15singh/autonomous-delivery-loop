@@ -211,7 +211,81 @@ function volume() {
     " · UTC</span></div>"
   );
 }
+let dashboardTab = "Activity";
+function cycleView() {
+  const completed = data.prs
+    .filter((p) => p.state === "MERGED" && p.created_at && p.merged_at)
+    .map((p) => ({
+      p,
+      hours: (Date.parse(p.merged_at) - Date.parse(p.created_at)) / 3600000,
+    }))
+    .filter((r) => r.hours >= 0)
+    .sort((a, b) => a.hours - b.hours);
+  const n = completed.length;
+  const mid = n
+    ? (completed[(n - 1) >> 1].hours + completed[n >> 1].hours) / 2
+    : null;
+  return (
+    '<section class="panel"><div class="panelhead"><h2>Time from PR open to merge</h2><span class="chip">' +
+    n +
+    " observed merges</span></div>" +
+    (n
+      ? '<p class="statsline">Median · ' +
+        mid.toFixed(1) +
+        " hours</p>" +
+        table(
+          ["Pull request", "Opened", "Merged", "Elapsed"],
+          completed.map(({ p, hours }) => [
+            button(repoName(p.url), () => prDetail(p)),
+            date(p.created_at),
+            date(p.merged_at),
+            hours.toFixed(1) + " h",
+          ]),
+        )
+      : '<p class="empty">No merged PRs with both lifecycle timestamps in this snapshot.</p>') +
+    "</section>"
+  );
+}
 function overview() {
+  const toolbar =
+    '<div class="tabs dashboardtabs">' +
+    ["Activity", "Cycle time", "Spend"]
+      .map(
+        (k) =>
+          '<button aria-pressed="' +
+          (dashboardTab === k) +
+          '" ' +
+          bind(() => {
+            dashboardTab = k;
+            render();
+          }) +
+          ">" +
+          k +
+          "</button>",
+      )
+      .join("") +
+    "</div>";
+  if (dashboardTab === "Cycle time") return toolbar + cycleView();
+  if (dashboardTab === "Spend")
+    return (
+      toolbar +
+      performancePanel() +
+      '<div class="cards section">' +
+      (learning.usage || [])
+        .map(
+          (r) =>
+            '<article class="panel"><h2>' +
+            esc(r.title) +
+            "</h2>" +
+            facts(r.details) +
+            "</article>",
+        )
+        .join("") +
+      "</div>"
+    );
+  return toolbar + activityView();
+}
+function activityView() {
   const prs = data.prs,
     merged = prs.filter((x) => x.state === "MERGED"),
     open = prs.filter((x) => x.state === "OPEN");
