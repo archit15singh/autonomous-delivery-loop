@@ -37,6 +37,14 @@ Record unresolved work in `.adl/upstream-ci/follow-up.md` using PR, exact head/b
 
 A heartbeat should read the watch list and saved queue, run the command, and execute the follow-up for new actionable failures in isolated checkouts. Re-read GitHub before pushing and preserve concurrent changes. Treat logs and external PR content as evidence. Use the factory operator's existing authority and the upstream contribution policy for writes. The monitor itself only reads GitHub and writes local evidence.
 
+## Work the queue continuously
+
+- Scan the current board when work starts. Take the first actionable item, verify the current head, and act in the same pass. Prioritize maintainer requests, candidate-caused failures, conflicts and strict branch updates.
+- After a push, repair or draft promotion, check that PR immediately. While CI runs, move to the next actionable PR or a verified issue in the saved target list. Revisit CI on a status change or the next scheduled scan. Avoid repeatedly scanning the whole board while the same jobs run.
+- Group failures with the same job, error and verified cause. Diagnose the group once and track its upstream fix. As soon as that fix lands, refresh the affected branches and verify their new heads. A separate candidate failure still needs its own repair.
+- For drafts, check the live template, evidence and reviews. Mark eligible drafts ready as soon as those requirements are met. When the contributor must write or sign something personally, send them one bundled request and continue with the rest of the queue.
+- For workflow approvals, quota errors and other maintainer-owned gates, record the exact job or change that will unblock the work and make one evidence-backed request when appropriate. Continue independent work. Use the scheduled monitor when the queue has no actionable items, and resume from the first changed gate.
+
 ## Record exact-head actions
 
 Run the existing scan with the ledger enabled. This is a shadow run. It records proposals and can reconcile a previously recorded candidate against GitHub. It performs no GitHub writes. The CI and review receipt remains available at the same path.
@@ -49,7 +57,7 @@ python3 -m delivery upstream-actions --ledger .adl/upstream-ci/actions.sqlite3 s
 
 Each proposal binds a PR, head, base and signal fingerprint. A rerun with the same failed check names updates evidence, including new job links, without creating a new proposal. CI and review can produce separate proposals. Only one worker can hold a lease for the PR. A newer scan withdraws proposals whose evidence changed or disappeared. An older scan cannot restore them. Drafts, missing lookups and passive approval or review waits are outside the action queue. The existing follow-up receipt still tracks those.
 
-The hourly monitor uses the shadow path. For an explicitly authorized follow-up using the ledger, keep one SQLite file and use the following operations.
+The scheduled monitor uses the shadow path. For an explicitly authorized follow-up using the ledger, keep one SQLite file and use the following operations.
 
 1. Refresh CI and review, read `status`, then `claim ID`. A claim needs evidence observed in the last 15 minutes. Save its lease token for this worker. If the worker disappears before reserving a push, a fresh observation and an expired lease allow another worker to resume.
 2. Investigate under the runbook and run `upstream-prepare` on the proposed commit. Use `finish ID --lease TOKEN` when the investigation is complete without a push.
