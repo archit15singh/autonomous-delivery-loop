@@ -87,6 +87,8 @@ def main():
         result = subprocess.run([*cli, "run", *common, "--revision", revision, "--state", state, *connection],
                                 stdout=subprocess.PIPE, text=True)
         elapsed_ms = round(1000 * (time.monotonic() - started))
+        if not (root / label / "runtime.json").is_file():
+            raise RuntimeError(f"{label}: backend exited before publishing a runtime receipt ({result.returncode})")
         receipt = json.loads(subprocess.check_output([*cli, "inspect", "--state", state]))
         if (result.returncode != int(expected != "verified") or receipt != json.loads(result.stdout)
                 or receipt["verdict"] != expected or receipt["cleanup"]["status"] != "confirmed"

@@ -118,12 +118,16 @@ jobs:
       - name: Prepare the pinned offline guest
         run: |
           test -c /dev/kvm
-          sudo setfacl -m "u:$(id -u):rw" /dev/kvm
+          sudo udevadm settle
+          sudo chgrp kvm /dev/kvm
+          sudo chmod g+rw /dev/kvm
+          sudo usermod -aG kvm "$(id -un)"
           bash verification/firecracker-ci-assets.sh "$RUNNER_TEMP/adl-firecracker"
       - name: Run paired runtime controls
         run: |
-          python3 verification/product-runtime-check.py firecracker .adl/runtime-eval/firecracker --extended \
-            --firecracker-assets "$RUNNER_TEMP/adl-firecracker"
+          export ADL_FIRECRACKER_ASSETS="$RUNNER_TEMP/adl-firecracker"
+          sg kvm -c 'python3 verification/product-runtime-check.py firecracker .adl/runtime-eval/firecracker --extended \
+            --firecracker-assets "$ADL_FIRECRACKER_ASSETS"'
           python3 verification/product-runtime-check.py compose .adl/runtime-eval/compose --extended \
             --socket /var/run/docker.sock
           python3 verification/product-runtime-check.py compare .adl/runtime-eval
