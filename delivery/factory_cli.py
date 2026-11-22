@@ -36,6 +36,8 @@ def register(commands):
     recovery.add_argument("--note", type=Path, help="short milestone note for this task")
     recovery.add_argument("--pr", help="refresh one PR and its existing ledger entries")
     actions.add_parser("self-check")
+    ranking = actions.add_parser("rank-issues", help="rank reviewed intake facts after checking eligibility")
+    ranking.add_argument("candidates", type=Path)
     runtime_cli.register(actions)
     snapshot = actions.add_parser("definition")
     snapshot.add_argument("--repo", type=Path, default=Path("."))
@@ -258,6 +260,8 @@ def dispatch(args):
         if args.spool:
             run_index.index_spool(args.spool, args.runs)
         return learning.mine(args.runs, minimum=args.minimum), 0
+    if op == "rank-issues":
+        return work_intake.rank_issues(read(args.candidates)), 0
     if op == "intake":
         facts = read(args.issue)
         return (work_intake.check_issue(args.github_issue, facts) if args.github_issue else work_intake.intake(facts)), 0

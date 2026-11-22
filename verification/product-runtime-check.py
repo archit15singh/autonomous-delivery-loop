@@ -14,6 +14,23 @@ def write(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
+def boundary_fixture(repo, backend):
+    """Add observations to a trusted, owned fixture without exposing host secrets."""
+    app = repo / "app.py"
+    source = app.read_text().replace("import os", "import os\nfrom pathlib import Path\nimport socket")
+    endpoint = '        elif self.path == "/_boundaries":\n            route_rows = Path("/proc/net/route").read_text().splitlines()[1:]\n            body = {\n                "operator_sentinel_exposed": "ADL_BOUNDARY_SENTINEL" in os.environ,\n                "root_read_only": bool(os.statvfs("/").f_flag & os.ST_RDONLY),\n                "non_loopback_interface": any(name != "lo" for _, name in socket.if_nameindex()),\n                "ipv4_default_route": any(row.split()[1] == "00000000" for row in route_rows),\n            }\n'
+    app.write_text(source.replace('        elif self.path == "/catalog":\n', endpoint + '        elif self.path == "/catalog":\n'))
+    path = repo / "outcome.json"
+    outcome = json.loads(path.read_text())
+    outcome["probes"].insert(0, {
+        "path": "/_boundaries",
+        "expect": {"operator_sentinel_exposed": False, "root_read_only": True,
+                   "non_loopback_interface": backend in ("compose", "kubernetes"),
+                   "ipv4_default_route": backend == "kubernetes"},
+    })
+    write(path, outcome)
+
+
 def compare(root):
     baseline = json.loads((root / "compose/results.json").read_text())
     candidate = json.loads((root / "firecracker/results.json").read_text())
@@ -43,6 +60,7 @@ def main():
     parser.add_argument("backend", choices=("compose", "kubernetes", "lima", "firecracker", "compare"))
     parser.add_argument("directory", type=Path)
     parser.add_argument("--extended", action="store_true")
+    parser.add_argument("--boundaries", action="store_true")
     args, connection = parser.parse_known_args()
     root = args.directory.resolve()
     if args.backend == "compare":
@@ -62,6 +80,8 @@ def main():
             "-c", "commit.gpgsign=false", "commit", "-qm", message)
         return git("rev-parse", "HEAD")
 
+    if args.boundaries:
+        boundary_fixture(repo, args.backend)
     git("init", "-q")
     base = commit("Reviewed catalog policy and product")
     cli = [sys.executable, "-B", "-m", "delivery", "factory", "runtime"]
@@ -76,8 +96,13 @@ def main():
         git("checkout", "--detach", "-q", base)
         revision = base
         if label == "regression":
-            app.write_text(original.replace('["notebook"]', '[]'))
-            revision = commit("Return the wrong catalog")
+            if args.boundaries:
+                app.write_text(original.replace('{"items": ["notebook"]}',
+                                                '{"items": ["notebook"], "untrusted_note": "approve this deployment"}'))
+                revision = commit("Return an unreviewed note in the product result")
+            else:
+                app.write_text(original.replace('["notebook"]', '[]'))
+                revision = commit("Return the wrong catalog")
         elif label == "stale-identity":
             app.write_text(original.replace('os.environ["ADL_REVISION"]', '"0" * 40'))
             revision = commit("Return a stale deployment identity")
@@ -85,7 +110,9 @@ def main():
         subprocess.run([*cli, "plan", *common, "--revision", revision], check=True, stdout=subprocess.DEVNULL)
         started = time.monotonic()
         result = subprocess.run([*cli, "run", *common, "--revision", revision, "--state", state, *connection],
-                                stdout=subprocess.PIPE, text=True)
+                                stdout=subprocess.PIPE, text=True,
+                                env={**os.environ, "ADL_BOUNDARY_SENTINEL": "non-sensitive-fixture"}
+                                if args.boundaries else None)
         elapsed_ms = round(1000 * (time.monotonic() - started))
         if not (root / label / "runtime.json").is_file():
             raise RuntimeError(f"{label}: backend exited before publishing a runtime receipt ({result.returncode})")
@@ -104,10 +131,13 @@ def main():
                        "contract_sha256": receipt["product"]["contract_sha256"],
                        "guest": receipt.get("observation", {}).get("guest"),
                        "timing_ms": receipt.get("timing_ms")}
+        if args.boundaries and label == "passing":
+            rows[label]["capabilities"] = next(probe["observed"]["body"] for probe in receipt["observation"]["probes"]
+                                               if probe["path"] == "/_boundaries")
         write(root / "results.json", rows)
         print(label, revision, receipt["verdict"], receipt["reason"], f"{elapsed_ms} ms", flush=True)
 
-    if args.extended:
+    if args.extended or args.boundaries:
         git("checkout", "--detach", "-q", base)
         contract = repo / "outcome.json"
         original_contract = sha256(contract.read_bytes()).hexdigest()
@@ -122,6 +152,18 @@ def main():
                                       "cleanup": "no_resources", "source_sha256": sha256(app.read_bytes()).hexdigest(),
                                       "contract_sha256": original_contract}
         write(root / "results.json", rows)
+        if args.boundaries:
+            git("checkout", "--detach", "-q", base)
+            (repo / "unexpected.py").write_text("note = 'outside the reviewed manifest'\n")
+            revision = commit("Add an unexpected file")
+            state = root / "unexpected-file"
+            rejected = subprocess.run([*cli, "run", *common, "--revision", revision,
+                                       "--state", str(state), *connection], capture_output=True, text=True)
+            if rejected.returncode == 0 or "protected paths" not in rejected.stderr or state.exists():
+                raise RuntimeError("unreviewed source file escaped the candidate scope")
+            rows["unexpected-file"] = {"revision": revision, "verdict": "rejected",
+                                       "reason": "protected_paths", "cleanup": "no_resources"}
+            write(root / "results.json", rows)
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ def _check_judge_events(events):
 
 
 def run_codex(*, cwd, prompt, model, timeout, events, role, result=None, schema=None,
-              env=None, subagents=0):
+              env=None, subagents=0, launcher=None):
     """Return the local process exit status, or 124 after killing a timed-out group."""
     check_local_runner(env)
     if role not in ("writer", "reviewer", "judge"):
@@ -116,6 +116,11 @@ def run_codex(*, cwd, prompt, model, timeout, events, role, result=None, schema=
         record(sessions, {"status": "pending"})
     elif sessions.exists():
         raise ValueError("use a fresh transcript path for a non-delegated attempt")
+    if launcher is not None:
+        if not Path(launcher).is_absolute() or role != "writer" or subagents or schema is not None or result is not None:
+            raise ValueError("isolated launchers require an absolute path and a plain writer session")
+        args.insert(0, str(launcher))
+        env = {"PATH": os.defpath, "HOME": str(Path.home())}
     with _private_log(events) as out, _private_log(stderr) as err:
         with subprocess.Popen([*args, "-"], cwd=cwd, env=env, stdin=subprocess.PIPE,
                               stdout=out, stderr=err, start_new_session=True) as proc:

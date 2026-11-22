@@ -115,3 +115,14 @@ For work before a PR, add `--candidate ISSUE_URL PATH/TO/receipt.json` once for 
 | Merge | 100 total | A GitHub merge timestamp and commit settle the work at 100. |
 
 Optimize **delivered points** first. Use the provisional score and work queue to pick the next action the operator can take. Check the ledger, repository instructions and known external blockers before acting. A local candidate can earn 30 points, and an open PR can earn 60. Repeat runs, comments and empty PR submissions earn zero additional points. Closure without merge settles at zero. The policy measures upstream adoption. Runtime impact after release needs its own deployment evidence.
+
+### Rank reviewed issue intake
+
+Use `python3 -m delivery factory rank-issues issue-facts.json` for a batch of
+reviewed intake facts. Each entry has an exact `issue` URL, the ordinary intake
+facts, `impact` and `effort` estimates from 1–5, and `repository_fit` from
+0–100. A verified maintainer request can set `maintainer_requested` to true.
+The ranker applies contribution eligibility first, then orders admitted issues
+by maintainer request, impact, repository fit and effort. Revalidate live
+GitHub state with the existing intake command before dispatch. Upstream merge
+remains a portfolio outcome. It supplies no score to this selection rule.

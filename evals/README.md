@@ -28,3 +28,30 @@ A solved issue requires the trusted acceptance and existing regression checks to
 The pilot uses an exploratory promotion rule. A change preserves all local delivery gates and observed workflow evidence, improves median paired elapsed time or uncached input tokens by at least 15%, and worsens the other metric by at most 10%. Prefer changes that clear the bar in exploration and replication. A rerun after a backend capacity failure keeps the timed-out attempt in the scorecard under `infra-retry`.
 
 These are local patch and test gates. Upstream PR approval, actual deployment, and production behavior are outside this experiment. The public issue texts and fixes may be familiar to the model. Three selected issues show operational feasibility and provide weak evidence for general performance.
+
+## Evidence for workflow adoption
+
+Add `--pair plain equipped-feedback` to the summarizer to emit the paired
+decision for the selected rounds. Promotion requires complete frozen cases in
+each round, the same agent and model across each comparison, independently
+verified stage outcomes and regression checks, and observed time, token and
+intervention metrics. Cost-based routing separately requires actual billed cost.
+An incomplete round stays visible and retains the baseline.
+
+The native run uses a fresh solver checkout and an independent grading checkout.
+For a strict separation of protected tests, give the solver an isolated worker
+that has access only to the solver checkout and required dependencies. The
+local sandbox and separate grader checkout support exact replay. Use isolated
+workers for studies that require protected benchmark files to be inaccessible
+to the solver.
+
+The optional `--agent opencode` and `--agent claude` adapters take an explicit
+model ID and an absolute `--isolated-worker` executable. Codex also accepts an
+isolated worker when you need all arms under the same environment boundary.
+The operator's launcher receives the provider argv from the solver directory.
+It runs the command inside the isolated worker, forwards stdin/stdout/stderr,
+and persists only edits to the solver checkout. Configure provider credentials
+inside the worker. Give the worker no mounts for grader assets or the
+operator's home. The launcher receives a minimal environment from ADL.
+Use the same timeout, task set, dependencies and grading checks across arms.
+Provider cost remains unknown until matched to billing observations.

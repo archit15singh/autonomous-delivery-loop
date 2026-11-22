@@ -11,7 +11,8 @@ def dataset(root):
     primary = root / "evals/cases.json"
     cases = [{"id": row["instance_id"], "base": row["base_commit"], "tests": row["acceptance"],
               "grader": "codex_issue_eval"} for row in json.loads(primary.read_text())]
-    files = [primary, root / "evals/requirements.txt", root / "evals/run.py", root / "evals/replay.py"]
+    files = [primary, root / "evals/requirements.txt", root / "evals/run.py", root / "evals/replay.py",
+             root / "evals/agent_cli.py", root / "evals/summarize.py"]
     files.extend(root / "delivery" / name for name in ("local_codex.py", "codex_usage.py", "codex_sessions.py", "run_state.py"))
     for path in sorted((root / "contracts/upstream").glob("*.json")):
         contract = json.loads(path.read_text())

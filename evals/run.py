@@ -20,6 +20,7 @@ if not __package__:
 
 from delivery.codex_usage import summarize
 from delivery.local_codex import run_codex
+from evals.agent_cli import AGENTS, run_external
 
 SKILL = ROOT.parent / ".agents/skills/deliver-outcome/SKILL.md"
 
@@ -127,7 +128,7 @@ def control(case, python, base, state):
         (folder / "control.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
-def run_agent(case, python, model, variant, tree, run, timeout):
+def run_agent(case, python, model, variant, tree, run, timeout, *, agent="codex", launcher=None):
     with_skill = variant != "plain"
     if with_skill:
         skill = tree / ".agents/skills/deliver-outcome/SKILL.md"
@@ -172,9 +173,13 @@ def run_agent(case, python, model, variant, tree, run, timeout):
     started = time.monotonic()
     events_path = run / "events.jsonl"
     try:
-        exit_code = run_codex(cwd=tree, prompt=prompt, model=model, timeout=timeout,
-                              events=events_path, role="writer", schema=schema,
-                              env=test_env(case, tree))
+        if agent == "codex":
+            exit_code = run_codex(cwd=tree, prompt=prompt, model=model, timeout=timeout,
+                                  events=events_path, role="writer", schema=schema,
+                                  env=test_env(case, tree), launcher=launcher)
+        else:
+            exit_code = run_external(agent=agent, model=model, launcher=launcher, prompt=prompt,
+                                     tree=tree, events=events_path, timeout=timeout, env=test_env(case, tree))
     finally:
         stderr = events_path.with_suffix(".stderr")
         if stderr.exists():
@@ -193,41 +198,64 @@ def events(path):
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        item = event.get("item", {})
-        if event["type"] == "item.completed" and item.get("type") == "command_execution":
-            invocation = item["command"]
+        if not isinstance(event, dict):
+            continue
+        item = event.get("item")
+        if not isinstance(item, dict):
+            continue
+        if event.get("type") == "item.completed" and item.get("type") == "command_execution":
+            invocation = item.get("command")
+            if not isinstance(invocation, str):
+                continue
             exit_code = item.get("exit_code")
             outcome = None
             if "-m pytest" in invocation or "./.delivery-check" in invocation:
-                output = "\n".join(item.get("aggregated_output", "").splitlines()[-10:])
+                output = "\n".join(str(item.get("aggregated_output", "")).splitlines()[-10:])
                 if exit_code == 1 and re.search(r"\b[1-9]\d* failed\b", output):
                     outcome = "failed"
                 elif exit_code == 0 and re.search(r"\b[1-9]\d* passed\b", output):
                     outcome = "passed"
             commands.append({"command": invocation, "exit": exit_code, "test_outcome": outcome})
-        if event["type"] == "item.completed" and item.get("type") == "agent_message":
-            reports.append(item.get("text", ""))
+        if event.get("type") == "item.completed" and item.get("type") == "agent_message":
+            if isinstance(item.get("text"), str):
+                reports.append(item["text"])
     usage = summarize([path])["totals"] or {}
     return commands, reports[-1] if reports else "", usage
 
 
-def trial(case, python, model, variant, base, run, timeout):
+def permitted_diff(records, prefixes):
+    parts = records.rstrip("\0").split("\0") if records else []
+    if not parts or len(parts) % 2:
+        return False
+    for header, name in zip(parts[::2], parts[1::2]):
+        old_mode, new_mode = header[1:].split()[:2]
+        if (not any(name.startswith(prefix) for prefix in prefixes)
+                or {old_mode, new_mode} - {"000000", "100644", "100755"}):
+            return False
+    return True
+
+
+def trial(case, python, model, variant, base, run, timeout, *, agent="codex", launcher=None):
     if run.exists():
         if (run / "result.json").exists():
-            return json.loads((run / "result.json").read_text())
+            prior = json.loads((run / "result.json").read_text())
+            if prior.get("coding_agent", "codex") != agent or prior["model"] != model:
+                raise RuntimeError("use a fresh round name for a different agent or model")
+            return prior
         raise RuntimeError(f"Choose a new round rather than overwriting an incomplete run: {run}")
     run.mkdir(parents=True)
     tree = checkout(base, run / "solve")
-    agent = run_agent(case, python, model, variant, tree, run, timeout)
+    execution = run_agent(case, python, model, variant, tree, run, timeout, agent=agent, launcher=launcher)
     git(tree, "add", "-A")
     patch = git(tree, "diff", "--binary", "HEAD", "--")
     (run / "candidate.patch").write_text(patch)
     paths = git(tree, "diff", "--name-only", "-z", "HEAD", "--").split("\0")[:-1]
-    scope_ok = bool(paths) and all(p.startswith((case["package"], case["tests"])) for p in paths)
+    modes = git(tree, "diff", "--raw", "--no-renames", "-z", "HEAD", "--")
+    scope_ok = permitted_diff(modes, (case["package"], case["tests"]))
     source_patch = git(tree, "diff", "--binary", "HEAD", "--", case["package"])
     commands, report, usage = events(run / "events.jsonl")
     result = {"case": case["instance_id"], "variant": variant, "model": model,
-              "agent": agent, "usage": usage, "commands": commands, "report": report,
+              "agent": execution, "coding_agent": agent, "usage": usage, "human_interventions": 0, "commands": commands, "report": report,
               "changed_paths": paths, "scope_pass": scope_ok,
               "test_changed": any(p.startswith(case["tests"]) for p in paths),
               "diff_stat": git(tree, "diff", "--shortstat", "HEAD", "--").strip()}
@@ -244,7 +272,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True, help="Scratch directory outside the harness project")
     parser.add_argument("--python", required=True, help="Absolute path to the Python 3.11 test venv")
-    parser.add_argument("--model", default="gpt-6.2-sol")
+    parser.add_argument("--agent", choices=AGENTS, default="codex")
+    parser.add_argument("--model")
+    parser.add_argument("--isolated-worker", type=Path, help="operator-run launcher for an external coding CLI")
     parser.add_argument("--round", default="pilot")
     parser.add_argument("--variant", nargs="+",
                         choices=["plain", "equipped", "equipped-feedback", "equipped-check",
@@ -254,6 +284,14 @@ def main():
     parser.add_argument("--timeout", type=int, default=210)
     parser.add_argument("--controls-only", action="store_true")
     args = parser.parse_args()
+    if args.isolated_worker and not args.isolated_worker.is_absolute():
+        parser.error("--isolated-worker requires an absolute path")
+    if args.agent == "codex":
+        args.model = args.model or "gpt-6.2-sol"
+    elif not args.controls_only and (not args.model or not args.isolated_worker):
+        parser.error("external trials require --model and --isolated-worker")
+    if args.isolated_worker and "equipped-receipt" in args.variant:
+        parser.error("structured receipts require native local Codex execution")
     state = args.state.resolve()
     cache = state / "snapshots"
     cache.mkdir(parents=True, exist_ok=True)
@@ -270,7 +308,7 @@ def main():
             continue
         for variant in args.variant:
             result = trial(case, args.python, args.model, variant, base,
-                           state / args.round / name / variant, args.timeout)
+                           state / args.round / name / variant, args.timeout, agent=args.agent, launcher=args.isolated_worker)
             print(json.dumps({key: value for key, value in result.items()
                               if key not in {"report", "commands"}}), flush=True)
 
