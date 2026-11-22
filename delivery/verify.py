@@ -6,9 +6,10 @@ import json
 import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, build_opener
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .impact import ImpactPolicy, impact_verdict
+from .scenario import HttpStep, RedisStep, read_steps, readback
 
 
 def product_path(value):
@@ -41,6 +42,7 @@ class Contract:
     impact: ImpactPolicy | None = None
     acceptance: dict | None = None
     technical_brief: str | None = None
+    steps: tuple[HttpStep | RedisStep, ...] = ()
 
     @classmethod
     def read(cls, path, *, product=False):
@@ -49,10 +51,13 @@ class Contract:
     @classmethod
     def from_bytes(cls, raw, *, product=False):
         data = json.loads(raw)
-        fields = {"version", "outcome", "allowed_changes", "max_repairs", "probes"}
-        if (not isinstance(data, dict) or not fields <= data.keys() <= fields | {"impact", "acceptance", "technical_brief", "reproduction", "reproduction_path"}
-                or type(data["version"]) is not int or data["version"] != 1):
-            raise ValueError("expected a version 1 outcome contract")
+        version = data.get("version") if isinstance(data, dict) else None
+        if type(version) is not int or not (version == 1 or (product and version == 2)):
+            raise ValueError("expected a version 1 outcome contract or a reviewed product scenario")
+        checks = "probes" if version == 1 else "steps"
+        fields = {"version", "outcome", "allowed_changes", "max_repairs", checks}
+        if not fields <= data.keys() <= fields | {"impact", "acceptance", "technical_brief", "reproduction", "reproduction_path"}:
+            raise ValueError("unexpected outcome contract fields")
         repairs = data["max_repairs"]
         if type(repairs) is not int or not 0 <= repairs <= 5:
             raise ValueError("max_repairs must be an integer from 0 to 5")
@@ -67,9 +72,10 @@ class Contract:
             raise ValueError("allowed_changes must name product files" if product else
                              "allowed_changes must name files inside pilot/")
         probes = []
-        if not isinstance(data["probes"], list) or not data["probes"]:
+        raw_probes = data.get("probes", [])
+        if version == 1 and (not isinstance(raw_probes, list) or not raw_probes):
             raise ValueError("at least one behavior probe is required")
-        for probe in data["probes"]:
+        for probe in raw_probes:
             if not isinstance(probe, dict) or probe.keys() != {"path", "expect"}:
                 raise ValueError("probe requires path and expect")
             endpoint, expect = probe["path"], probe["expect"]
@@ -89,26 +95,40 @@ class Contract:
             if key in data and (not isinstance(data[key], str) or not data[key].strip()):
                 raise ValueError(f"{key} must be nonempty text")
         return cls(data["outcome"], tuple(paths), repairs, tuple(probes), sha256(raw).hexdigest(), impact,
-                   acceptance, data.get("technical_brief"))
+                   acceptance, data.get("technical_brief"), read_steps(data["steps"]) if version == 2 else ())
 
 
 def canonical_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
-def fetch(origin, path):
+def fetch(origin, path, *, method="GET", body=None, read_error_body=False):
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"Content-Type": "application/json"} if data is not None else {}
+    request = Request(origin + path, data=data, headers=headers, method=method)
     try:
-        with HTTP.open(origin + path, timeout=5) as response:
+        with HTTP.open(request, timeout=5) as response:
             payload = response.read(65537)
             if len(payload) > 65536:
                 return {"status": response.status, "error": "response too large"}
+            if not payload:
+                return {"status": response.status}
             try:
                 body = json.loads(payload)
             except (UnicodeError, ValueError):
                 return {"status": response.status, "error": "invalid JSON response"}
             return {"status": response.status, "body": body}
     except HTTPError as exc:
-        return {"status": exc.code}
+        with exc:
+            if not read_error_body:
+                return {"status": exc.code}
+            payload = exc.read(65537)
+            if len(payload) > 65536:
+                return {"status": exc.code, "error": "response too large"}
+            try:
+                return {"status": exc.code, "body": json.loads(payload)}
+            except (UnicodeError, ValueError):
+                return {"status": exc.code}
     except (URLError, OSError, HTTPException) as exc:
         return {"error": str(exc)}
 
@@ -121,7 +141,7 @@ def advice(verdict, reason, repairs_used, max_repairs):
     return "escalate"
 
 
-def verify(contract, origin, revision, deployment, ci, repairs_used=0, impact_evidence=None):
+def verify(contract, origin, revision, deployment, ci, repairs_used=0, impact_evidence=None, *, read_state=None):
     report = {
         "revision": revision, "deployment": deployment, "contract_sha256": contract.digest,
         "ci": ci, "identity": None, "probes": [], "repairs_used": repairs_used,
@@ -155,6 +175,26 @@ def verify(contract, origin, revision, deployment, ci, repairs_used=0, impact_ev
             "passed": observed.get("status") == 200 and "body" in observed
             and canonical_json(observed["body"]) == canonical_json(probe.expect),
         })
+    if contract.steps:
+        report["steps"] = []
+        for step in contract.steps:
+            if fetch(origin, "/_revision") != identity:
+                return finish("inconclusive", "deployment_changed")
+            if isinstance(step, HttpStep):
+                observed = fetch(origin, step.path, method=step.method, body=step.body, read_error_body=True)
+                if "status" not in observed:
+                    return finish("inconclusive", "runtime_unavailable")
+                passed = (observed["status"] == step.status and observed.get("error") != "response too large" and
+                          (step.expect is None or canonical_json(observed.get("body")) == canonical_json(step.expect)))
+            else:
+                if read_state is None:
+                    return finish("inconclusive", "scenario_reader_unavailable")
+                observed = readback(step, read_state)
+                passed = observed == step.expect
+            report["steps"].append({"kind": "http" if isinstance(step, HttpStep) else "redis",
+                                    **asdict(step), "observed": observed, "passed": passed})
+            if not passed:
+                break
     # Detect a rollout that changes the serving deployment during the probe set.
     report["identity_after"] = fetch(origin, "/_revision")
     if report["identity_after"] != identity:
@@ -164,6 +204,9 @@ def verify(contract, origin, revision, deployment, ci, repairs_used=0, impact_ev
     if not all(probe["passed"] for probe in report["probes"]):
         report["runtime_verdict"] = "failed"
         return finish("failed", "probe_failed")
+    if any(not step["passed"] for step in report.get("steps", ())):
+        report["runtime_verdict"] = "failed"
+        return finish("failed", "scenario_step_failed")
     report["runtime_verdict"] = "verified"
     impact = report["impact"] = impact_verdict(contract.impact, impact_evidence, revision, deployment)
     if impact["verdict"] in {"failed", "inconclusive"}:

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "orders",
+  "build": {"kind": "bottle-wsgi", "files": ["app.py", "orders.py"]},
+  "contract": "outcome.json",
+  "port": 8317,
+  "fixture": "redis-scenario",
+  "limits": {"memory_mb": 128, "cpu": 0.5},
+  "cleanup": "always"
+}

@@ -15,11 +15,14 @@ from .factory_definition import running_definition
 from .run_index import run_record
 from .run_state import file_digest, lock, record
 from .runtime_checks import CONTRACT, ROOT, RUNTIME_ERRORS, assess_cleanup, assess_observation, now
+from .scenario import HttpStep
 from .verify import Contract, verify
 
 TEMPLATE = ROOT / "verification/compose-pilot.yaml"
 RECIPE = ROOT / "verification/compose-pilot.Dockerfile"
 PRODUCT_RECIPE = ROOT / "verification/compose-product.Dockerfile"
+APPLICATION_RECIPE = ROOT / "verification/compose-bottle.Dockerfile"
+APPLICATION_LOCK = ROOT / "verification/compose-bottle.lock"
 PROJECT = re.compile(r"adl-pilot-[a-f0-9]{16}")
 MIN_FREE_BYTES = 512 * 1024**2
 MIN_ENGINE_MAJOR = 28
@@ -110,6 +113,7 @@ class Compose:
                           "ADL_API_CPUS": str(runtime.get("cpu_limit", 0.5)),
                           "ADL_HEALTH_PATH": runtime.get("health_path", "/health"),
                           "ADL_PROBE_PATHS": json.dumps(runtime.get("paths", ["/_revision", "/health", "/counter"])),
+                          "ADL_PROBE_ROUTES": json.dumps(runtime.get("routes", [])),
                           "ADL_PROJECT": self.project, "ADL_IMAGE": self.image,
                           "ADL_REVISION": identity["revision"]}
 
@@ -166,14 +170,19 @@ class Compose:
         if not re.fullmatch(r"127\.0\.0\.1:[1-9][0-9]{0,4}", location):
             raise ValueError("pilot must publish a single loopback port")
         revision = self.identity["revision"]
+        options = {"read_state": self.read_state} if contract.steps else {}
         report = verify(contract, f"http://{location}", revision, self.project, {
             "status": "passed", "source": "compose_build", "revision": revision,
             "deployment": self.project, "artifact_sha256": image_id.removeprefix("sha256:"),
-        })
+        }, **options)
+        deployed_after = self.docker("container", "inspect", "--format", "{{.Image}}", container)
         self.resources()
-        if self.compose("ps", "-q", "api") != container or self.compose("ps", "-q", "probe") != relay:
+        if deployed_after != image_id or self.compose("ps", "-q", "api") != container or self.compose("ps", "-q", "probe") != relay:
             raise ValueError("pilot container or probe relay changed during probes")
         return report
+
+    def read_state(self, key):
+        return json.loads(self.compose("exec", "-T", "redis", "redis-cli", "--json", "GET", key, timeout=3))
 
 
 def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index=None, product=None):
@@ -204,6 +213,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             raise ValueError("provide the full candidate revision")
         if disk_usage(state).free < MIN_FREE_BYTES:
             raise ValueError("Compose pilot requires at least 512 MiB available on the runner")
+        app_files = getattr(product, "files", ())
         if product is None:
             git("cat-file", "-e", f"{revision}^{{commit}}", cwd=ROOT)
             source = git("show", f"{revision}:pilot/service.py", cwd=ROOT)
@@ -214,7 +224,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             if product.revision != revision:
                 raise ValueError("product revision differs from the selected candidate")
             source, source_path = product.source, product.source_path
-            recipe, contract = PRODUCT_RECIPE, product.contract
+            recipe = APPLICATION_RECIPE if app_files else PRODUCT_RECIPE
+            contract = product.contract
         compile(source, source_path, "exec")
         policy = running_definition(ROOT)
         template = TEMPLATE.read_bytes()
@@ -232,10 +243,13 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             receipt["product"] = product.identity
             paths = {probe.path for probe in contract.probes}
             paths.add("/_revision")
+            routes = [[step.method, step.path] for step in contract.steps if isinstance(step, HttpStep)]
             receipt["compose_options"] = {
                 "port": product.port, "redis": product.redis, "memory_mb": product.memory_mb,
-                "cpu_limit": product.cpu_limit, "health_path": "/_revision", "paths": sorted(paths),
+                "cpu_limit": product.cpu_limit, "health_path": "/_revision", "paths": sorted(paths), "routes": routes,
             }
+        if app_files:
+            receipt["dependency_lock_sha256"] = file_digest(APPLICATION_LOCK)
         stack = Compose(socket, state, receipt)
         receipt.update(inspect_runner(stack.docker))
         if any(stack.resources().values()):
@@ -244,7 +258,14 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
         try:
             with TemporaryDirectory(prefix="adl-compose-build-") as folder:
                 context = Path(folder)
-                (context / "service.py").write_bytes(source)
+                if app_files:
+                    (context / "adl-wheels.lock").write_bytes(APPLICATION_LOCK.read_bytes())
+                    for name, contents in app_files:
+                        target = context / "app" / name
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(contents)
+                else:
+                    (context / "service.py").write_bytes(source)
                 (context / "Dockerfile").write_bytes(recipe.read_bytes())
                 stack.docker("build", "--tag", stack.image, "--label", f"adl.run={stack.project}",
                              str(context), timeout=120)
@@ -252,6 +273,8 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
                 raise ValueError("Docker did not return the candidate image ID")
             receipt["image_id"] = image
+            if app_files:
+                receipt["oci_config_digest"] = image
             record(receipt_path, receipt)
             try:
                 start(stack)
@@ -267,7 +290,7 @@ def run(socket, state, revision, *, retry_start=False, cleanup_only=False, index
             def read_counter():
                 return stack.compose("exec", "-T", "redis", "redis-cli", "--raw", "GET", "adl:counter")
 
-            assess_observation(receipt, report, read_counter if product is None or product.redis else None)
+            assess_observation(receipt, report, read_counter if product is None or (product.redis and not contract.steps) else None)
         except RUNTIME_ERRORS as exc:
             receipt.update(verdict="inconclusive", reason="runtime_unavailable", error=str(exc))
         finally:

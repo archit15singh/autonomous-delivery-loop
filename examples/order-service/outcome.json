@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "outcome": "A valid order is persisted and processed. An invalid order does not create a record.",
+  "allowed_changes": ["orders.py"],
+  "max_repairs": 0,
+  "steps": [
+    {"kind": "redis", "key": "adl:order:accepted", "expect": null, "wait_seconds": 0},
+    {"kind": "http", "method": "POST", "path": "/orders", "status": 202, "body": {"quantity": 3}, "expect": {"status": "accepted"}},
+    {"kind": "redis", "key": "adl:order:accepted", "expect": "3", "wait_seconds": 0},
+    {"kind": "redis", "key": "adl:order:processed", "expect": "3", "wait_seconds": 3},
+    {"kind": "http", "method": "GET", "path": "/orders", "status": 200, "expect": {"quantity": 3}},
+    {"kind": "http", "method": "POST", "path": "/orders", "status": 422, "body": {"quantity": 0}, "expect": {"error": "quantity must be positive"}},
+    {"kind": "redis", "key": "adl:order:invalid", "expect": null, "wait_seconds": 0},
+    {"kind": "redis", "key": "adl:order:accepted", "expect": "3", "wait_seconds": 0}
+  ]
+}
