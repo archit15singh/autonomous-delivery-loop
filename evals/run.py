@@ -19,7 +19,7 @@ if not __package__:
     sys.path.insert(0, str(ROOT.parent))
 
 from delivery.codex_usage import summarize
-from delivery.local_codex import run_codex
+from delivery.local_codex import grader_permissions, run_codex
 from evals.agent_cli import AGENTS, run_external
 
 SKILL = ROOT.parent / ".agents/skills/deliver-outcome/SKILL.md"
@@ -128,7 +128,7 @@ def control(case, python, base, state):
         (folder / "control.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
-def run_agent(case, python, model, variant, tree, run, timeout, *, agent="codex", launcher=None):
+def run_agent(case, python, model, variant, tree, run, timeout, *, agent="codex", launcher=None, protected=()):
     with_skill = variant != "plain"
     if with_skill:
         skill = tree / ".agents/skills/deliver-outcome/SKILL.md"
@@ -176,7 +176,7 @@ def run_agent(case, python, model, variant, tree, run, timeout, *, agent="codex"
         if agent == "codex":
             exit_code = run_codex(cwd=tree, prompt=prompt, model=model, timeout=timeout,
                                   events=events_path, role="writer", schema=schema,
-                                  env=test_env(case, tree), launcher=launcher)
+                                  env=test_env(case, tree), launcher=launcher, protected=protected)
         else:
             exit_code = run_external(agent=agent, model=model, launcher=launcher, prompt=prompt,
                                      tree=tree, events=events_path, timeout=timeout, env=test_env(case, tree))
@@ -235,17 +235,29 @@ def permitted_diff(records, prefixes):
     return True
 
 
-def trial(case, python, model, variant, base, run, timeout, *, agent="codex", launcher=None):
+def trial(case, python, model, variant, base, run, timeout, *, agent="codex", launcher=None, protected=()):
     if run.exists():
         if (run / "result.json").exists():
             prior = json.loads((run / "result.json").read_text())
-            if prior.get("coding_agent", "codex") != agent or prior["model"] != model:
+            if ((prior.get("coding_agent", "codex"), prior["model"], prior.get("grader_read_denial", False))
+                    != (agent, model, bool(protected))):
                 raise RuntimeError("use a fresh round name for a different agent or model")
             return prior
         raise RuntimeError(f"Choose a new round rather than overwriting an incomplete run: {run}")
     run.mkdir(parents=True)
     tree = checkout(base, run / "solve")
-    execution = run_agent(case, python, model, variant, tree, run, timeout, agent=agent, launcher=launcher)
+    if protected:
+        program = (
+            "import pathlib,sys; "
+            "assert pathlib.Path('.git').exists(); "
+            "sys.exit(1 if pathlib.Path(sys.argv[1]).read_bytes() else 1)"
+        )
+        verifier = command(["codex", "sandbox", *grader_permissions(protected), "-P", "adl_eval",
+                            "--", python, "-c", program, str(ROOT / "cases.json")], tree, check=False)
+        if verifier.returncode != 1 or "PermissionError" not in verifier.stdout:
+            raise RuntimeError("Codex sandbox did not demonstrate protected grader read denial")
+    execution = run_agent(case, python, model, variant, tree, run, timeout, agent=agent, launcher=launcher,
+                          protected=protected)
     git(tree, "add", "-A")
     patch = git(tree, "diff", "--binary", "HEAD", "--")
     (run / "candidate.patch").write_text(patch)
@@ -255,7 +267,8 @@ def trial(case, python, model, variant, base, run, timeout, *, agent="codex", la
     source_patch = git(tree, "diff", "--binary", "HEAD", "--", case["package"])
     commands, report, usage = events(run / "events.jsonl")
     result = {"case": case["instance_id"], "variant": variant, "model": model,
-              "agent": execution, "coding_agent": agent, "usage": usage, "human_interventions": 0, "commands": commands, "report": report,
+              "agent": execution, "coding_agent": agent, "usage": usage, "human_interventions": 0,
+              "grader_read_denial": bool(protected), "commands": commands, "report": report,
               "changed_paths": paths, "scope_pass": scope_ok,
               "test_changed": any(p.startswith(case["tests"]) for p in paths),
               "diff_stat": git(tree, "diff", "--shortstat", "HEAD", "--").strip()}
@@ -283,6 +296,8 @@ def main():
     parser.add_argument("--case", action="append", help="Exact instance ID, repeat to select several")
     parser.add_argument("--timeout", type=int, default=210)
     parser.add_argument("--controls-only", action="store_true")
+    parser.add_argument("--protect-grader", action="store_true",
+                        help="deny local native Codex reads from the benchmark grader paths")
     args = parser.parse_args()
     if args.isolated_worker and not args.isolated_worker.is_absolute():
         parser.error("--isolated-worker requires an absolute path")
@@ -292,6 +307,8 @@ def main():
         parser.error("external trials require --model and --isolated-worker")
     if args.isolated_worker and "equipped-receipt" in args.variant:
         parser.error("structured receipts require native local Codex execution")
+    if args.protect_grader and (args.agent != "codex" or args.isolated_worker):
+        parser.error("--protect-grader applies to native local Codex")
     state = args.state.resolve()
     cache = state / "snapshots"
     cache.mkdir(parents=True, exist_ok=True)
@@ -299,6 +316,11 @@ def main():
              if not args.case or case["instance_id"] in args.case]
     if not cases or (args.case and len(args.case) != len(cases)):
         parser.error("unknown or repeated case")
+    protected = ()
+    if args.protect_grader:
+        worktrees = git(ROOT.parent, "worktree", "list", "--porcelain").splitlines()
+        locations = [Path(line.removeprefix("worktree ")) / "evals" for line in worktrees if line.startswith("worktree ")]
+        protected = (*locations, ROOT, cache, state / "controls")
     for case in cases:
         name = case["instance_id"]
         base = snapshot(case, cache)
@@ -308,7 +330,8 @@ def main():
             continue
         for variant in args.variant:
             result = trial(case, args.python, args.model, variant, base,
-                           state / args.round / name / variant, args.timeout, agent=args.agent, launcher=args.isolated_worker)
+                           state / args.round / name / variant, args.timeout, agent=args.agent, launcher=args.isolated_worker,
+                           protected=protected)
             print(json.dumps({key: value for key, value in result.items()
                               if key not in {"report", "commands"}}), flush=True)
 

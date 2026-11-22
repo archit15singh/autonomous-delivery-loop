@@ -39,6 +39,9 @@ intervention metrics. Cost-based routing separately requires actual billed cost.
 An incomplete round stays visible and retains the baseline.
 
 The native run uses a fresh solver checkout and an independent grading checkout.
+Use `--protect-grader` to deny reads of the grader paths in native Codex trials.
+A preflight checks that the selected Codex sandbox denies the read before starting
+a model call. The receipt records whether the trial used that boundary.
 For a strict separation of protected tests, give the solver an isolated worker
 that has access only to the solver checkout and required dependencies. The
 local sandbox and separate grader checkout support exact replay. Use isolated

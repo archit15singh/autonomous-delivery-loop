@@ -72,7 +72,7 @@ def summarize(state, rounds):
             rows.append({
                 "round": round_name, "case": run["case"], "variant": run["variant"],
                 "model": run["model"], "coding_agent": run.get("coding_agent", "codex"), "solved": run["solved"],
-                "cost_usd": run.get("cost_usd"), "human_interventions": run.get("human_interventions"),
+                "grader_read_denial": run.get("grader_read_denial", False), "cost_usd": run.get("cost_usd"), "human_interventions": run.get("human_interventions"),
                 "acceptance_passed": acceptance.get("passed"),
                 "regression_passed": regression.get("passed"), "regression_exit": regression.get("exit"),
                 "scope_pass": run["scope_pass"], "test_changed": run["test_changed"],
@@ -124,7 +124,7 @@ def learning_report(rows, baseline, candidate):
     for name, group in grouped.items():
         if {(case, arm) for case in frozen for arm in (baseline, candidate)} != group.keys():
             continue
-        if len({(row["coding_agent"], row["model"]) for row in group.values()}) != 1:
+        if len({(row["coding_agent"], row["model"], row.get("grader_read_denial", False)) for row in group.values()}) != 1:
             continue
         for case in sorted(frozen):
             before, after = (group[case, arm] for arm in (baseline, candidate))

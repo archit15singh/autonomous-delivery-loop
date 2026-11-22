@@ -1,8 +1,10 @@
 import json
+import os
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from delivery.work_intake import rank_issues
 from evals.agent_cli import run_external
@@ -41,9 +43,10 @@ class EvidenceEvaluationTest(unittest.TestCase):
             launcher.chmod(0o700)
             for agent, flags in (("opencode", ("run", "--standalone")), ("claude", ("--print", "--verbose"))):
                 output = work / f"{agent}.jsonl"
-                exit_code = run_external(agent=agent, model="test/model", launcher=launcher,
-                                         prompt="- literal prompt", tree=work, events=output, timeout=5,
-                                         env={"FIXTURE_SECRET": "fake"})
+                with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}):
+                    exit_code = run_external(agent=agent, model="test/model", launcher=launcher,
+                                             prompt="- literal prompt", tree=work, events=output, timeout=5,
+                                             env={"FIXTURE_SECRET": "fake"})
                 row = json.loads(output.read_text().splitlines()[0])
                 self.assertEqual(exit_code, 0)
                 self.assertFalse(row["seen"])
