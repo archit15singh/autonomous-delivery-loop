@@ -119,3 +119,21 @@ python3 verification/application-scenarios.py --state .adl/orders --socket /var/
 The live replay checks correct behavior, wrong persisted quantity, wrong
 background-job result, an invalid request that writes state, and a candidate
 edit to protected acceptance criteria. It stores receipts for each started run.
+
+## Measured runtime boundary checks
+
+Run the catalog replay with `--extended --boundaries`. The trusted fixture
+reports whether it sees a non-sensitive operator environment marker, whether
+the root filesystem is read-only, whether a non-loopback interface is present
+and whether the guest has an IPv4 default route. The suite also tests stale
+identity, unexpected output, a modified contract and an unreviewed file.
+Started runs require confirmed, repeatable cleanup.
+
+```sh
+python3 verification/product-runtime-check.py lima .adl/lima-boundaries --extended --boundaries
+```
+
+The hosted workflow captures the Compose, disposable kind and Firecracker
+observations. These measurements describe the evaluated runtime configuration.
+Kind has a default route. IPv4 route checks measure the route table, so actual
+external reachability depends on routing, IPv6, relays and cluster policy.

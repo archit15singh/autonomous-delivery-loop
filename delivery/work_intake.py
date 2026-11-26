@@ -24,6 +24,35 @@ def intake(issue):
     return {"route": "implement", "reason": "scoped_reproducible_issue", "acceptance": cases}
 
 
+def rank_issues(candidates):
+    """Order eligible issues using reviewed facts; keep skipped issues visible."""
+    if not isinstance(candidates, list):
+        raise ValueError("expected a list of issue facts")
+    rows = []
+    seen = set()
+    for item in candidates:
+        url = item.get("issue", "") if isinstance(item, dict) else ""
+        if not isinstance(url, str) or not re.fullmatch(r"https://github\.com/[\w.-]+/[\w.-]+/issues/[1-9][0-9]*", url, re.ASCII):
+            raise ValueError("each item requires an exact GitHub issue URL")
+        if url.lower() in seen:
+            raise ValueError("each issue must appear once")
+        seen.add(url.lower())
+        requested = item.get("maintainer_requested", False)
+        impact, fit = item.get("impact"), item.get("repository_fit")
+        effort = item.get("effort")
+        if (type(requested) is not bool or type(impact) is not int or not 1 <= impact <= 5
+                or type(fit) is not int or not 0 <= fit <= 100
+                or type(effort) is not int or not 1 <= effort <= 5):
+            raise ValueError("rank using impact 1–5, repository fit 0–100, and effort 1–5")
+        row = {"issue": url, **intake(item), "maintainer_requested": requested,
+               "impact": impact, "repository_fit": fit, "effort": effort}
+        rows.append(row)
+    eligible = sorted((row for row in rows if row["route"] == "implement"),
+                      key=lambda row: (-row["maintainer_requested"], -row["impact"],
+                                       -row["repository_fit"], row["effort"], row["issue"]))
+    return {"next_issue": eligible[0]["issue"] if eligible else None, "eligible": eligible,
+            "waiting_or_skipped": [row for row in rows if row["route"] != "implement"]}
+
 def review_handoff(record, findings):
     actionable = []
     for finding in findings:

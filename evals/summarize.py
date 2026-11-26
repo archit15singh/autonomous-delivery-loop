@@ -4,8 +4,13 @@ import argparse
 import json
 from pathlib import Path
 from statistics import median
+import sys
 
-from run import events
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from evals.run import ROOT, events
+from delivery.factory_benchmark import promotion, cost_route
 
 
 def paired_comparison(rows, before, after):
@@ -48,7 +53,7 @@ def summarize(state, rounds):
             replay = json.loads(replay_path.read_text()) if replay_path.exists() else {}
             usage = run["usage"]
             acceptance, regression = (run.get(key, {}) for key in ("acceptance", "regression"))
-            commands, _, _ = events(path.with_name("events.jsonl"))
+            commands, _, _ = events(path.with_name("events.jsonl"), native=run.get("coding_agent", "codex") == "codex")
             test_commands = [
                 cmd for cmd in commands if cmd["test_outcome"]
             ]
@@ -66,9 +71,10 @@ def summarize(state, rounds):
             capacity = stderr.exists() and "Selected model is at capacity" in stderr.read_text()
             rows.append({
                 "round": round_name, "case": run["case"], "variant": run["variant"],
-                "model": run["model"], "solved": run["solved"],
+                "model": run["model"], "coding_agent": run.get("coding_agent", "codex"), "solved": run["solved"],
+                "grader_read_denial": run.get("grader_read_denial", False), "cost_usd": run.get("cost_usd"), "human_interventions": run.get("human_interventions"),
                 "acceptance_passed": acceptance.get("passed"),
-                "regression_passed": regression.get("passed"),
+                "regression_passed": regression.get("passed"), "regression_exit": regression.get("exit"),
                 "scope_pass": run["scope_pass"], "test_changed": run["test_changed"],
                 "stage_verified": (run["solved"] and replay.get("patch_applies")
                                    and replay.get("diff_clean") and replay.get("runtime_probe")
@@ -100,11 +106,59 @@ def aggregates(rows):
     return summaries
 
 
+def learning_report(rows, baseline, candidate):
+    """Feed completed, independently verified outcome pairs into adoption gates."""
+    frozen = {row["instance_id"] for row in json.loads((ROOT / "cases.json").read_text())}
+    grouped = {}
+    reason = "paired_observations_missing"
+    for row in rows:
+        if row["variant"] not in (baseline, candidate):
+            continue
+        key = (row["case"], row["variant"])
+        group = grouped.setdefault(row["round"], {})
+        if key in group:
+            raise ValueError("duplicate benchmark trial")
+        group[key] = row
+    completed = []
+    qualifying_rounds = set()
+    for name, group in grouped.items():
+        if {(case, arm) for case in frozen for arm in (baseline, candidate)} != group.keys():
+            continue
+        if len({(row["coding_agent"], row["model"], row.get("grader_read_denial", False)) for row in group.values()}) != 1:
+            continue
+        for case in sorted(frozen):
+            before, after = (group[case, arm] for arm in (baseline, candidate))
+            if (before["coding_agent"], before["model"]) != (after["coding_agent"], after["model"]):
+                break
+            if any(row["uncached_input_tokens"] is None or row["human_interventions"] is None
+                   or row["stage_verified"] is None for row in (before, after)):
+                break
+        else:
+            qualifying_rounds.add(name)
+            for (case, arm), row in group.items():
+                completed.append({"round": name, "case": case,
+                                  "variant": "baseline" if arm == baseline else "candidate",
+                                  "verified": row["stage_verified"] and row["regression_exit"] == 0,
+                                  "seconds": row["seconds"], "tokens": row["uncached_input_tokens"],
+                                  "interventions": row["human_interventions"], "cost_usd": row["cost_usd"]})
+    decision = promotion(sorted(frozen), completed)
+    cost = cost_route(sorted(frozen), completed) if completed else {"recommendation": "baseline", "reason": reason}
+    incomplete = sorted(grouped.keys() - qualifying_rounds)
+    if incomplete:
+        decision["promote"] = False
+        cost = {"recommendation": "baseline", "reason": "incomplete_paired_evidence"}
+    return {"decision": decision, "cost": cost, "incomplete_rounds": incomplete,
+            "rounds_reviewed": len(grouped)}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("state", type=Path)
     parser.add_argument("rounds", nargs="+")
+    parser.add_argument("--pair", nargs=2, metavar=("BASELINE", "CANDIDATE"))
     args = parser.parse_args()
+    if args.pair and args.pair[0] == args.pair[1]:
+        parser.error("--pair requires distinct variants")
     rows = summarize(args.state, args.rounds)
     if not rows:
         parser.error("no completed runs found")
@@ -119,6 +173,8 @@ def main():
         (("repeat", "equipped-feedback"), ("repeat", "equipped-check")),
         (("climb-1", "equipped-feedback"), ("climb-3", "equipped-receipt")),
     ]
+    if args.pair:
+        treatments.extend(((name, args.pair[0]), (name, args.pair[1])) for name in args.rounds)
     comparisons = [comparison for before, after in treatments
                    if (comparison := paired_comparison(rows, before, after)) is not None]
     controls = []
@@ -128,7 +184,8 @@ def main():
     runtime_path = args.state / "runtime-controls.json"
     runtime_controls = json.loads(runtime_path.read_text()) if runtime_path.exists() else []
     print(json.dumps({"controls": controls, "runtime_controls": runtime_controls,
-                      "summary": aggregates(rows), "comparisons": comparisons, "trials": rows}, indent=2))
+                      "summary": aggregates(rows), "comparisons": comparisons, "trials": rows,
+                      "learning": learning_report(rows, *args.pair) if args.pair else None}, indent=2))
 
 
 if __name__ == "__main__":

@@ -83,9 +83,9 @@ jobs:
               (.diagnostics.logs | contains("/counter"))' .adl/kube/runtime.json
       - name: Verify the independent catalog product on kind and Compose
         run: |
-          python3 verification/product-runtime-check.py kubernetes .adl/products/kind \
+          python3 verification/product-runtime-check.py kubernetes .adl/products/kind --extended --boundaries \
             --kubeconfig "$RUNNER_TEMP/adl-kubeconfig" --context kind-adl-ci
-          python3 verification/product-runtime-check.py compose .adl/products/compose --socket /var/run/docker.sock
+          python3 verification/product-runtime-check.py compose .adl/products/compose --extended --boundaries --socket /var/run/docker.sock
       - name: Upload runtime receipt
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -98,7 +98,9 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: product-runtime
-          path: .adl/products/*/*/runtime.json
+          path: |
+            .adl/products/*/*/runtime.json
+            .adl/products/*/results.json
           include-hidden-files: true
       - name: Remove CI cluster
         if: always()
@@ -133,6 +135,8 @@ jobs:
           python3 verification/product-runtime-check.py compose .adl/runtime-eval/compose --extended \
             --socket /var/run/docker.sock
           python3 verification/product-runtime-check.py compare .adl/runtime-eval
+          sg kvm -c 'python3 verification/product-runtime-check.py firecracker .adl/boundaries/firecracker --extended --boundaries \
+            --firecracker-assets "$ADL_FIRECRACKER_ASSETS"'
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
@@ -142,6 +146,8 @@ jobs:
             .adl/runtime-eval/*/*/runtime.json
             .adl/runtime-eval/firecracker/*/serial.log
             .adl/runtime-eval/comparison.json
+            .adl/boundaries/firecracker/results.json
+            .adl/boundaries/firecracker/*/runtime.json
           include-hidden-files: true
 
   application:

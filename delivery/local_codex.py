@@ -68,8 +68,18 @@ def _check_judge_events(events):
                 raise ValueError("judge attempted to use a tool")
 
 
+def grader_permissions(protected):
+    roots = {str(Path(path).resolve()): "deny" for path in protected}
+    if not roots or "/" in roots:
+        raise ValueError("select concrete protected grader paths")
+    entries = ", ".join(f"{json.dumps(key)} = {json.dumps(value)}" for key, value in sorted(roots.items()))
+    return ["-c", 'permissions.adl_eval.extends=":workspace"',
+            "-c", "permissions.adl_eval.filesystem={" + entries + "}",
+            "-c", "permissions.adl_eval.network.enabled=false"]
+
+
 def run_codex(*, cwd, prompt, model, timeout, events, role, result=None, schema=None,
-              env=None, subagents=0):
+              env=None, subagents=0, launcher=None, protected=()):
     """Return the local process exit status, or 124 after killing a timed-out group."""
     check_local_runner(env)
     if role not in ("writer", "reviewer", "judge"):
@@ -116,6 +126,17 @@ def run_codex(*, cwd, prompt, model, timeout, events, role, result=None, schema=
         record(sessions, {"status": "pending"})
     elif sessions.exists():
         raise ValueError("use a fresh transcript path for a non-delegated attempt")
+    if protected:
+        if role != "writer" or subagents or launcher is not None:
+            raise ValueError("grader protection applies to native writer trials")
+        start = args.index("--sandbox")
+        del args[start:start + 2]
+        args.extend(("-c", 'default_permissions="adl_eval"', *grader_permissions(protected)))
+    if launcher is not None:
+        if not Path(launcher).is_absolute() or role != "writer" or subagents or schema is not None or result is not None:
+            raise ValueError("isolated launchers require an absolute path and a plain writer session")
+        args.insert(0, str(launcher))
+        env = {"PATH": os.defpath, "HOME": str(Path.home())}
     with _private_log(events) as out, _private_log(stderr) as err:
         with subprocess.Popen([*args, "-"], cwd=cwd, env=env, stdin=subprocess.PIPE,
                               stdout=out, stderr=err, start_new_session=True) as proc:
